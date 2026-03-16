@@ -5,9 +5,9 @@ export const none = Object.freeze({name: 'none'})
 
 export const safeMap = (...args) => {
   const immediate = Array.isArray(args[0])
-  const [items, fn, opts] = immediate ? args : [null, args[0], args[1]]
+  const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
   const execute = async inputItems => {
-    const {onError = failFast, limit} = opts || {}
+    const {onError = failFast, limit} = opts
     const results = []
     const errors = []
     let processed = 0
@@ -36,9 +36,9 @@ export const safeMap = (...args) => {
 
 export const safeFilter = (...args) => {
   const immediate = Array.isArray(args[0])
-  const [items, predicate, opts] = immediate ? args : [null, args[0], args[1]]
+  const [items, predicate, opts = {}] = immediate ? args : [null, args[0], args[1]]
   const execute = async inputItems => {
-    const {onError = failFast} = opts || {}
+    const {onError = failFast} = opts
     const results = []
     const errors = []
     for await (const [index, item] of inputItems.entries()) {

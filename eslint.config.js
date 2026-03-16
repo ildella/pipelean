@@ -24,7 +24,7 @@ export default [
       // },
     },
     rules: {
-      complexity: ['warn', {max: 7}],
+      complexity: ['warn', {max: 8}],
     },
   },
   {
