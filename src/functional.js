@@ -62,6 +62,20 @@ export const safeFilter = (...args) => {
   return immediate ? execute(items) : execute
 }
 
+// OLD mapSeries, now rebuilt as a special case of safeMap
+// export const mapSeries = async (array, asyncFn, {limit} = {}) => {
+//   const results = []
+//   let count = 0
+//   for await (const item of array) {
+//     if (limit && count >= limit) {
+//       break
+//     }
+//     results.push(await asyncFn(item))
+//     count += 1
+//   }
+//   return results
+// }
+
 export const mapSeries = (array, asyncFn, {limit} = {}) =>
   safeMap(array, asyncFn, {onError: none, limit})
 
