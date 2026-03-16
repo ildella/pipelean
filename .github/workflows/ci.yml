@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [master, upgrade-test-newrules-reorg]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+
+      - name: Enable Corepack
+        shell: bash
+        run: |
+          node --version
+          corepack --version
+          corepack enable
+          corepack yarn --version
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run lint
+        run: yarn lint
+
+      - name: Run tests
+        run: yarn vitest run

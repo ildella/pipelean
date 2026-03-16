@@ -1,0 +1,49 @@
+{
+  "name": "lib-template",
+  "version": "0.1.0",
+  "description": "JavaScript library template.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/ildella/lib-template",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/ildella/lib-template.git"
+  },
+  "author": {
+    "name": "Daniele Dellafiore",
+    "url": "https://linktr.ee/ildella/"
+  },
+  "keywords": [
+    "configuration",
+    "project",
+    "eslint",
+    "vite",
+    "vitest"
+  ],
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": ["src"],
+  "scripts": {
+    "check:lint": "eslint --report-unused-disable-directives .",
+    "lint": "eslint . --cache --max-warnings 0",
+    "lint.nocache": "eslint . --max-warnings 0",
+    "lint.inspect": "npx @eslint/config-inspector",
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "packageManager": "yarn@4.13.0+sha512.5c20ba010c99815433e5c8453112165e673f1c7948d8d2b267f4b5e52097538658388ebc9f9580656d9b75c5cc996f990f611f99304a2197d4c56d21eea370e7",
+  "devDependencies": {
+    "@eslint/compat": "2.0.3",
+    "@eslint/js": "9.39.4",
+    "@stylistic/eslint-plugin-js": "3.1.0",
+    "@vitest/eslint-plugin": "1.6.12",
+    "eslint": "9.39.4",
+    "eslint-nostandard": "0.5.0",
+    "globals": "15.15.0",
+    "vitest": "4.1.0"
+  }
+}
