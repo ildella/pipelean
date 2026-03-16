@@ -89,6 +89,24 @@ export const safePipe = (...steps) => async items => {
   return {results: current, errors: allErrors, failure: null}
 }
 
+export async function * safeAsyncIterator (iterable, transform, {
+  onError = failFast,
+} = {}) {
+  for await (const item of iterable) {
+    try {
+      // slightly stronger sync support
+      yield await Promise.resolve(transform(item))
+    } catch (error) {
+      if (onError === failFast)
+        throw error
+      if (onError === skip)
+        continue
+      if (onError === collect)
+        yield {error, item}
+    }
+  }
+}
+
 export const tryCatch = (fn, {
   onStart, onSuccess, onError, onFinally,
 } = {}) =>
