@@ -84,6 +84,35 @@ export const pipe = (...fns) => input =>
 export const pipeAsync = (...fns) => input =>
   fns.reduce(async (acc, fn) => fn(await acc), input)
 
+export async function * safeAsyncIterator (iterable, transform, {
+  onError = failFast,
+} = {}) {
+  for await (const item of iterable) {
+    try {
+      // slightly stronger sync support
+      yield await Promise.resolve(transform(item))
+    } catch (error) {
+      if (onError === failFast)
+        throw error
+      if (onError === skip)
+        continue
+      if (onError === collect)
+        yield {error, item}
+    }
+  }
+}
+
+export const collectAsync = async (iterable, {onError = skip} = {}) => {
+  const results = []
+  for await (const item of safeAsyncIterator(iterable, x => x, {onError})) {
+    results.push(item)
+  }
+  return results
+}
+
+// This should probably be a goal.
+// export const unwrapIterator = collectAsync
+
 export const tryCatch = (fn, {
   onStart, onSuccess, onError, onFinally,
 } = {}) =>
