@@ -1,1 +1,1 @@
-export {greet} from './lib/greet.js'
+export * from './functional.js'

@@ -23,7 +23,9 @@ export default [
       //   ...globals.browse,
       // },
     },
-    rules: {},
+    rules: {
+      complexity: ['warn', {max: 7}],
+    },
   },
   {
     name: 'ProductionCode',
