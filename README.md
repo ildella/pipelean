@@ -59,11 +59,8 @@ Predicate can be async. Default: `failFast`. Same return structure.
 
 ### mapSeries
 
-```js
-const results = await mapSeries(data, async item => fetchData(item), {limit: 5})
-```
+Shortcut for `safeMap({onError: none})`
 
-Maps with optional concurrency limit. No error strategies — throws on failure. Use for simple async mapping.
 
 ### scanSeries
 
