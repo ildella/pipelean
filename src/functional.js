@@ -68,15 +68,52 @@ export const safeFilter = (...args) => {
   return immediate ? execute(items) : execute
 }
 
-export const scanSeries = async (iterable, scanner, initialValue) => {
+/*
+  We use the same "immediate" vs "curried" pattern as execute
+  But here args are: (iterable, fn, init) or (fn, init)
+  Actually, usually scan takes (iterable, fn, init).
+  Let's stick to your execute pattern style if you like,
+  but typically scan is eager because you need the init value immediately.
+
+  Let's keep it simple: Scan is almost always eager because of the 'initialValue'.
+*/
+export const safeScan = async (iterable, scanner, initialValue) => {
   const results = []
   let acc = initialValue
+
+  // We reuse the iteration logic
   for await (const item of iterable) {
-    acc = await scanner(acc, item)
-    results.push(acc)
+    try {
+      acc = await scanner(acc, item)
+      results.push(acc)
+    } catch (error) {
+      // We cannot continue if a step fails, so we return the failure immediately.
+      return {
+        results,
+        errors: [{item, error}],
+        failure: {item, error},
+      }
+    }
   }
+
+  return {results, errors: [], failure: null}
+}
+
+export const scan = safeScan
+
+export const scanSeries = async (iterable, scanner, initialValue) => {
+  const {results} = await scan(iterable, scanner, initialValue)
   return results
 }
+// export const scanSeries = async (iterable, scanner, initialValue) => {
+//   const results = []
+//   let acc = initialValue
+//   for await (const item of iterable) {
+//     acc = await scanner(acc, item)
+//     results.push(acc)
+//   }
+//   return results
+// }
 
 export const unwrapIterator = async iterator => {
   const accumulator = []
