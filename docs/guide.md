@@ -1,102 +1,57 @@
 # Guide
 
-## Core
+## Core Concepts
 
-We have four distinct tools, separated by the Direction of Data Flow and the State Dependency. 
+Pipelean provides four main tools, grouped by **data flow direction** (horizontal vs vertical) and **state dependency**:
 
-  1. series (Horizontal / Stateless) 
-  2. scan (Horizontal / Stateful) 
-  3. filter (Horizontal / Selection) 
-  4. pipe (Vertical / Composition) 
+- **Horizontal** tools process **multiple items** (lists/iterables) in sequence.
+- **Vertical** tools transform **one item** through a chain of steps.
+- Some tools are **stateless** (each step independent), others **stateful** (later steps depend on previous results).
+
+  1. series (Horizontal / Stateless transformation)
+  2. scan (Horizontal / Stateful transformation)
+  3. filter (Horizontal / Stateless selection)
+  4. pipe (Vertical / Composition)
 
 ## The Function Wrappers
 
-These are "Middleware" for your functions. They wrap a single unit of work to add behavior. 
+Pipelean also provides lightweight wrappers that add behavior to **individual functions**. These act as reusable middleware / lifecycle hooks and compose naturally with `pipe`.
 
-  * tryCatch (Lifecycle Middleware) 
-  * retry (Resiliency Middleware) 
+- **`tryCatch(fn, options?)`**  
+  Protects a single function with lifecycle hooks:  
+  - `onStart`, `onSuccess`, `onError`, `onFinally`  
+  - Captures errors without crashing the outer flow  
+  - Enables deep telemetry (e.g., log exactly which step in a 5-step pipe failed)  
+  - Works standalone or inside `series`/`scan`/`pipe`  
+  - Ideal for centralized error reporting (Sentry, UI toasts, metrics) even outside pipelines  
 
-## See it in Action
+- **`retry(fn, options?)`**  
+  Specialized for automatic retries  
+  - Configurable: times, delay
+  - Retries only on specified errors (or all by default)  
+  - Composes cleanly in `pipe` chains (e.g. retry network calls but not validation)
 
-The power of this library comes from combining these primitives. 
+## Features
 
-#### Example: A robust download pipeline
+#### Series / Scan / Filter
 
-```js
-const pipeline = pipe(
-  retry(downloadTrack, 3), // Resiliency: Retry 3 times
-  processTrack,            // Pure logic
-  retry(updateDb, 3),      // Resiliency: Retry DB 2 times
-  notifyUI                 // Side effect
-)
+* **Error Strategies**
+  -  **Fail Fast:** Stops execution immediately upon the first error.
+  -  **Collect:** Gathers all errors and continues processing until the end.
 
-const { results, errors } = await series(tracks, pipeline, {
-  strategy: 'collect',    // Don't stop if one track fails
-  onProgress: updateBar   // Report global progress
-})
-```
+* **Universal Input**
+  -  Works on Arrays, Streams, Generators, and any Async Iterable.
 
-#### Example: scan (Stateful Dependency)
+* **Universal Mapper**
+  -  Handles both Synchronous and Asynchronous mapper functions automatically.
 
-Scenario: You are adding tracks to a playlist on a media renderer (like Sonos or UPnP). The API requires you to specify the ID of the previous track to insert the new one after it. This creates a dependency chain: Track B cannot be added until Track A is finished and returns its ID. 
-javascript
- 
-```js
-import { scan } from 'pipelean'
+* **Structured Results**
+  -  Always returns a predictable object: `{ results, errors, failure }`.
+  -  Errors are treated as data, removing the need for consumer-side `try/catch` blocks.
 
-// The function needs the result of the previous step (lastId)
-const insertTrackAfter = async (track, previousId) => {
-  const newId = await mediaRenderer.insert(track, { after: previousId })
-  return newId // This becomes the 'previousId' for the next item
-}
+* **Order Guarantee**
+  -  Because execution is sequential, output order strictly matches input order (no race conditions).
 
-// scan passes the accumulator (acc) to the next iteration
-const { results, failure } = await scan(
-  playlistTracks,
-  (acc, track) => insertTrackAfter(track, acc),
-  0 // Initial ID (e.g., 0 or 'start')
-)
-
-// If Track 2 fails, execution stops immediately (Fail Fast).
-// 'results' contains IDs of successfully added tracks.
-// 'failure' contains the track that broke the chain.
-```
-
-Why not series?
-
-Series runs items independently. It cannot pass the ID from Track 1 to Track 2. scan is required when Step N depends on the output of Step N-1.
-
-#### Example: tryCatch as an App-Layer Primitive
-
-Scenario: You want a reusable "Error Boundary" for your application that automatically logs errors to a monitoring service (like Sentry) and pushes a notification to your UI state (e.g., a Svelte store), ensuring the app never crashes silently. 
-
-```js
-import { tryCatch } from 'pipelean'
-import { captureException } from './telemetry' // e.g. Sentry
-import { appErrorQueue } from './state'        // e.g. Svelte store
-
-export const withErrorBoundary = (fn, { context = 'Unnamed' } = {}) =>
-  tryCatch(fn, {
-    onError: (error) => {
-      // 1. Log to external monitoring
-      captureException(error, { tags: { context } })
-      
-      // 2. Push to UI for user notification (Toast/Banner)
-      appErrorQueue.update(queue => [...queue, { 
-        message: `${context} failed: ${error.message}` 
-      }])
-    }
-  })
-
-// Usage in your app layer
-const saveSettings = withErrorBoundary(
-  async (settings) => { 
-    await api.post('/settings', settings) 
-  },
-  { context: 'Save Settings' }
-)
-
-// Even if api.post throws, the app won't crash. 
-// The error is logged and the UI is notified.
-await saveSettings(newSettings)
-```
+*  **Termination Control (`take`)**
+  -  Allows processing a subset of data (e.g., "process only the first N items").
+  -  Essential for working with infinite generators or streams.
