@@ -10,6 +10,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    testTimeout: 800,
+    hookTimeout: 1200,
+    teardownTimeout: 1200,
     reporters: ['verbose'],
   },
 })
