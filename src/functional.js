@@ -1,27 +1,49 @@
 export const failFast = Object.freeze({name: 'failFast'})
-export const skip = Object.freeze({name: 'skip'})
+// export const skip = Object.freeze({name: 'skip'})
 export const collect = Object.freeze({name: 'collect'})
 
 export const safeMap = (...args) => {
-  const immediate = Array.isArray(args[0])
+  // FIX: Detect "immediate" by checking if the first arg is a function.
+  // This allows immediate usage like: safeMap(myStream, fn)
+  // (Because streams/generators are objects, not functions)
+  const immediate = typeof args[0] !== 'function'
+
   const [items, fn, opts] = immediate ? args : [null, args[0], args[1]]
+
   const execute = async inputItems => {
-    const {onError = failFast} = opts || {}
+    const {onError = 'failFast', take} = opts || {}
     const results = []
     const errors = []
-    for await (const [index, item] of inputItems.entries()) {
+
+    // FIX: Manual index tracking allows us to support ANY iterable (Streams/Generators)
+    // "for await...of" handles both Arrays and Async Iterables automatically.
+    let index = 0
+    for await (const item of inputItems) {
+      // eslint-disable-next-line no-undefined
+      if (take !== undefined && index >= take) {
+        break
+      }
+
       try {
         results.push(await fn(item, index))
       } catch (error) {
-        if (onError === failFast)
+        if (onError === 'failFast') {
           return {results, errors, failure: {item, error}}
+        }
+        // Default behavior: 'collect'
         errors.push({item, error})
       }
+
+      index++
     }
     return {results, errors, failure: null}
   }
+
   return immediate ? execute(items) : execute
 }
+
+export const execute = safeMap
+export const series = execute
 
 export const safeFilter = (...args) => {
   const immediate = Array.isArray(args[0])
@@ -45,20 +67,6 @@ export const safeFilter = (...args) => {
   }
   return immediate ? execute(items) : execute
 }
-export const mapSeries = async (array, asyncFn, {limit} = {}) => {
-  const results = []
-  let count = 0
-  for await (const item of array) {
-    if (limit && count >= limit) {
-      break
-    }
-    results.push(await asyncFn(item))
-    count += 1
-  }
-  return results
-}
-// export const mapSeries = (array, asyncFn, {limit} = {}) =>
-//   safeMap(array, asyncFn, {onError: none, limit})
 
 export const scanSeries = async (iterable, scanner, initialValue) => {
   const results = []
@@ -78,11 +86,10 @@ export const unwrapIterator = async iterator => {
   return accumulator
 }
 
-export const pipe = (...fns) => input =>
-  fns.reduce((acc, fn) => fn(acc), input)
-
 export const pipeAsync = (...fns) => input =>
   fns.reduce(async (acc, fn) => fn(await acc), input)
+
+export const pipe = pipeAsync
 
 export async function * safeAsyncIterator (iterable, transform, {
   onError = failFast,
@@ -94,15 +101,13 @@ export async function * safeAsyncIterator (iterable, transform, {
     } catch (error) {
       if (onError === failFast)
         throw error
-      if (onError === skip)
-        continue
       if (onError === collect)
         yield {error, item}
     }
   }
 }
 
-export const collectAsync = async (iterable, {onError = skip} = {}) => {
+export const collectAsync = async (iterable, {onError = collect} = {}) => {
   const results = []
   for await (const item of safeAsyncIterator(iterable, x => x, {onError})) {
     results.push(item)
