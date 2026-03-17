@@ -1,8 +1,8 @@
 # Design Principles & Architecture
 
-The Philosophy: Pragmatism Over Purity 
+Pragmatism Over Purity.
 
-We built this library to be a practical tool for executing tasks, not a theoretical academic exercise. 
+We built this library to be a practical tool for executing tasks.
 
 Many functional libraries are "Iterator-First" (lazy, yielding generators). We explicitly rejected that approach. Why? 
 
