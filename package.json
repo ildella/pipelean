@@ -1,13 +1,13 @@
 {
-  "name": "lib-template",
-  "version": "0.1.0",
-  "description": "JavaScript library template.",
+  "name": "pipelean",
+  "version": "0.2.0",
+  "description": "A pragmatic library for sequential async operations with first-class error handling.",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://github.com/ildella/lib-template",
+  "homepage": "https://github.com/ildella/pipelean",
   "repository": {
     "type": "git",
-    "url": "git://github.com/ildella/lib-template.git"
+    "url": "git://github.com/ildella/pipelean.git"
   },
   "author": {
     "name": "Daniele Dellafiore",
