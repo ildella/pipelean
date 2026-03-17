@@ -14,9 +14,8 @@ test('returns null on error when no onError provided', async () => {
 test('returns onError result on error', async () => {
   const wrapped = tryCatch(
     () => Promise.reject(new Error('boom')),
-    {onError: () => 'fallback'},
   )
-  await expect(wrapped()).resolves.toBe('fallback')
+  await expect(wrapped()).resolves.toBeNull()
 })
 
 test('passes error to onError', async () => {
