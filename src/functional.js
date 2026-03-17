@@ -116,27 +116,14 @@ export const scanSeries = async (iterable, scanner, initialValue) => {
   const {results} = await safeScan(iterable, scanner, initialValue)
   return results
 }
-// export const scanSeries = async (iterable, scanner, initialValue) => {
-//   const results = []
-//   let acc = initialValue
-//   for await (const item of iterable) {
-//     acc = await scanner(acc, item)
-//     results.push(acc)
-//   }
-//   return results
-// }
-
-// export const unwrapIterator = async iterator => {
-//   const accumulator = []
-//   for await (const item of iterator) {
-//     accumulator.push(item)
-//   }
-//   return accumulator
-// }
-
 export const pipeAsync = (...fns) => input =>
   fns.reduce(async (acc, fn) => fn(await acc), input)
 
+/*
+  "Lazy" iterator (it yields items one by one).
+  This forces the consumer to check every single item to
+    see if it's an error or a valid result
+*/
 export async function * safeAsyncIterator (iterable, transform, {
   onError = failFast,
 } = {}) {
@@ -152,17 +139,6 @@ export async function * safeAsyncIterator (iterable, transform, {
     }
   }
 }
-
-// export const collectAsync = async (iterable, {onError = collect} = {}) => {
-//   const results = []
-//   for await (const item of safeAsyncIterator(iterable, x => x, {onError})) {
-//     results.push(item)
-//   }
-//   return results
-// }
-
-// This should probably be a goal.
-// export const unwrapIterator = collectAsync
 
 export const tryCatch = (fn, {
   onStart, onSuccess, onError, onFinally,
