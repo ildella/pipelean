@@ -1,5 +1,5 @@
 import {test, expect} from 'vitest'
-import {failFast, collect} from '..'
+import {failFast, collect} from '$src/functional'
 
 test('failFast is a frozen object with name "failFast"', () => {
   expect(failFast).toEqual({name: 'failFast'})

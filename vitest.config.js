@@ -5,7 +5,6 @@ export default defineConfig({
   resolve: {
     alias: {
       $src: resolve(import.meta.dirname, 'src'),
-      $lib: resolve(import.meta.dirname, 'src'),
     },
   },
   test: {

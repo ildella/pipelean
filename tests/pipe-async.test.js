@@ -1,5 +1,5 @@
 import {test, expect} from 'vitest'
-import {pipeAsync} from '$lib/functional'
+import {pipeAsync} from '$src/functional'
 
 test('composes functions left-to-right', async () => {
   const result = await pipeAsync(x => x * 2, x => x + 1)(5)

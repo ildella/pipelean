@@ -1,5 +1,5 @@
 import {test, expect} from 'vitest'
-import {filter, collect} from '$lib/functional'
+import {filter, collect} from '$src/functional'
 
 test('predicate truthy keeps item in results', async () => {
   const result = await filter([1, 2, 3, 4], x => x > 2)

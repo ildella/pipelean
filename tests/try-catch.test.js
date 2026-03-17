@@ -1,5 +1,5 @@
 import {test, expect, vi} from 'vitest'
-import {tryCatch} from '$lib/functional'
+import {tryCatch} from '$src/functional'
 
 test('returns fn result on success', async () => {
   const wrapped = tryCatch(() => Promise.resolve(42))

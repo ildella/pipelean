@@ -1,5 +1,5 @@
 import {test, expect} from 'vitest'
-import {pipe} from '$lib/functional'
+import {pipe} from '$src/functional'
 
 test('composes functions left-to-right', async () => {
   // Must await because pipe is now async-safe

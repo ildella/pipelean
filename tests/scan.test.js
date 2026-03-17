@@ -1,5 +1,5 @@
 import {test, expect} from 'vitest'
-import {scanSeries} from '$lib/functional'
+import {scanSeries} from '$src/functional'
 
 test('threads accumulator through items', async () => {
   const results = await scanSeries(

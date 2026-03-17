@@ -1,5 +1,5 @@
 import {test, expect} from 'vitest'
-import {series, collect} from '$lib/functional'
+import {series, collect} from '$src/functional'
 
 test('all items succeed returns results with no errors', async () => {
   const result = await series([1, 2, 3], x => x * 2)

@@ -6,13 +6,10 @@ export const tryCatch = (fn, {
   rethrow = false,
 } = {}) =>
   async (...args) => {
-    // console.info('TRYCATCH |')
     try {
       if (onStart)
         onStart()
-      // console.info('TRYCATCH | Started |', {args, onError})
       const result = await fn(...args)
-      // console.info('TRYCATCH | Result |', {result})
       if (onSuccess)
         await onSuccess(result)
       return result
@@ -35,13 +32,14 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
     let lastError
     for (let i = 0; i < attempts; i++) {
       try {
+        // eslint-disable-next-line no-await-in-loop
         return await fn(...args)
       } catch (error) {
         lastError = error
 
-        // If we have attempts left, wait and continue
         const isLastAttempt = i === attempts - 1
         if (!isLastAttempt && delayMs > 0) {
+          // eslint-disable-next-line no-await-in-loop
           await delay(delayMs)
         }
       }

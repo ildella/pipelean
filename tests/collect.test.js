@@ -1,5 +1,5 @@
 import {test, expect} from 'vitest'
-import {collectAsync} from '$lib/functional'
+import {collectAsync} from '$src/functional'
 
 test('collects async iterator into array', async () => {
   const gen = async function * () {
