@@ -1,7 +1,5 @@
 import {test, expect} from 'vitest'
-import {
-  safeMap, skip, collect,
-} from '$lib/functional'
+import {safeMap, collect} from '$lib/functional'
 
 test('all items succeed returns results with no errors', async () => {
   const result = await safeMap([1, 2, 3], x => x * 2)
@@ -26,7 +24,7 @@ test('skip continues past errors and collects them', async () => {
     if (x === 2)
       throw bang
     return x * 10
-  }, {onError: skip})
+  }, {onError: collect})
   expect(result.results).toEqual([10, 30])
   expect(result.errors).toEqual([{item: 2, error: bang}])
   expect(result.failure).toBeNull()
