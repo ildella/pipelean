@@ -20,4 +20,4 @@ import { pipe, series, retry } from 'pipelean';// 1. Build your workflowconst pi
 
   * [Architecture](docs/architecture.md) : The philosophy and design principles.
   * [Guide](docs/guide.md) : Core concepts and usage patterns.
-  * [API Reference](docs/api.md) : Detailed feature sets.
+  <!-- * [API Reference](docs/api.md) : Detailed feature sets. -->
