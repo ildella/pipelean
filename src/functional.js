@@ -1,5 +1,4 @@
 export const failFast = Object.freeze({name: 'failFast'})
-// export const skip = Object.freeze({name: 'skip'})
 export const collect = Object.freeze({name: 'collect'})
 
 export const safeMap = (...args) => {
@@ -7,7 +6,6 @@ export const safeMap = (...args) => {
   // This allows immediate usage like: safeMap(myStream, fn)
   // (Because streams/generators are objects, not functions)
   const immediate = typeof args[0] !== 'function'
-
   const [items, fn, opts] = immediate ? args : [null, args[0], args[1]]
 
   const execute = async inputItems => {
@@ -41,9 +39,6 @@ export const safeMap = (...args) => {
 
   return immediate ? execute(items) : execute
 }
-
-export const execute = safeMap
-export const series = execute
 
 export const safeFilter = (...args) => {
   const immediate = Array.isArray(args[0])
@@ -99,10 +94,8 @@ export const safeScan = async (iterable, scanner, initialValue) => {
   return {results, errors: [], failure: null}
 }
 
-export const scan = safeScan
-
 export const scanSeries = async (iterable, scanner, initialValue) => {
-  const {results} = await scan(iterable, scanner, initialValue)
+  const {results} = await safeScan(iterable, scanner, initialValue)
   return results
 }
 // export const scanSeries = async (iterable, scanner, initialValue) => {
@@ -125,8 +118,6 @@ export const unwrapIterator = async iterator => {
 
 export const pipeAsync = (...fns) => input =>
   fns.reduce(async (acc, fn) => fn(await acc), input)
-
-export const pipe = pipeAsync
 
 export async function * safeAsyncIterator (iterable, transform, {
   onError = failFast,
@@ -176,3 +167,8 @@ export const tryCatch = (fn, {
         onFinally()
     }
   }
+
+export const execute = safeMap
+export const series = execute
+export const scan = safeScan
+export const pipe = pipeAsync
