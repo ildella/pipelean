@@ -40,27 +40,41 @@ export const safeMap = (...args) => {
   return immediate ? execute(items) : execute
 }
 
-export const safeFilter = (...args) => {
-  const immediate = Array.isArray(args[0])
+export const filter = (...args) => {
+  const immediate = typeof args[0] !== 'function'
   const [items, predicate, opts] = immediate ? args : [null, args[0], args[1]]
-  const execute = async inputItems => {
-    const {onError = failFast} = opts || {}
+
+  // eslint-disable-next-line complexity, max-statements
+  const run = async inputItems => {
+    const {onError = 'failFast', take} = opts || {}
     const results = []
     const errors = []
-    for await (const [index, item] of inputItems.entries()) {
+
+    let index = 0
+    for await (const item of inputItems) {
+      // eslint-disable-next-line no-undefined
+      if (take !== undefined && results.length >= take) {
+        break
+      }
+
       try {
         const keep = await predicate(item, index)
-        if (keep)
+        if (keep) {
           results.push(item)
+        }
       } catch (error) {
-        if (onError === failFast)
+        if (onError === 'failFast') {
           return {results, errors, failure: {item, error}}
+        }
         errors.push({item, error})
       }
+
+      index++
     }
     return {results, errors, failure: null}
   }
-  return immediate ? execute(items) : execute
+
+  return immediate ? run(items) : run
 }
 
 /*
