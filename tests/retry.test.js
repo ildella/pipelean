@@ -61,14 +61,14 @@ test('does not delay after last attempt fails', async () => {
 
   const promise = retryFn()
 
-  // 1. First attempt fails immediately.
-  // 2. The code hits 'await delay(200)' because it wasn't the last attempt yet.
-  // We must advance time to clear that delay so the loop continues.
+  // 1. Attach the expectation FIRST so it catches the rejection
+  const assertion = expect(promise).rejects.toThrow('fail')
+
+  // 2. Advance time to trigger the retry logic
   await vi.advanceTimersByTimeAsync(200)
 
-  // 3. Second attempt fails.
-  // 4. Now it IS the last attempt, so it skips the delay and throws immediately.
-  await expect(promise).rejects.toThrow('fail')
+  // 3. Wait for the assertion to complete
+  await assertion
 
   vi.useRealTimers()
 })

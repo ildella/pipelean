@@ -6,7 +6,6 @@ test('composes functions left-to-right', async () => {
   const result = await pipe(x => x * 2, x => x + 1)(5)
   expect(result).toBe(11)
 })
-
 test('passes result through chain', async () => {
   const result = await pipe(
     x => x + 1,
@@ -27,4 +26,12 @@ test('propagates errors', async () => {
   )
   // Promise rejection must be caught with rejects
   await expect(pipeline(1)).rejects.toThrow('pipe broke')
+})
+
+test('passes result through async chain', async () => {
+  const result = await pipe(
+    x => Promise.resolve(x + 1),
+    x => Promise.resolve(x * 3),
+  )(2)
+  expect(result).toBe(9)
 })

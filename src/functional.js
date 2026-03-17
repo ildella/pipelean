@@ -149,11 +149,13 @@ export const safeScan = async (iterable, scanner, initialValue) => {
   return {results, errors: [], failure: null}
 }
 
+export const scan = safeScan
+
 export const scanSeries = async (iterable, scanner, initialValue) => {
-  const {results} = await safeScan(iterable, scanner, initialValue)
+  const {results} = await scan(iterable, scanner, initialValue)
   return results
 }
-export const pipeAsync = (...fns) => input =>
+export const pipe = (...fns) => input =>
   fns.reduce(async (acc, fn) => fn(await acc), input)
 
 /*
@@ -177,8 +179,5 @@ export async function * safeAsyncIterator (iterable, transform, {
     }
   }
 }
-
-export const scan = safeScan
-export const pipe = pipeAsync
 
 export const collectAsync = iterator => series(iterator, x => x)
