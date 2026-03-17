@@ -1376,21 +1376,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lib-template@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "lib-template@workspace:."
-  dependencies:
-    "@eslint/compat": "npm:2.0.3"
-    "@eslint/js": "npm:9.39.4"
-    "@stylistic/eslint-plugin-js": "npm:3.1.0"
-    "@vitest/eslint-plugin": "npm:1.6.12"
-    eslint: "npm:9.39.4"
-    eslint-nostandard: "npm:0.5.0"
-    globals: "npm:15.15.0"
-    vitest: "npm:4.1.0"
-  languageName: unknown
-  linkType: soft
-
 "lightningcss-android-arm64@npm:1.32.0":
   version: 1.32.0
   resolution: "lightningcss-android-arm64@npm:1.32.0"
@@ -1825,6 +1810,21 @@ __metadata:
   checksum: 10c0/9582c951e95eebee5434f59e426cddd228a7b97a0161a375aed4be244bd3fe8e3a31b846808ea14ef2c8a2527a6eeab7b3946a67d5979e81694654f939473ae2
   languageName: node
   linkType: hard
+
+"pipelean@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "pipelean@workspace:."
+  dependencies:
+    "@eslint/compat": "npm:2.0.3"
+    "@eslint/js": "npm:9.39.4"
+    "@stylistic/eslint-plugin-js": "npm:3.1.0"
+    "@vitest/eslint-plugin": "npm:1.6.12"
+    eslint: "npm:9.39.4"
+    eslint-nostandard: "npm:0.5.0"
+    globals: "npm:15.15.0"
+    vitest: "npm:4.1.0"
+  languageName: unknown
+  linkType: soft
 
 "postcss@npm:^8.5.8":
   version: 8.5.8

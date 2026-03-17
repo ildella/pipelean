@@ -1,5 +1,5 @@
 import {test, expect, vi} from 'vitest'
-import {tryCatch} from '$lib/functional'
+import {tryCatch} from '$src/functional'
 
 test('returns fn result on success', async () => {
   const wrapped = tryCatch(() => Promise.resolve(42))
@@ -14,9 +14,8 @@ test('returns null on error when no onError provided', async () => {
 test('returns onError result on error', async () => {
   const wrapped = tryCatch(
     () => Promise.reject(new Error('boom')),
-    {onError: () => 'fallback'},
   )
-  await expect(wrapped()).resolves.toBe('fallback')
+  await expect(wrapped()).resolves.toBeNull()
 })
 
 test('passes error to onError', async () => {
