@@ -44,7 +44,6 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
         }
       }
     }
-    // If we get here, all attempts failed
     throw lastError
   }
 
@@ -76,11 +75,9 @@ export const series = (...args) => {
         break
 
       try {
-        // Clean execution
         const result = await safeFn(item, index)
         results.push(result)
       } catch (error) {
-        // Strategy Logic remains here
         if (strategy === 'failFast') {
           return {results, errors, failure: {item, error}}
         }
@@ -135,7 +132,6 @@ export const safeScan = async (iterable, scanner, initialValue) => {
   const results = []
   let acc = initialValue
 
-  // We reuse the iteration logic
   for await (const item of iterable) {
     try {
       acc = await scanner(acc, item)
@@ -164,6 +160,7 @@ export const pipeAsync = (...fns) => input =>
   "Lazy" iterator (it yields items one by one).
   This forces the consumer to check every single item to
     see if it's an error or a valid result
+  Alpha Code - not to be used yet.
 */
 export async function * safeAsyncIterator (iterable, transform, {
   onError = failFast,
