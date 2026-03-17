@@ -142,6 +142,7 @@ export async function * safeAsyncIterator (iterable, transform, {
 
 export const tryCatch = (fn, {
   onStart, onSuccess, onError, onFinally,
+  rethrow = false,
 } = {}) =>
   async (...args) => {
     // console.info('TRYCATCH |')
@@ -155,12 +156,31 @@ export const tryCatch = (fn, {
         await onSuccess(result)
       return result
     } catch (error) {
-      return onError ? onError(error) : null
+      if (onError)
+        await onError(error)
+      if (rethrow)
+        throw error
+      return null
     } finally {
       if (onFinally)
         onFinally()
     }
   }
+
+export const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+export const retry = (fn, attempts) => async (...args) => {
+  let lastError
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn(...args)
+    } catch (error) {
+      lastError = error
+      // Optional: wait a bit?
+    }
+  }
+  throw lastError
+}
 
 export const execute = safeMap
 export const series = execute
