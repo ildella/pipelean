@@ -1,6 +1,10 @@
 export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
 
+/*
+  Series
+    Eager" iterator (it processes all items and returns an array).
+*/
 export const safeMap = (...args) => {
   // FIX: Detect "immediate" by checking if the first arg is a function.
   // This allows immediate usage like: safeMap(myStream, fn)
@@ -122,13 +126,13 @@ export const scanSeries = async (iterable, scanner, initialValue) => {
 //   return results
 // }
 
-export const unwrapIterator = async iterator => {
-  const accumulator = []
-  for await (const item of iterator) {
-    accumulator.push(item)
-  }
-  return accumulator
-}
+// export const unwrapIterator = async iterator => {
+//   const accumulator = []
+//   for await (const item of iterator) {
+//     accumulator.push(item)
+//   }
+//   return accumulator
+// }
 
 export const pipeAsync = (...fns) => input =>
   fns.reduce(async (acc, fn) => fn(await acc), input)
@@ -149,13 +153,13 @@ export async function * safeAsyncIterator (iterable, transform, {
   }
 }
 
-export const collectAsync = async (iterable, {onError = collect} = {}) => {
-  const results = []
-  for await (const item of safeAsyncIterator(iterable, x => x, {onError})) {
-    results.push(item)
-  }
-  return results
-}
+// export const collectAsync = async (iterable, {onError = collect} = {}) => {
+//   const results = []
+//   for await (const item of safeAsyncIterator(iterable, x => x, {onError})) {
+//     results.push(item)
+//   }
+//   return results
+// }
 
 // This should probably be a goal.
 // export const unwrapIterator = collectAsync
@@ -186,3 +190,6 @@ export const execute = safeMap
 export const series = execute
 export const scan = safeScan
 export const pipe = pipeAsync
+
+export const unwrapIterator = iterator => series(iterator, x => x)
+export const collectAsync = iterator => series(iterator, x => x)
