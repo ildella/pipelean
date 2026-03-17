@@ -61,14 +61,12 @@ test('does not delay after last attempt fails', async () => {
 
   const promise = retryFn()
 
-  // 1. Attach the expectation FIRST so it catches the rejection
-  const assertion = expect(promise).rejects.toThrow('fail')
-
-  // 2. Advance time to trigger the retry logic
-  await vi.advanceTimersByTimeAsync(200)
-
-  // 3. Wait for the assertion to complete
-  await assertion
+  // Use Promise.all to attach the assertion handler immediately
+  // while also advancing the timers.
+  await Promise.all([
+    vi.advanceTimersByTimeAsync(200),
+    expect(promise).rejects.toThrow('fail'),
+  ])
 
   vi.useRealTimers()
 })
