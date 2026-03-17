@@ -30,66 +30,64 @@ export const tryCatch = (fn, {
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-export const retry = (fn, attempts) => async (...args) => {
-  let lastError
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await fn(...args)
-    } catch (error) {
-      lastError = error
-      // Optional: wait a bit?
+export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
+  async (...args) => {
+    let lastError
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn(...args)
+      } catch (error) {
+        lastError = error
+
+        // If we have attempts left, wait and continue
+        const isLastAttempt = i === attempts - 1
+        if (!isLastAttempt && delayMs > 0) {
+          await delay(delayMs)
+        }
+      }
     }
+    // If we get here, all attempts failed
+    throw lastError
   }
-  throw lastError
-}
 
 export const series = (...args) => {
   const immediate = typeof args[0] !== 'function'
-  const [items, fn, opts] = immediate ? args : [null, args[0], args[1]]
+  const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
 
-  // eslint-disable-next-line complexity, max-statements
   const run = async inputItems => {
     const {
       strategy = 'collect',
-      take,
-      onProgress,
-      onError,
-    } = opts || {}
-
+      take, onProgress, onError,
+    } = opts
     const results = []
     const errors = []
+
+    // Wrap the function ONCE.
+    // It handles onProgress (via onSuccess) and onError (via onError).
+    // It rethrows so 'series' can handle the strategy.
+    const safeFn = tryCatch(fn, {
+      onSuccess: onProgress,
+      onError,
+      rethrow: true,
+    })
 
     let index = 0
     for await (const item of inputItems) {
       // eslint-disable-next-line no-undefined
-      if (take !== undefined && index >= take) {
+      if (take !== undefined && index >= take)
         break
-      }
 
       try {
-        const result = await fn(item, index)
+        // Clean execution
+        const result = await safeFn(item, index)
         results.push(result)
-
-        // Notify success
-        if (onProgress) {
-          await onProgress(result, item, index)
-        }
       } catch (error) {
-        if (onError) {
-          await onError(error, item, index)
-        }
-
+        // Strategy Logic remains here
         if (strategy === 'failFast') {
-          return {
-            results,
-            errors,
-            failure: {item, error},
-          }
+          return {results, errors, failure: {item, error}}
         }
-
         errors.push({item, error})
       }
-
       index++
     }
     return {results, errors, failure: null}
@@ -188,5 +186,4 @@ export async function * safeAsyncIterator (iterable, transform, {
 export const scan = safeScan
 export const pipe = pipeAsync
 
-export const unwrapIterator = iterator => series(iterator, x => x)
 export const collectAsync = iterator => series(iterator, x => x)
