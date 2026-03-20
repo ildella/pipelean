@@ -57,6 +57,7 @@ export const series = (...args) => {
   const immediate = typeof args[0] !== 'function'
   const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
 
+  // eslint-disable-next-line complexity
   const run = async inputItems => {
     const {
       strategy = collect,

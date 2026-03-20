@@ -37,6 +37,8 @@ export default [
   {
     name: 'Tests',
     files: ['tests/**/*.js'],
-    rules: {},
+    rules: {
+      'max-lines': ['warn', 250],
+    },
   },
 ]
