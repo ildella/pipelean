@@ -2,15 +2,12 @@
 
 **Overview**
 
-`functional.js` is a comprehensive async programming library that provides 12 core utilities for handling asynchronous operations, error management, data transformations, and functional composition patterns in JavaScript/TypeScript. The library is designed with a pragmatic philosophy: avoid heavy abstractions, use eager execution, and provide clear, predictable error handling.
+`functional.js` is an async programming library that provides core utilities for handling asynchronous operations, error management, data transformations, and functional composition patterns in JavaScript. The library is designed with a pragmatic philosophy: avoid heavy abstractions, use eager execution, and provide clear, predictable error handling.
 
 **Key Principles**
 
-- **No heavy abstractions**: Plain JavaScript, eager execution, no virtual machines or monads
-- **Pragmatic**: Sequential processing with clear error handling strategies
-- **TypeScript-ready**: Written in modern JavaScript, supports async/await patterns throughout
-- **Explicit error handling**: Two distinct strategies (`failFast` and `collect`) for different use cases
-- **Testable**: All functions are designed to work with async/await patterns for easy testing
+- **Pragmatic**: Plain JavaScript, eager execution, sequential processing.
+- **First class error handling**: Two distinct strategies (`failFast` and `collect`) for different use cases
 
 ---
 
