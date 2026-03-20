@@ -238,10 +238,8 @@ export const safeScan = async (iterable, scanner, initialValue, opts = {}) => {
   return {results, errors, failure}
 }
 
-export const scan = safeScan
-
 export const scanSeries = async (iterable, scanner, initialValue) => {
-  const {results} = await scan(iterable, scanner, initialValue)
+  const {results} = await safeScan(iterable, scanner, initialValue)
   return results
 }
 export const pipe = (...fns) => input =>

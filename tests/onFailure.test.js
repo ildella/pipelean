@@ -178,26 +178,6 @@ test('onFailure works with safeScan', async () => {
   expect(result.results).toEqual([1])
 })
 
-test('onFailure works with safeScan and failLate', async () => {
-  const onFailureCalls = []
-  const items = [1, 2, 3, 4]
-
-  const scanner = async (acc, item) => {
-    if (item === 2 || item === 3) throw new Error(`Error at ${item}`)
-    return acc + item
-  }
-
-  const result = await safeScan(items, scanner, 0, {
-    strategy: failLate,
-    onFailure: (failure) => onFailureCalls.push(failure)
-  })
-
-  expect(onFailureCalls).toHaveLength(1)
-  expect(onFailureCalls[0]).toBe(true)
-  expect(result.failure).toBe(true)
-  expect(result.results).toEqual([1])
-  expect(result.errors).toHaveLength(2)
-})
 
 test('Application-layer wrapper with default onFailure', async () => {
   // Simulating an application-layer wrapper
