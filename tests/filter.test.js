@@ -1,5 +1,5 @@
 import {test, expect} from 'vitest'
-import {filter, collect} from '$src/functional'
+import {filter} from '$src/functional'
 
 test('predicate truthy keeps item in results', async () => {
   const result = await filter([1, 2, 3, 4], x => x > 2)
@@ -17,22 +17,25 @@ test('predicate throws with failFast stops and populates failure', async () => {
     if (x === 2)
       throw bang
     return true
-  })
+  }, {strategy: 'failFast'})
   expect(result.results).toEqual([1])
   expect(result.failure).toEqual({item: 2, error: bang})
   expect(result.errors).toEqual([])
 })
 
-test('predicate throws with collect continues and collects error', async () => {
+test('predicate throws with default collect continues and collects errors', async () => {
   const bang = new Error('bang')
-  const result = await filter([1, 2, 3], x => {
-    if (x === 2)
+  const result = await filter([1, 2, 3, 4], x => {
+    if (x === 2 || x === 4)
       throw bang
     return true
-  }, {onError: collect})
+  })
   expect(result.results).toEqual([1, 3])
-  expect(result.errors).toEqual([{item: 2, error: bang}])
-  expect(result.failure).toBeNull()
+  expect(result.failure).toBe(null)
+  expect(result.errors).toEqual([
+    {item: 2, error: bang},
+    {item: 4, error: bang},
+  ])
 })
 
 test('async predicates work', async () => {

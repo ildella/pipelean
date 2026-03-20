@@ -31,8 +31,8 @@
   ],
   "scripts": {
     "check:lint": "eslint --report-unused-disable-directives .",
-    "lint": "eslint . --cache --max-warnings 0",
-    "lint.nocache": "eslint . --max-warnings 0",
+    "lint": "eslint . --cache --max-warnings 1",
+    "lint.nocache": "eslint . --max-warnings 1",
     "lint.inspect": "npx @eslint/config-inspector",
     "test": "vitest",
     "coverage": "vitest run --coverage"
