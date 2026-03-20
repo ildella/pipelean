@@ -127,7 +127,7 @@ export const filter = (...args) => {
   // eslint-disable-next-line complexity, max-statements
   const run = async inputItems => {
     const {
-      strategy = failFast,
+      strategy = collect,
       onError: onErrorParam,
       take,
       onFailure,

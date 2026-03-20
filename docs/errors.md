@@ -6,7 +6,7 @@ Pipelean provides comprehensive error handling through named strategies and call
 
 All iteration functions (`series`, `filter`, `scan`) support four error strategies:
 
-### `failFast` (default for `filter`, `scan`)
+### `failFast` (default for `scan`)
 
 Stop immediately on first error.
 
@@ -29,7 +29,7 @@ const result = await series([1, 2, 3], async item => {
 
 ---
 
-### `collect` (default for `series`)
+### `collect` (default for `series` and `filter`)
 
 Continue through all items, collect errors.
 

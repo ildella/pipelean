@@ -231,9 +231,9 @@ const { results, errors } = await scan(
 - `onFailure`: Optional callback called when `failure` is truthy (failFast: `{item, error}`, failLate: `true`)
 - `take`: Optional number of items to collect
 
-**Return Type**: Returns `{ results, errors, failure }` object:
+**Return Type**: Returns `{ results, errors, failure }` object (defaults to `collect`):
+- With `collect` (default): `{ results, errors: [...], failure: null }`
 - With `failFast`: `{ results, errors: [], failure: { item, error } }`
-- With `collect`: `{ results, errors: [...], failure: null }`
 - With `failLate`: `{ results, errors: [...], failure: true }`
 - With `skip`: `{ results, errors: [], failure: null }`
 
@@ -241,14 +241,14 @@ const { results, errors } = await scan(
 ```javascript
 import { filter, failFast } from './functional.js'
 
-// Filter valid emails from a list
+// Filter valid emails from a list (default is collect)
 const validEmails = await filter(
   async (email) => {
     return email.includes('@')
   },
   emails,
   {
-    strategy: failFast  // Stop on first invalid email
+    strategy: failFast  // Override default to stop on first invalid email
   }
 )
 ```
