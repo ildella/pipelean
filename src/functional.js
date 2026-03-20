@@ -133,12 +133,6 @@ export const filter = (...args) => {
       onFailure,
     } = opts || {}
 
-    // Support backward compatibility: onError can be a strategy (old API) or callback (new API)
-    const isErrorCallback = typeof onErrorParam === 'function'
-    const strategyFromOnError = !isErrorCallback ? onErrorParam : null
-    const finalStrategy = strategyFromOnError ?? strategy
-    const errorCallback = isErrorCallback ? onErrorParam : null
-
     const results = []
     const errors = []
 
@@ -157,10 +151,10 @@ export const filter = (...args) => {
           results.push(item)
         }
       } catch (error) {
-        const strategyName = finalStrategy?.name ?? finalStrategy
+        const strategyName = strategy?.name ?? strategy
 
-        if (errorCallback) {
-          await errorCallback(error)
+        if (onErrorParam) {
+          await onErrorParam(error)
         }
 
         if (strategyName === 'failFast') {
@@ -181,7 +175,7 @@ export const filter = (...args) => {
       index++
     }
 
-    failure = finalStrategy?.name === 'failLate' && errors.length > 0 ? true : null
+    failure = strategy?.name === 'failLate' && errors.length > 0 ? true : null
 
     if (failure && onFailure) {
       onFailure(true)

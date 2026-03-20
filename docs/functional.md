@@ -221,7 +221,7 @@ const { results, errors } = await scan(
 **Type**: `(...args) => filteredItems | filterFunction`
 
 **Parameters**:
-- First argument (optional): If a function, specifies `take` and `onError` strategy
+- First argument (optional): If a function, specifies `take`
 - Remaining arguments: Items to filter
 - If first arg is NOT a function: Treated as `iterable` and processed with `take` strategy
 
