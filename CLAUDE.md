@@ -4,9 +4,7 @@
 
 **Pipelean** is a pragmatic JavaScript library for sequential async operations with first-class error handling. It focuses on explicit execution, predictable results, and avoiding common async anti-patterns.
 
-- **Homepage**: https://github.com/ildella/pipelean
-- **License**: MIT
-- **Main Entry**: `src/index.js` (exports from `src/functional.js`)
+Checks with `yarn lint` and `yarn test`.
 
 ## Related Documentation
 

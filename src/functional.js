@@ -1,5 +1,11 @@
 export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
+export const failLate = Object.freeze({name: 'failLate'})
+export const skip = Object.freeze({name: 'skip'})
+
+// Aliases for failFast (same reference)
+export const fail = failFast
+export const stopOnError = failFast
 
 export const tryCatch = (fn, {
   onStart, onSuccess, onError, onFinally,
@@ -53,8 +59,8 @@ export const series = (...args) => {
 
   const run = async inputItems => {
     const {
-      strategy = 'collect',
-      take, onProgress, onError,
+      strategy = collect,
+      take, onProgress, onError, onFailure,
     } = opts
     const results = []
     const errors = []
@@ -69,6 +75,8 @@ export const series = (...args) => {
     })
 
     let index = 0
+    let failure = null
+
     for await (const item of inputItems) {
       // eslint-disable-next-line no-undefined
       if (take !== undefined && index >= take)
@@ -78,14 +86,34 @@ export const series = (...args) => {
         const result = await safeFn(item, index)
         results.push(result)
       } catch (error) {
-        if (strategy === 'failFast') {
+        const strategyName = strategy?.name ?? strategy
+
+        if (strategyName === 'failFast') {
+          if (onFailure) {
+            onFailure({item, error})
+          }
           return {results, errors, failure: {item, error}}
         }
+
+        if (strategyName === 'skip') {
+          // Don't collect errors, just continue
+          // onError is still called via safeFn
+          index++
+          continue
+        }
+
         errors.push({item, error})
       }
       index++
     }
-    return {results, errors, failure: null}
+
+    failure = strategy?.name === 'failLate' && errors.length > 0 ? true : null
+
+    if (failure && onFailure) {
+      onFailure(true)
+    }
+
+    return {results, errors, failure}
   }
 
   return immediate ? run(items) : run
@@ -97,11 +125,25 @@ export const filter = (...args) => {
 
   // eslint-disable-next-line complexity, max-statements
   const run = async inputItems => {
-    const {onError = 'failFast', take} = opts || {}
+    const {
+      strategy = failFast,
+      onError: onErrorParam,
+      take,
+      onFailure,
+    } = opts || {}
+
+    // Support backward compatibility: onError can be a strategy (old API) or callback (new API)
+    const isErrorCallback = typeof onErrorParam === 'function'
+    const strategyFromOnError = !isErrorCallback ? onErrorParam : null
+    const finalStrategy = strategyFromOnError ?? strategy
+    const errorCallback = isErrorCallback ? onErrorParam : null
+
     const results = []
     const errors = []
 
     let index = 0
+    let failure = null
+
     for await (const item of inputItems) {
       // eslint-disable-next-line no-undefined
       if (take !== undefined && results.length >= take) {
@@ -114,39 +156,86 @@ export const filter = (...args) => {
           results.push(item)
         }
       } catch (error) {
-        if (onError === 'failFast') {
+        const strategyName = finalStrategy?.name ?? finalStrategy
+
+        if (errorCallback) {
+          await errorCallback(error)
+        }
+
+        if (strategyName === 'failFast') {
+          if (onFailure) {
+            onFailure({item, error})
+          }
           return {results, errors, failure: {item, error}}
         }
+
+        if (strategyName === 'skip') {
+          index++
+          continue
+        }
+
         errors.push({item, error})
       }
 
       index++
     }
-    return {results, errors, failure: null}
+
+    failure = finalStrategy?.name === 'failLate' && errors.length > 0 ? true : null
+
+    if (failure && onFailure) {
+      onFailure(true)
+    }
+
+    return {results, errors, failure}
   }
 
   return immediate ? run(items) : run
 }
 
-export const safeScan = async (iterable, scanner, initialValue) => {
+export const safeScan = async (iterable, scanner, initialValue, opts = {}) => {
+  const {strategy = failFast, onError, onFailure} = opts
   const results = []
   let acc = initialValue
+  const errors = []
 
   for await (const item of iterable) {
     try {
       acc = await scanner(acc, item)
       results.push(acc)
     } catch (error) {
-      // We cannot continue if a step fails, so we return the failure immediately.
-      return {
-        results,
-        errors: [{item, error}],
-        failure: {item, error},
+      const strategyName = strategy?.name ?? strategy
+
+      if (onError) {
+        await onError(error)
       }
+
+      if (strategyName === 'failFast') {
+        if (onFailure) {
+          onFailure({item, error})
+        }
+        errors.push({item, error})
+        return {
+          results,
+          errors,
+          failure: {item, error},
+        }
+      }
+
+      if (strategyName === 'skip') {
+        continue
+      }
+
+      errors.push({item, error})
     }
   }
 
-  return {results, errors: [], failure: null}
+  const failure = strategy?.name === 'failLate' && errors.length > 0 ? true : null
+
+  if (failure && onFailure) {
+    onFailure(true)
+  }
+
+  return {results, errors, failure}
 }
 
 export const scan = safeScan

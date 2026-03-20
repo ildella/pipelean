@@ -1,4 +1,4 @@
-# functional.js Reference Documentation
+# Pipelean Reference Documentation
 
 **Overview**
 
@@ -7,28 +7,43 @@
 **Key Principles**
 
 - **Pragmatic**: Plain JavaScript, eager execution, sequential processing.
-- **First class error handling**: Two distinct strategies (`failFast` and `collect`) for different use cases
+- **First class error handling**: Multiple error strategies for different use cases
 
 ---
 
 ## Table of Contents
 
-1. [failFast](#1-failfast) - Error Strategy Identifier
-2. [collect](#2-collect) - Error Strategy Identifier
-3. [tryCatch](#3-trycatch) - Single Function Lifecycle Hooks
-4. [delay](#4-delay) - Promise-based Delays
-5. [retry](#5-retry) - Configurable Retry Logic
-6. [series](#6-series) - Horizontal Sequential Execution
-7. [scan](#7-scan) - Stateful Sequential Transformation
-8. [filter](#8-filter) - Stateless Selection
-9. [safeScan](#9-safescan) - Safe Stateful Transformation
-10. [pipe](#10-pipe) - Vertical Composition
-11. [safeAsyncIterator](#11-safeasynciterator) - Lazy Async Iterator Wrapper
-12. [collectAsync](#12-collectasync) - Async Iterator to Array
+### Error strategies
+
+- [failFast](#failfast) - Error Strategy Identifier
+- [fail](#fail) - Error Strategy Alias
+- [collect](#collect) - Error Strategy Identifier
+- [failLate](#faillate) - Error Strategy Identifier
+- [skip](#skip) - Error Strategy Identifier
+- [stopOnError](#stoponerror) - Error Strategy Alias
+
+### Iterators
+
+**Horizontal**
+
+- [series](#series) - Stateless Sequential Execution
+- [scan](#scan) - Stateful Sequential Transformation
+- [filter](#filter) - Stateless Selection
+
+### Composition
+
+- [pipe](#pipe) - Vertical Composition
+
+### Misc
+
+- [retry](#retry) - Configurable Retry Logic
+- [tryCatch](#trycatch) - Single Function Lifecycle Hooks
 
 ---
 
-## 1. failFast
+## Error strategies
+
+### failFast
 
 **Purpose**: Error strategy identifier used throughout the library to indicate immediate failure without partial results.
 
@@ -38,11 +53,25 @@
 export const failFast = Object.freeze({name: 'failFast'})
 ```
 
-**Usage**: Passed as the `onError` parameter to other functions (like `filter`, `tryCatch`, `scan`) to specify that errors should be handled with the `failFast` strategy. This strategy stops immediately on the first error and returns a structured failure object containing the failed item and error.
+**Usage**: Passed as the `strategy` parameter to iteration functions. Stops immediately on first error and returns a structured failure object containing the failed item and error.
 
 ---
 
-## 2. collect
+### fail
+
+**Purpose**: Alias for `failFast` error strategy.
+
+**Type**: `Object`
+
+```javascript
+export const fail = Object.freeze({name: 'failFast'})
+```
+
+**Usage**: Use as a shorthand for `failFast`.
+
+---
+
+### collect
 
 **Purpose**: Error strategy identifier used throughout the library to indicate that errors should be gathered and processing should continue.
 
@@ -52,155 +81,57 @@ export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
 ```
 
-**Usage**: Passed as the `onError` parameter to functions to specify that errors should be collected and processing should continue. This is used in `scan` and other operations where accumulating results is more important than failing fast.
+**Usage**: Passed as the `strategy` parameter to iteration functions to collect all errors and continue processing.
 
 ---
 
-## 3. tryCatch
+### failLate
 
-**Purpose**: Wraps individual async functions with lifecycle hooks for comprehensive error handling and telemetry.
+**Purpose**: Error strategy identifier that collects all errors and returns `failure: true` at the end.
 
-**Type**: `(fn, options) => wrapperFunction`
+**Type**: `Object`
 
-**Parameters**:
-- `fn`: The async function to wrap
-- `options`: Configuration object with the following properties:
-  - `onStart`: `(fn, args) => void` - Called before function execution
-  - `onSuccess`: `(fn, args, result) => void | Promise<void>` - Called on successful completion
-  - `onError`: `(fn, args, error) => void` - Called on error
-  - `onFinally`: `(fn, args) => void` - Called regardless of success/failure
-  - `rethrow`: `boolean` (default: `false`) - Whether to rethrow errors after handling
-  - `isCatch`: `boolean` (default: `true`) - Whether to use try/catch (pass `false` for manual error handling)
-
-**Return Type**: Returns a wrapper function with the same signature as `fn`.
-
-**Features**:
-- Automatic `async/await` wrapping
-- Preserves original function signature
-- Supports both try/catch and manual error handling modes
-- Comprehensive lifecycle: onStart → onSuccess/onError → onFinally
-- Optional rethrow for error propagation
-- Deep telemetry support for debugging (tracks which step in a 5-step pipe failed)
-
-**Usage Example**:
 ```javascript
-import { tryCatch } from './functional.js'
-
-// Example 1: Try/catch mode
-const safeFetch = tryCatch(
-  async (url) => {
-    const response = await fetch(url)
-    return await response.json()
-  },
-  {
-    onError: async (error) => {
-      console.error('Fetch failed:', error)
-    }
-  }
-)
-
-// Example 2: Manual error handling mode
-const customFetch = tryCatch(
-  async (url, options) => {
-    // Manual error handling with rethrow
-    const response = await fetch(url, options)
-    if (!response.ok) {
-      throw new Error('Network error')
-    }
-    return await response.json()
-  },
-  {
-    onError: async (error) => {
-      console.error('Custom handler:', error)
-    return { customHandled: true }
-    },
-    rethrow: true,
-    isCatch: false
-  }
-)
+export const failLate = Object.freeze({name: 'failLate'})
 ```
 
+**Usage**: Use when the application-layer needs to detect if *any* error occurred, while still collecting all errors.
+
 ---
 
-## 4. delay
+### skip
 
-**Purpose**: Promise-based delay utility.
+**Purpose**: Error strategy identifier that ignores errors entirely (no collection), but `onError` is still called if present.
 
-**Type**: `(ms: number) => Promise<void>`
+**Type**: `Object`
 
-**Parameters**:
-- `ms`: Number of milliseconds to delay (required)
-
-**Return Type**: A Promise that resolves after the specified delay.
-
-**Usage Example**:
 ```javascript
-import { delay } from './functional.js'
-
-// Wait 1000ms before retrying
-await delay(1000)
-
-// Delay in a retry loop
-for (let i = 0; i < 3; i++) {
-  await someOperation()
-  await delay(500)  // Wait before next attempt
-}
+export const skip = Object.freeze({name: 'skip'})
 ```
 
+**Usage**: Use for best-effort processing where some failures are acceptable.
+
 ---
 
-## 5. retry
+### stopOnError
 
-**Purpose**: Retry async functions with configurable attempts and delays between attempts.
+**Purpose**: Alias for `failFast` error strategy.
 
-**Type**: `(fn, options) => retryFunction`
+**Type**: `Object`
 
-**Parameters**:
-- `fn`: The async function to retry (required)
-- `options`: Configuration object with the following properties:
-  - `attempts`: `number` (default: `3`) - Number of retry attempts
-  - `delayMs`: `number` (default: `0`) - Delay between retry attempts in milliseconds
-
-**Behavior**:
-- Retries only on specified errors (if `onError` is provided)
-- Throws the last error after exhausting all attempts
-- No delay before first attempt
-- Applies configured delay between subsequent attempts
-
-**Usage Example**:
 ```javascript
-import { retry } from './functional.js'
-
-// Retry with default 3 attempts and 500ms delay
-const result = await retry(
-  async fetchWithRetry() => {
-    return await fetch('/api/data')
-  },
-  {
-    onError: 'failFast',  // Only retry on specific errors
-    attempts: 3,
-    delayMs: 500
-  }
-)
-
-// Retry with custom configuration
-const result = await retry(
-  async flakyOperation() => {
-    return Math.random() > 0.5 // Simulate 50% failure rate
-  },
-  {
-    attempts: 5,
-    delayMs: 1000,
-    onError: 'collect'  // Collect all errors, don't fail fast
-  }
-)
+export const stopOnError = Object.freeze({name: 'failFast'})
 ```
 
+**Usage**: Use as a shorthand for `failFast` with a more descriptive name.
+
 ---
 
-## 6. series
+## Iterators
 
-**Purpose**: Horizontal composition tool - executes multiple functions in sequence, passing the output of one as input to the next.
+### series
+
+**Purpose**: Horizontal composition tool - executes multiple functions in sequence, passing output of one as input to the next.
 
 **Type**: `(...fns) => (input) => Promise<ReturnType<LastFn>>`
 
@@ -216,9 +147,16 @@ const result = await retry(
 - Supports synchronous or asynchronous functions
 - Can be nested to build complex transformation pipelines
 
+**Options**:
+- `strategy`: Error strategy object (`failFast`, `collect`, `failLate`, `skip`, or aliases)
+- `onProgress`: Optional callback called after each successful item
+- `onError`: Optional callback called for each error
+- `onFailure`: Optional callback called when `failure` is truthy (failFast: `{item, error}`, failLate: `true`)
+- `take`: Optional number of items to process
+
 **Usage Example**:
 ```javascript
-import { series } from './functional.js'
+import { series, failFast } from './functional.js'
 
 // Transform a value through multiple steps
 const result = await series(
@@ -236,11 +174,9 @@ const result = await series(
 )
 ```
 
-**Best Practice**: Use `series()` when you need to chain async operations and ensure each completes before the next starts.
-
 ---
 
-## 7. scan
+### scan
 
 **Purpose**: Stateful sequential transformation - transforms each item and accumulates results.
 
@@ -258,7 +194,6 @@ const result = await series(
 
 **Key Characteristics**:
 - **Stateful**: Each transformation depends on the previous result
-- **Stop on error**: Can be configured to stop on first error via `safeScan`
 - **Accumulates**: Both successful results and errors for inspection
 - **Index Tracking**: Provides index of each item for correlation
 
@@ -275,37 +210,11 @@ const { results, errors } = await scan(
   },
   0  // Initial count
 )
-
-// Process items with error tracking
-const { results, errors } = await scan(
-  async dataItems,
-  async (acc, item) => {
-    try {
-      const processed = await processItem(item)
-      return acc + processed.length
-    } catch (error) {
-      return acc  // Return count without incrementing
-    }
-  },
-  0
-)
-
-// With safeScan (stops on first error)
-const { results, errors, failure } = await safeScan(
-  itemsToProcess,
-  async (acc, item, index) => {
-    return await transformItem(item)
-  },
-  0,
-  { onError: failFast }
-)
 ```
-
-**When to Use**: Use `scan()` when you need to transform data sequentially and maintain state between steps, or when you need both results and errors for debugging.
 
 ---
 
-## 8. filter
+### filter
 
 **Purpose**: Stateless selection tool - filters items from an iterable based on a predicate function.
 
@@ -316,17 +225,21 @@ const { results, errors, failure } = await safeScan(
 - Remaining arguments: Items to filter
 - If first arg is NOT a function: Treated as `iterable` and processed with `take` strategy
 
-**Strategies**:
-- **failFast**: Stops immediately on first error (returns structured failure)
-- **collect**: Gathers all errors and continues (default)
+**Options**:
+- `strategy`: Error strategy object (`failFast`, `collect`, `failLate`, `skip`, or aliases)
+- `onError`: Optional callback called for each error
+- `onFailure`: Optional callback called when `failure` is truthy (failFast: `{item, error}`, failLate: `true`)
+- `take`: Optional number of items to collect
 
-**Behavior**:
-- With `failFast`: Returns `{ results, errors, failure: { item, error } }` object
-- With `collect`: Returns `{ results, errors, failure: null }` object
+**Return Type**: Returns `{ results, errors, failure }` object:
+- With `failFast`: `{ results, errors: [], failure: { item, error } }`
+- With `collect`: `{ results, errors: [...], failure: null }`
+- With `failLate`: `{ results, errors: [...], failure: true }`
+- With `skip`: `{ results, errors: [], failure: null }`
 
 **Usage Example**:
 ```javascript
-import { filter } from './functional.js'
+import { filter, failFast } from './functional.js'
 
 // Filter valid emails from a list
 const validEmails = await filter(
@@ -335,59 +248,16 @@ const validEmails = await filter(
   },
   emails,
   {
-    onError: failFast  // Stop on first invalid email
-  }
-)
-
-// Collect all errors with collect strategy
-const { results, errors } = await filter(
-  async (items, callback) => {
-    return await callback(item)
-  },
-  list,
-  {
-    onError: collect  // Gather all errors
+    strategy: failFast  // Stop on first invalid email
   }
 )
 ```
 
 ---
 
-## 9. safeScan
+## Composition
 
-**Purpose**: Safe stateful transformation with immediate failure on error.
-
-**Type**: `(iterable, scanner, initialValue) => safeScanFunction`
-
-**Parameters**:
-- `iterable`: An async iterable to process
-- `scanner`: Transformation function `(accumulator, item, index) => newAccumulator`
-- `initialValue`: Starting value for the accumulator
-
-**Key Difference from scan**:
-- **Stops immediately on error**: Cannot continue processing if a step fails
-- **Returns structured failure**: Always returns `{ results, errors, failure: { item, error }` object for debugging
-- **Use case**: When pipeline must stop if any step fails (e.g., database transaction, critical data validation)
-
-**Usage Example**:
-```javascript
-import { safeScan } from './functional.js'
-
-// Safe database operations - stop on any error
-const { results, errors, failure } = await safeScan(
-  async records,
-  async (acc, record, index) => {
-    const inserted = await db.insert(record)
-    return acc + inserted
-  },
-  0,
-  { onError: failFast }
-)
-```
-
----
-
-## 10. pipe
+### pipe
 
 **Purpose**: Vertical composition tool - chains functions left-to-right (Unix pipe pattern).
 
@@ -430,147 +300,91 @@ const result = await pipe(
 
 ---
 
-## 11. safeAsyncIterator
+## Misc
 
-**Purpose**: Lazy async iterator wrapper with comprehensive error handling.
+### retry
 
-**Type**: `iterable => asyncGenerator`
+**Purpose**: Retry async functions with configurable attempts and delays between attempts.
+
+**Type**: `(fn, options) => retryFunction`
 
 **Parameters**:
-- `iterable`: An async iterable (array, generator, or any object implementing iteration protocol)
-- `options`: Configuration object
-  - `onError`: Error handler ('failFast' by default)
-
-**Return Type**: An async generator that yields items one by one.
+- `fn`: The async function to retry (required)
+- `options`: Configuration object with the following properties:
+  - `attempts`: `number` (default: `3`) - Number of retry attempts
+  - `delay`: `number` (default: `0`) - Delay between retry attempts in milliseconds
 
 **Behavior**:
-- Yields transformed items (via `transform`) or original items (if no transform)
-- Forces error checking on every item
-- Supports two modes: `failFast` (stop) or `collect` (continue)
+- Retries on each attempt until successful or exhausted
+- Throws the last error after exhausting all attempts
+- No delay before first attempt
+- Applies configured delay between subsequent attempts
 
 **Usage Example**:
 ```javascript
-import { safeAsyncIterator } from './functional.js'
+import { retry } from './functional.js'
 
-// Transform items lazily with error handling
-const iter = safeAsyncIterator(
-  async fetchDataPages(),  // Generator
-  async (page) => transformPage(page), // Transformer
-  { onError: failFast }
+// Retry with default 3 attempts and 500ms delay
+const result = await retry(
+  async flakyOperation() => {
+    return Math.random() > 0.5 // Simulate 50% failure rate
+  },
+  {
+    attempts: 5,
+    delay: 1000
+  }
 )
-
-for await (const item of iter) {
-  console.log('Processing:', item)
-}
 ```
 
 ---
 
-## 12. collectAsync
+### tryCatch
 
-**Purpose**: Collect all items from an async iterator/generator into an array.
+**Purpose**: Wraps individual async functions with lifecycle hooks for comprehensive error handling and telemetry.
 
-**Type**: `iterator => collectAsync(iterator) => Promise<Array<T>>`
+**Type**: `(fn, options) => wrapperFunction`
 
 **Parameters**:
-- `iterator`: An async iterator, generator, or iterable
+- `fn`: The async function to wrap
+- `options`: Configuration object with the following properties:
+  - `onStart`: `(fn, args) => void` - Called before function execution
+  - `onSuccess`: `(fn, args, result) => void | Promise<void>` - Called on successful completion
+  - `onError`: `(fn, args, error) => void` - Called on error
+  - `onFinally`: `(fn, args) => void` - Called regardless of success/failure
+  - `rethrow`: `boolean` (default: `false`) - Whether to rethrow errors after handling
 
-**Return Type**: A Promise that resolves to an array of all yielded items.
+**Return Type**: Returns a wrapper function with the same signature as `fn`.
 
-**Behavior**:
-- Executes iterator until completion
-- Resolves with array of all items
-- Handles both normal values and `{ error, item }` objects if iterator yields them
+**Features**:
+- Automatic `async/await` wrapping
+- Preserves original function signature
+- Comprehensive lifecycle: onStart → onSuccess/onError → onFinally
+- Optional rethrow for error propagation
+- Deep telemetry support for debugging
 
 **Usage Example**:
 ```javascript
-import { collectAsync } from './functional.js'
+import { tryCatch } from './functional.js'
 
-// Collect all pages from a generator
-const allRecords = await collectAsync(
-  async function* fetchAllPages() {
-    let page = 1
-    while (true) {
-      const data = await fetchPage(page)
-      yield data
-      if (!data.hasMore) break
-      page++
+// Example: Try/catch mode
+const safeFetch = tryCatch(
+  async (url) => {
+    const response = await fetch(url)
+    return await response.json()
+  },
+  {
+    onError: async (error) => {
+      console.error('Fetch failed:', error)
     }
   }
 )
-
-// Collect from async iterable
-const items = await collectAsync(
-  [fetchItem1(), fetchItem2(), fetchItem3()]
-)
 ```
-
----
-
-## Error Handling Strategies
-
-The library provides two distinct error handling approaches:
-
-### failFast Strategy
-- **Behavior**: Stop immediately on first error
-- **Use case**: Critical operations, validation failures, or when partial results are unacceptable
-- **Returns**: `{ results, errors, failure: { item, error } }`
-
-### collect Strategy
-- **Behavior**: Gather all errors and continue processing
-- **Use case**: Accumulating results, data validation, or when you need complete error history
-- **Returns**: `{ results, errors, failure: null }`
-
----
-
-## Best Practices
-
-1. **Choose the Right Strategy**:
-   - Use `failFast` for critical operations where any error means total failure
-   - Use `collect` when you need to accumulate errors or continue on validation failures
-   - Use `tryCatch` for single operations needing lifecycle hooks
-
-2. **Stateful vs Stateless**:
-   - `scan` and `safeScan` are stateful (maintain accumulator)
-   - `filter` is stateless (no accumulator maintained)
-
-3. **Composition**:
-   - Use `series()` for horizontal pipelines
-   - Use `pipe()` for vertical composition (data flows left-to-right)
-
-4. **Error Propagation**:
-   - Set `rethrow: true` in `tryCatch` to propagate errors up the call stack
-   - Set `rethrow: false` when you want to handle errors locally
-
-5. **Telemetry and Debugging**:
-   - Use lifecycle hooks (`onStart`, `onSuccess`, `onError`) to track execution flow
-   - Check structured error objects for `{ item, error }` properties to identify which step failed
-
-6. **Performance**:
-   - Avoid nesting `series()` calls unnecessarily - compose related operations together
-   - Use appropriate error strategy - don't always use `collect` if `failFast` is sufficient
-
----
-
-## Architecture Notes
-
-The library follows Unix philosophy:
-- **Small, composable tools**: Each function does one thing well
-- **Clear contracts**: Input types and output types are explicit
-- **Eager execution**: Functions execute immediately, no lazy evaluation
-- **Explicit error handling**: Errors are handled explicitly, not hidden
-
-This makes `functional.js` suitable for:
-- Building robust async pipelines
-- Implementing retry logic
-- Creating stateful transformations
-- Handling data validation
-- Composing complex operations from simple primitives
 
 ---
 
 ## Related Documentation
 
+- **[errors.md](./errors.md)** - Complete guide to error handling strategies and callbacks
 - **[README.md](../README.md)** - Project overview and philosophy
 - **[guide.md](../guide.md)** - Comprehensive development guide with examples
 - **[examples.md](../examples.md)** - Practical usage examples for all functions
