@@ -555,27 +555,6 @@ The library provides two distinct error handling approaches:
 
 ---
 
-## TypeScript Support
-
-All functions are written in JavaScript with full TypeScript compatibility:
-- Support for generics and typed parameters
-- Clear parameter and return type signatures
-- Compatible with modern async/await patterns
-
----
-
-## Migration from v0.x to v1.x
-
-If upgrading from pipelean v0.x, note the following changes:
-
-1. **tryCatch** signature change:
-   - Old: `tryCatch(fn, handlers)` where handlers was an object
-   - New: `tryCatch(fn, options)` where options is an object with hook functions
-
-2. **Error handling**: More flexible with explicit hook system
-
----
-
 ## Architecture Notes
 
 The library follows Unix philosophy:
