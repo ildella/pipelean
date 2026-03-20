@@ -24,7 +24,9 @@ export default [
       // },
     },
     rules: {
-      complexity: ['warn', {max: 8}],
+      'complexity': ['warn', {max: 8}],
+      'max-statements': ['warn', 25],
+      'max-lines-per-function': ['warn', 80],
     },
   },
   {

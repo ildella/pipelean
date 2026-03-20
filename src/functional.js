@@ -3,7 +3,7 @@ export const collect = Object.freeze({name: 'collect'})
 export const failLate = Object.freeze({name: 'failLate'})
 export const skip = Object.freeze({name: 'skip'})
 
-// Aliases for failFast (same reference)
+// Aliases
 export const fail = failFast
 export const stopOnError = failFast
 
@@ -192,7 +192,8 @@ export const filter = (...args) => {
   return immediate ? run(items) : run
 }
 
-export const safeScan = async (iterable, scanner, initialValue, opts = {}) => {
+// eslint-disable-next-line complexity
+export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   const {strategy = failFast, onError, onFailure} = opts
   const results = []
   let acc = initialValue
@@ -239,9 +240,10 @@ export const safeScan = async (iterable, scanner, initialValue, opts = {}) => {
 }
 
 export const scanSeries = async (iterable, scanner, initialValue) => {
-  const {results} = await safeScan(iterable, scanner, initialValue)
+  const {results} = await scan(iterable, scanner, initialValue)
   return results
 }
+
 export const pipe = (...fns) => input =>
   fns.reduce(async (acc, fn) => fn(await acc), input)
 
@@ -251,6 +253,7 @@ export const pipe = (...fns) => input =>
     see if it's an error or a valid result
   Alpha Code - not to be used yet.
 */
+
 export async function * safeAsyncIterator (iterable, transform, {
   onError = failFast,
 } = {}) {

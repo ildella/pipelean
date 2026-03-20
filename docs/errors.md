@@ -4,9 +4,9 @@ Pipelean provides comprehensive error handling through named strategies and call
 
 ## Error Strategies
 
-All iteration functions (`series`, `filter`, `safeScan`) support four error strategies:
+All iteration functions (`series`, `filter`, `scan`) support four error strategies:
 
-### `failFast` (default for `filter`, `safeScan`)
+### `failFast` (default for `filter`, `scan`)
 
 Stop immediately on first error.
 
