@@ -7,7 +7,7 @@ test('onFailure called for failFast with {item, error}', async () => {
   const onFailureCalls = []
   const items = [1, 2, 3]
 
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -34,7 +34,7 @@ test('onFailure called for failLate with true', async () => {
   const onFailureCalls = []
   const items = [1, 2, 3, 4]
 
-  const fn = async item => {
+  const fn = item => {
     if (item === 2 || item === 4)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -56,7 +56,7 @@ test('onFailure NOT called for collect (failure: null)', async () => {
   const onFailureCalls = []
   const items = [1, 2, 3]
 
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -77,7 +77,7 @@ test('onFailure NOT called for skip (failure: null)', async () => {
   const onFailureCalls = []
   const items = [1, 2, 3]
 
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -97,7 +97,7 @@ test('onFailure NOT called for skip (failure: null)', async () => {
 test('onFailure is optional', async () => {
   const items = [1, 2, 3]
 
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -116,7 +116,7 @@ test('onFailure works with filter', async () => {
   const onFailureCalls = []
   const items = [1, 2, 3, 4]
 
-  const predicate = async item => {
+  const predicate = item => {
     if (item === 3)
       throw new Error(`Error at ${item}`)
     return item % 2 === 0
@@ -143,7 +143,7 @@ test('onFailure works with filter and failLate', async () => {
   const onFailureCalls = []
   const items = [1, 2, 3, 4, 5]
 
-  const predicate = async item => {
+  const predicate = item => {
     if (item === 2 || item === 4)
       throw new Error(`Error at ${item}`)
     return item % 2 === 1
@@ -165,7 +165,7 @@ test('onFailure works with scan', async () => {
   const onFailureCalls = []
   const items = [1, 2, 3]
 
-  const scanner = async (acc, item) => {
+  const scanner = (acc, item) => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return acc + item
@@ -204,7 +204,7 @@ test('Application-layer wrapper with default onFailure', async () => {
   })
 
   const items = [1, 2, 3]
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -228,7 +228,7 @@ test('onFailure with skip strategy still allows onError', async () => {
   const onFailureCalls = []
   const items = [1, 2, 3]
 
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2

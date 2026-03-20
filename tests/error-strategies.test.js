@@ -53,7 +53,7 @@ test('strategies are distinct references', () => {
 
 test('failLate: collects all errors and returns failure: true', async () => {
   const items = [1, 2, 3, 4]
-  const fn = async item => {
+  const fn = item => {
     if (item === 2 || item === 4)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -70,7 +70,7 @@ test('failLate: collects all errors and returns failure: true', async () => {
 
 test('failLate: no errors returns failure: null', async () => {
   const items = [1, 2, 3]
-  const fn = async item => item * 2
+  const fn = item => item * 2
 
   const result = await series(items, fn, {strategy: failLate})
 
@@ -81,7 +81,7 @@ test('failLate: no errors returns failure: null', async () => {
 
 test('skip: ignores errors without collection', async () => {
   const items = [1, 2, 3, 4]
-  const fn = async item => {
+  const fn = item => {
     if (item === 2 || item === 4)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -98,7 +98,7 @@ test('skip: calls onError if present', async () => {
   const onErrorCalls = []
   const items = [1, 2, 3]
 
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -118,7 +118,7 @@ test('skip: calls onError if present', async () => {
 
 test('fail alias works as failFast in series', async () => {
   const items = [1, 2, 3]
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -136,7 +136,7 @@ test('fail alias works as failFast in series', async () => {
 
 test('stopOnError alias works as failFast in series', async () => {
   const items = [1, 2, 3]
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -154,7 +154,7 @@ test('stopOnError alias works as failFast in series', async () => {
 
 test('failLate works with filter', async () => {
   const items = [1, 2, 3, 4, 5]
-  const predicate = async item => {
+  const predicate = item => {
     if (item === 2 || item === 4)
       throw new Error(`Error at ${item}`)
     return item % 2 === 1
@@ -171,7 +171,7 @@ test('failLate works with filter', async () => {
 
 test('skip works with filter', async () => {
   const items = [1, 2, 3, 4]
-  const predicate = async item => {
+  const predicate = item => {
     if (item === 2 || item === 4)
       throw new Error(`Error at ${item}`)
     return item % 2 === 0
@@ -186,7 +186,7 @@ test('skip works with filter', async () => {
 
 test('failLate with series returns all successful results before any error', async () => {
   const items = [1, 2, 3, 4, 5]
-  const fn = async item => {
+  const fn = item => {
     if (item === 3)
       throw new Error(`Error at ${item}`)
     return item * 2
@@ -202,7 +202,7 @@ test('failLate with series returns all successful results before any error', asy
 
 test('collect strategy still works (failure: null)', async () => {
   const items = [1, 2, 3]
-  const fn = async item => {
+  const fn = item => {
     if (item === 2)
       throw new Error(`Error at ${item}`)
     return item * 2
