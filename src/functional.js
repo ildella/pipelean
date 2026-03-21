@@ -235,13 +235,10 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   return {results, errors, failure}
 }
 
-export const scanSeries = async (iterable, scanner, initialValue) => {
-  const {results} = await scan(iterable, scanner, initialValue)
-  return results
-}
-
 export const pipe = (...fns) => input =>
   fns.reduce(async (acc, fn) => fn(await acc), input)
+
+export const compose = pipe
 
 /*
   "Lazy" iterator (it yields items one by one).

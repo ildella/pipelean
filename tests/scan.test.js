@@ -1,8 +1,8 @@
 import {test, expect} from 'vitest'
-import {scanSeries} from '$src/functional'
+import {scan} from '$src/functional'
 
 test('threads accumulator through items', async () => {
-  const results = await scanSeries(
+  const {results} = await scan(
     [1, 2, 3],
     (acc, item) => Promise.resolve(acc + item),
     0,
@@ -11,7 +11,7 @@ test('threads accumulator through items', async () => {
 })
 
 test('returns intermediate results', async () => {
-  const results = await scanSeries(
+  const {results} = await scan(
     ['a', 'b', 'c'],
     (acc, item) => Promise.resolve(acc + item),
     '',
@@ -20,7 +20,7 @@ test('returns intermediate results', async () => {
 })
 
 test('works with async scanner', async () => {
-  const results = await scanSeries(
+  const {results} = await scan(
     [10, 20],
     async (acc, item) => {
       await new Promise(resolve => setTimeout(resolve, 1))
