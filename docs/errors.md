@@ -6,6 +6,30 @@ Pipelean provides comprehensive error handling through named strategies and call
 
 All iteration functions (`series`, `filter`, `scan`) support four error strategies:
 
+All three iteration functions (series, filter, scan) consistently implement:
+
+**failFast:** (aliases: `fail`, `stopOnError`)
+- Sets `failure: {item, error}` on first error
+- Calls `onFailure({item, error})` immediately
+- Stops iteration
+
+**failLate:**
+- Collects all errors in `errors` array
+- Sets `failure: true` after loop completes (only if `errors.length > 0`)
+- Calls `onFailure(true)` if `failure` is truthy
+
+**collect:**
+- Collects all errors in `errors` array
+- Sets `failure: null`
+- Does NOT call `onFailure`
+
+**skip:**
+- Ignores errors (no collection, `errors` stays empty)
+- Sets `failure: null`
+- Does NOT call `onFailure`
+
+---
+
 ### `failFast` (default for `scan`)
 
 Stop immediately on first error.
