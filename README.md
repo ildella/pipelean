@@ -8,7 +8,6 @@ Sequential async pipelines with **first-class retry, error boundaries, and smart
 
 Just plain JavaScript. Eager execution. Perfect stack traces.
 
-
 ```js
 const result = await series([
   () => fetchUser(id),
@@ -20,15 +19,31 @@ const result = await series([
 
 ## Why Pipelean?
 
-Stop writing the same try/catch and manual accumulation boilerplate.
+To stop writing the same try/catch and manual accumulation boilerplate.
+
+```js
+
+## This is bad coding
+for await (const item of iterable) {
+  try {
+    const result = await execute(item)
+  } catch (error) {
+    // OH BOY
+    console.error(error)
+  }
+}
+
+## This does not have async transformations and error control
+array.filter(predicate).map(transform)
+````
 
 Pipelean gives you:
 
 - `series` & `scan` for horizontal flows (independent or stateful steps)
 - `pipe` for vertical composition
-- `retry` + `tryCatch` middleware you can reuse across your app
-- Built-in error strategies (`collect` all errors or `fail-fast`) with sensible defaults
-- Structured results and progress hooks — no messy arrays, no silent crashes
+- `tryCatch` and `retry` middleware you can reuse across your app
+- Built-in error strategies with sensible defaults for each operation
+- Structured results and progress hooks — no silent crashes
 
 ## The alternatives
 

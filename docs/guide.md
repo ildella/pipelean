@@ -15,30 +15,46 @@ Pipelean provides four main tools, grouped by **data flow direction** (horizonta
 
 ## Features
 
-#### Series / Scan / Filter
+#### Iterations: series / scan / filter
 
 * **Error Strategies**
-  -  **Fail Fast:** Stops execution immediately upon the first error.
-  -  **Collect:** Gathers all errors and continues processing until the end.
+  - Built-in and first-class.
+  - see [errors.md](./errors.md)
 
 * **Universal Input**
-  -  Works on Arrays, Streams, Generators, and any Async Iterable.
+  - Works on Arrays, Streams, Generators, and any Async Iterable.
 
 * **Universal Mapper**
-  -  Handles both Synchronous and Asynchronous mapper functions automatically.
+  - Handles both Synchronous and Asynchronous mapper functions automatically.
 
 * **Structured Results**
-  -  Always returns a predictable object: `{ results, errors, failure }`.
-  -  Errors are treated as data, removing the need for consumer-side `try/catch` blocks.
+  - Always returns a predictable object: `{ results, errors, failure }`.
+  - Errors are treated as data, removing the need for consumer-side `try/catch` blocks.
 
 * **Order Guarantee**
-  -  Because execution is sequential, output order strictly matches input order (no race conditions).
+  - Because execution is sequential, output order strictly matches input order (no race conditions).
 
 *  **Termination Control (`take`)**
-  -  Allows processing a subset of data (e.g., "process only the first N items").
-  -  Essential for working with infinite generators or streams.
+  - Allows processing a subset of data (e.g., "process only the first N items").
+  - Essential for working with infinite generators or streams.
 
-### Wrappers
+#### Composition: pipe
+
+Combine multiple filter predicates into a single reusable filter:
+
+```js
+import { filter, pipe } from 'pipelean'
+
+const isValid = pipe(
+  (user) => user.age >= 18,
+  (user) => user.email.includes('@'),
+  (user) => !user.blocked
+)
+
+const adults = await filter(isValid, users)
+```
+
+#### Wrappers
 
 Pipelean also provides lightweight wrappers that add behavior to **individual functions**. These act as reusable middleware / lifecycle hooks and compose naturally with `pipe`.
 

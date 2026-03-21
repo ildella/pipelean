@@ -16,11 +16,10 @@
 ### Error strategies
 
 - [failFast](#failfast) - Error Strategy Identifier
-- [fail](#fail) - Error Strategy Alias
-- [collect](#collect) - Error Strategy Identifier
+  + aliases: `stopOnError`, `fail`
 - [failLate](#faillate) - Error Strategy Identifier
+- [collect](#collect) - Error Strategy Identifier
 - [skip](#skip) - Error Strategy Identifier
-- [stopOnError](#stoponerror) - Error Strategy Alias
 
 ### Iterators
 
