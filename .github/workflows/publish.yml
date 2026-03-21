@@ -22,7 +22,6 @@ jobs:
         with:
           node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
-          token: ${{ secrets.NPM_TOKEN }}
 
       - name: Enable Corepack
         shell: bash
