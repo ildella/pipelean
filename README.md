@@ -53,6 +53,24 @@ Love reactive streams? → RxJS / most.js
 
 We believe Pipelean is a pragmatic middle path: sequential by design, with built-in error control and resiliency — so you stop rewriting the same boilerplate every time.
 
+## ESLint Plugin
+
+Pipelean ships a small ESLint plugin that flags `.forEach()` and `.reduce()` and suggests the pipelean equivalents. It is a separate entry point — importing it does not pull in the runtime library.
+
+```js
+import pipeleanPlugin from 'pipelean/eslint'
+
+export default [
+  {
+    plugins: { pipelean: pipeleanPlugin },
+    rules: {
+      'pipelean/no-array-foreach': 'warn', // suggests series()
+      'pipelean/no-array-reduce': 'warn',  // suggests scan()
+    },
+  },
+]
+```
+
 ## Documentation
 
   * [Architecture](docs/architecture.md) : The philosophy and design principles.

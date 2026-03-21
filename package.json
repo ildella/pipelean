@@ -24,7 +24,8 @@
     "node": "^22.0.0 || ^24.0.0"
   },
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./eslint": "./src/eslint/index.js"
   },
   "files": [
     "src",
