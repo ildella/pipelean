@@ -23,7 +23,7 @@ test('predicate throws with failFast stops and populates failure', async () => {
   expect(result.errors).toEqual([])
 })
 
-test('predicate throws with default collect continues and collects errors', async () => {
+test('predicate throws with default collect collects errors', async () => {
   const bang = new Error('bang')
   const result = await filter([1, 2, 3, 4], x => {
     if (x === 2 || x === 4)

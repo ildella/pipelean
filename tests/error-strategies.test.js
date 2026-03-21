@@ -184,7 +184,7 @@ test('skip works with filter', async () => {
   expect(result.failure).toBe(null)
 })
 
-test('failLate with series returns all successful results before any error', async () => {
+test('failLate with series returns success before error', async () => {
   const items = [1, 2, 3, 4, 5]
   const fn = item => {
     if (item === 3)

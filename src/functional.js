@@ -225,7 +225,8 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
     }
   }
 
-  const failure = strategy?.name === 'failLate' && errors.length > 0 ? true : null
+  const failure =
+    strategy?.name === 'failLate' && errors.length > 0 ? true : null
 
   if (failure && onFailure) {
     onFailure(true)

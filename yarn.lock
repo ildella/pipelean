@@ -120,7 +120,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@eslint/js@npm:9.39.4":
+"@eslint/js@npm:9.39.4, @eslint/js@npm:^9":
   version: 9.39.4
   resolution: "@eslint/js@npm:9.39.4"
   checksum: 10c0/5aa7dea2cbc5decf7f5e3b0c6f86a084ccee0f792d288ca8e839f8bc1b64e03e227068968e49b26096e6f71fd857ab6e42691d1b993826b9a3883f1bdd7a0e46
@@ -382,7 +382,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@stylistic/eslint-plugin-js@npm:3.1.0":
+"@stylistic/eslint-plugin-js@npm:3.1.0, @stylistic/eslint-plugin-js@npm:^3":
   version: 3.1.0
   resolution: "@stylistic/eslint-plugin-js@npm:3.1.0"
   dependencies:
@@ -900,24 +900,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-nostandard@npm:0.5.0":
-  version: 0.5.0
-  resolution: "eslint-nostandard@npm:0.5.0"
-  peerDependencies:
-    "@eslint/js": ">=9"
-    "@stylistic/eslint-plugin-js": ">=3"
-    "@vitest/eslint-plugin": ">=1"
-    eslint: ">=9"
-    eslint-plugin-svelte: ">=3"
-    globals: ">=15"
-  peerDependenciesMeta:
-    "@vitest/eslint-plugin":
-      optional: true
-    eslint-plugin-svelte:
-      optional: true
-  checksum: 10c0/1f1dc0903216aabe27656580324cb07de1655b9fbddcefadb56e45c4135be7a7bf7f7e7424812835a903ccebb64fe2a4672e0678074787f71b354f75836b57f4
+"eslint-nostandard@portal:/home/della/projects/personal/nostandard::locator=pipelean%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "eslint-nostandard@portal:/home/della/projects/personal/nostandard::locator=pipelean%40workspace%3A."
+  dependencies:
+    "@eslint/js": "npm:^9"
+    "@stylistic/eslint-plugin-js": "npm:^3"
+    globals: "npm:^15"
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "eslint-scope@npm:^8.4.0":
   version: 8.4.0
@@ -1200,7 +1191,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"globals@npm:15.15.0":
+"globals@npm:15.15.0, globals@npm:^15":
   version: 15.15.0
   resolution: "globals@npm:15.15.0"
   checksum: 10c0/f9ae80996392ca71316495a39bec88ac43ae3525a438b5626cd9d5ce9d5500d0a98a266409605f8cd7241c7acf57c354a48111ea02a767ba4f374b806d6861fe
