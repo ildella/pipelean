@@ -42,8 +42,8 @@ We believe Pipelean is a pragmatic middle path: sequential by design, with built
 
   * [Architecture](docs/architecture.md) : The philosophy and design principles.
   * [Guide](docs/guide.md) : Core concepts and usage patterns.
-  + [Examples](../examples.md) - Practical usage examples for all functions
-  + [Reference](docs/reference.md) - Reference docs
+  * [Examples](docs/examples.md) - Practical usage examples for all functions
+  * [Reference](docs/reference.md) - Reference docs
 
 ## Example
 
