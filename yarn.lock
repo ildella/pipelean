@@ -900,15 +900,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-nostandard@portal:/home/della/projects/personal/nostandard::locator=pipelean%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "eslint-nostandard@portal:/home/della/projects/personal/nostandard::locator=pipelean%40workspace%3A."
+"eslint-nostandard@npm:0.6.0":
+  version: 0.6.0
+  resolution: "eslint-nostandard@npm:0.6.0"
   dependencies:
     "@eslint/js": "npm:^9"
     "@stylistic/eslint-plugin-js": "npm:^3"
     globals: "npm:^15"
+  checksum: 10c0/ff55b57831d8e28dbff2fe2bb13c7a15f5800aa041c38f985ce260cb974f852bc68c9371488a7a6f4b137d2feda8c2f94934fba46fddb8f17a23d106d9e5ea5e
   languageName: node
-  linkType: soft
+  linkType: hard
 
 "eslint-scope@npm:^8.4.0":
   version: 8.4.0
@@ -1811,7 +1812,7 @@ __metadata:
     "@stylistic/eslint-plugin-js": "npm:3.1.0"
     "@vitest/eslint-plugin": "npm:1.6.12"
     eslint: "npm:9.39.4"
-    eslint-nostandard: "npm:0.5.0"
+    eslint-nostandard: "npm:0.6.0"
     globals: "npm:15.15.0"
     vitest: "npm:4.1.0"
   languageName: unknown

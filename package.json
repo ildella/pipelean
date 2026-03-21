@@ -46,12 +46,9 @@
     "@stylistic/eslint-plugin-js": "3.1.0",
     "@vitest/eslint-plugin": "1.6.12",
     "eslint": "9.39.4",
-    "eslint-nostandard": "0.5.0",
+    "eslint-nostandard": "0.6.0",
     "globals": "15.15.0",
     "vitest": "4.1.0"
   },
-  "stableVersion": "0.3.0",
-  "resolutions": {
-    "eslint-nostandard": "portal:/home/della/projects/personal/nostandard"
-  }
+  "stableVersion": "0.3.0"
 }
