@@ -15,11 +15,11 @@
 
 ### Error strategies
 
-- [failFast](#failfast) - Error Strategy Identifier
-  + aliases: `stopOnError`, `fail`
+- [failFast](#failfast) - Error Strategy Identifier (aliases: `stopOnError`, `fail`)
 - [failLate](#faillate) - Error Strategy Identifier
 - [collect](#collect) - Error Strategy Identifier
 - [skip](#skip) - Error Strategy Identifier
+- [Callbacks](#callbacks) - Error handling callbacks
 
 ### Iterators
 
@@ -44,85 +44,155 @@
 
 ### failFast
 
-**Purpose**: Error strategy identifier used throughout the library to indicate immediate failure without partial results.
+**Purpose**: Error strategy identifier that stops immediately on the first error.
 
-**Type**: `Object`
+**Alias**: `stopOnError`
 
+**Use when**: Critical operations where failure means the entire pipeline is invalid.
+
+**Behavior**:
+- Sets `failure: {item, error}` on first error
+- Calls `onFailure({item, error})` immediately
+- Stops iteration
+
+**Return Format**: `{results, errors: [], failure: {item, error}}`
+
+**Example**:
 ```javascript
-export const failFast = Object.freeze({name: 'failFast'})
+import {series, failFast} from 'pipelean'
+
+const result = await series([1, 2, 3], async item => {
+  if (item === 2) throw new Error('Error')
+  return item * 2
+}, {strategy: failFast})
+
+// result = {results: [2], errors: [], failure: {item: 2, error: Error(...)}}
 ```
-
-**Usage**: Passed as the `strategy` parameter to iteration functions. Stops immediately on first error and returns a structured failure object containing the failed item and error.
-
----
-
-### fail
-
-**Purpose**: Alias for `failFast` error strategy.
-
-**Type**: `Object`
-
-```javascript
-export const fail = Object.freeze({name: 'failFast'})
-```
-
-**Usage**: Use as a shorthand for `failFast`.
 
 ---
 
 ### collect
 
-**Purpose**: Error strategy identifier used throughout the library to indicate that errors should be gathered and processing should continue.
+**Purpose**: Error strategy identifier that collects all errors and continues processing (default for `series` and `filter`).
 
-**Type**: `Object`
+**Use when**: Batch operations, logging scenarios, background tasks.
 
+**Behavior**:
+- Collects all errors in `errors` array
+- Sets `failure: null`
+- Does NOT call `onFailure`
+
+**Return Format**: `{results, errors: [...], failure: null}`
+
+**Example**:
 ```javascript
-export const collect = Object.freeze({name: 'collect'})
+import {series, collect} from 'pipelean'
+
+const result = await series([1, 2, 3], async item => {
+  if (item === 2 || item === 4) throw new Error('Error')
+  return item * 2
+}, {strategy: collect})
+
+// result = {results: [2, 6], errors: [{item: 2, error: ...}, {item: 4, error: ...}], failure: null}
 ```
-
-**Usage**: Passed as the `strategy` parameter to iteration functions to collect all errors and continue processing.
-
 ---
 
 ### failLate
 
 **Purpose**: Error strategy identifier that collects all errors and returns `failure: true` at the end.
 
-**Type**: `Object`
+**Use when**: Application-layer needs to detect if *any* error occurred.
 
+**Behavior**:
+- Collects all errors in `errors` array
+- Sets `failure: true` after loop completes (only if `errors.length > 0`)
+- Calls `onFailure(true)` if `failure` is truthy
+
+**Return Format**: `{results, errors: [...], failure: true}` (if any errors occurred)
+
+**Example**:
 ```javascript
-export const failLate = Object.freeze({name: 'failLate'})
+import {series, failLate} from 'pipelean'
+
+const result = await series([1, 2, 3], async item => {
+  if (item === 2 || item === 4) throw new Error('Error')
+  return item * 2
+}, {strategy: failLate})
+
+// result = {results: [2, 6], errors: [{item: 2, error: ...}, {item: 4, error: ...}], failure: true}
 ```
-
-**Usage**: Use when the application-layer needs to detect if *any* error occurred, while still collecting all errors.
-
 ---
 
 ### skip
 
 **Purpose**: Error strategy identifier that ignores errors entirely (no collection), but `onError` is still called if present.
 
-**Type**: `Object`
+**Use when**: Best-effort processing, some failures are acceptable.
 
+**Behavior**:
+- Ignores errors (no collection, `errors` stays empty)
+- Sets `failure: null`
+- Does NOT call `onFailure`
+
+**Return Format**: `{results, errors: [], failure: null}`
+
+**Example**:
 ```javascript
-export const skip = Object.freeze({name: 'skip'})
-```
+import {series, skip} from 'pipelean'
 
-**Usage**: Use for best-effort processing where some failures are acceptable.
+const result = await series([1, 2, 3], async item => {
+  if (item === 2) throw new Error('Error')
+  return item * 2
+}, {strategy: skip})
+
+// result = {results: [2, 6], errors: [], failure: null}
+```
 
 ---
 
-### stopOnError
+## Callbacks
 
-**Purpose**: Alias for `failFast` error strategy.
+### onError
 
-**Type**: `Object`
+Optional callback for verification/telemetry (logging, metrics).
+
+- Called for **every** error
+- Does NOT affect control flow
+- Use for: logging, metrics, external error reporting
 
 ```javascript
-export const stopOnError = Object.freeze({name: 'failFast'})
+await series(items, fn, {
+  strategy: skip,
+  onError: (error) => console.error('Error:', error.message) // Called for each error
+})
 ```
 
-**Usage**: Use as a shorthand for `failFast` with a more descriptive name.
+---
+
+### onFailure
+
+Optional callback for application-layer error handling (UI updates, notifications).
+
+- Called when `failure` is truthy
+- Depends on strategy:
+  - `failFast`: called with `{item, error}`
+  - `failLate`: called with `true`
+  - `collect` / `skip`: NOT called (failure is null)
+
+```javascript
+await series(items, fn, {
+  strategy: failFast,
+  onFailure: (failure) => {
+    if (failure === true) {
+      // failLate: show general error notification
+      showToast('Some items failed')
+    } else {
+      // failFast: show specific error with item
+      showToast(`Item ${failure.item} failed: ${failure.error.message}`)
+    }
+  }
+})
+```
 
 ---
 
@@ -383,7 +453,6 @@ const safeFetch = tryCatch(
 
 ## Related Documentation
 
-- **[errors.md](./errors.md)** - Complete guide to error handling strategies and callbacks
 - **[README.md](../README.md)** - Project overview and philosophy
 - **[guide.md](../guide.md)** - Comprehensive development guide with examples
 - **[examples.md](../examples.md)** - Practical usage examples for all functions

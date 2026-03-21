@@ -13,13 +13,38 @@ Pipelean provides four main tools, grouped by **data flow direction** (horizonta
   3. filter (Horizontal / Stateless selection)
   4. pipe (Vertical / Composition)
 
+## Error Strategies
+
+All iteration functions (`series`, `filter`, `scan`) support four error strategies:
+
+**failFast** (aliases: `fail`, `stopOnError`)
+- Sets `failure: {item, error}` on first error
+- Calls `onFailure({item, error})` immediately
+- Stops iteration
+
+**failLate**
+- Collects all errors in `errors` array
+- Sets `failure: true` after loop completes (only if `errors.length > 0`)
+- Calls `onFailure(true)` if `failure` is truthy
+
+**collect** (default for `series` and `filter`)
+- Collects all errors in `errors` array
+- Sets `failure: null`
+- Does NOT call `onFailure`
+
+**skip**
+- Ignores errors (no collection, `errors` stays empty)
+- Sets `failure: null`
+- Does NOT call `onFailure`
+
+---
+
 ## Features
 
 #### Iterations: series / scan / filter
 
 * **Error Strategies**
-  - Built-in and first-class.
-  - see [errors.md](./errors.md)
+  - Built-in and first-class (see [Error Strategies](#error-strategies) above)
 
 * **Universal Input**
   - Works on Arrays, Streams, Generators, and any Async Iterable.
@@ -66,8 +91,19 @@ Pipelean also provides lightweight wrappers that add behavior to **individual fu
   - Works standalone or inside `series`/`scan`/`pipe`  
   - Ideal for centralized error reporting (Sentry, UI toasts, metrics) even outside pipelines  
 
-- **`retry(fn, options?)`**  
-  Specialized for automatic retries  
+- **`retry(fn, options?)`**
+  Specialized for automatic retries
   - Configurable: times, delay
-  - Retries only on specified errors (or all by default)  
+  - Retries only on specified errors (or all by default)
   - Composes cleanly in `pipe` chains (e.g. retry network calls but not validation)
+
+---
+
+## Key Principles
+
+1. **`onError` ≠ error strategy**: `onError` is a callback, not a strategy
+2. **`failure` is truthy for**: `failFast` ({item, error}) and `failLate` (true)
+3. **`failure` is null for**: `collect` and `skip`
+4. **Strategy selection**: Choose based on whether failures are acceptable
+
+Check out [patterns.md](./patterns.md).
