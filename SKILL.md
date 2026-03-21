@@ -11,7 +11,6 @@ A pragmatic library for sequential async operations with first-class error strat
 
 ## References
 
-  * [Architecture](docs/architecture.md) : The philosophy and design principles.
   * [Guide](docs/guide.md) : Core concepts and usage patterns.
   * [Examples](docs/examples.md) : Practical usage examples for all functions
   * [Reference](docs/reference.md) : Reference docs for each function
