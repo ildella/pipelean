@@ -264,3 +264,6 @@ export async function * safeAsyncIterator (iterable, transform, {
 }
 
 export const collectAsync = iterator => series(iterator, x => x)
+
+export const where = pattern => item =>
+  Object.entries(pattern).every(([key, value]) => item[key] === value)
