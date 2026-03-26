@@ -53,6 +53,9 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
     throw lastError
   }
 
+export const where = pattern => item =>
+  Object.entries(pattern).every(([key, value]) => item[key] === value)
+
 export const series = (...args) => {
   const immediate = typeof args[0] !== 'function'
   const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
@@ -120,14 +123,17 @@ export const series = (...args) => {
   return immediate ? run(items) : run
 }
 
-export const where = pattern => item =>
-  Object.entries(pattern).every(([key, value]) => item[key] === value)
-
 export const filter = (...args) => {
-  const isPattern = x => x !== null && typeof x === 'object' && !Array.isArray(x)
+  const isPattern = x => x !== null &&
+    typeof x === 'object' &&
+    !Array.isArray(x)
   const toPredicate = x => isPattern(x) ? where(x) : x
   const immediate = typeof args[0] !== 'function' && !isPattern(args[0])
-  const [items, rawPredicate, opts] = immediate ? args : [null, args[0], args[1]]
+  const [
+    items,
+    rawPredicate,
+    opts,
+  ] = immediate ? args : [null, args[0], args[1]]
   const predicate = toPredicate(rawPredicate)
 
   // eslint-disable-next-line complexity, max-statements
