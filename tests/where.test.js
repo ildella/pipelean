@@ -57,3 +57,26 @@ test('works with curried filter', async () => {
   const result = await keepFs(libs)
   expect(result.results).toEqual([{type: 'filesystem', name: 'a'}])
 })
+
+test('filter accepts plain object as predicate — immediate', async () => {
+  const libs = [
+    {type: 'filesystem', name: 'a'},
+    {type: 'network', name: 'b'},
+    {type: 'filesystem', name: 'c'},
+  ]
+  const result = await filter(libs, {type: 'filesystem'})
+  expect(result.results).toEqual([
+    {type: 'filesystem', name: 'a'},
+    {type: 'filesystem', name: 'c'},
+  ])
+})
+
+test('filter accepts plain object as predicate — curried', async () => {
+  const libs = [
+    {type: 'filesystem', name: 'a'},
+    {type: 'network', name: 'b'},
+  ]
+  const keepFs = filter({type: 'filesystem'})
+  const result = await keepFs(libs)
+  expect(result.results).toEqual([{type: 'filesystem', name: 'a'}])
+})
