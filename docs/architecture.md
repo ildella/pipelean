@@ -1,6 +1,13 @@
 # Design Principles & Architecture
 
-Pragmatism Over Purity.
+## Core motivations
+
+1) do NOT swallow errors and inconsistencies during arrays sync and async operations
+2) avoid boilerplate error management (and BAD error management) 
+
+Point number one includes *thrown errors* as well as JavaScript *built-in inconsistencies*: undefined and null.
+
+## Pragmatism Over Purity.
 
 We built this library to be a practical tool for executing tasks.
 
