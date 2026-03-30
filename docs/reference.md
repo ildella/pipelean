@@ -285,41 +285,34 @@ const { results, errors } = await scan(
 
 ### filter
 
-**Purpose**: Stateless selection tool - filters items from an iterable based on a predicate function.
+**Purpose**: Stateless selection tool - filters items from an iterable based on a predicate function. Delegates to `series` internally: the predicate is converted to a transform that returns the original item (keep) or `undefined` (drop).
 
-**Type**: `(...args) => filteredItems | filterFunction`
+**Type**: `(...args) => Promise<Outcome> | filterFunction`
 
 **Parameters**:
-- First argument (optional): If a function, specifies `take`
-- Remaining arguments: Items to filter
-- If first arg is NOT a function: Treated as `iterable` and processed with `take` strategy
+- `predicate`: A function `(item, index) => truthy | falsy`, or a plain object pattern (converted via `where()`)
+- `items`: The iterable to filter (immediate mode)
+- `opts` (optional): Options passed through to `series`
 
-**Options**:
-- `strategy`: Error strategy object (`failFast`, `collect`, `failLate`, `skip`, or aliases)
-- `onError`: Optional callback called for each error
-- `onFailure`: Optional callback called when `failure` is truthy (failFast: `{item, error}`, failLate: `true`)
-- `take`: Optional number of items to collect
+**Options**: Same as `series` — `strategy`, `onError`, `onFailure`, `take`, `onProgress`.
 
-**Return Type**: Returns `{ results, errors, failure }` object (defaults to `collect`):
-- With `collect` (default): `{ results, errors: [...], failure: null }`
-- With `failFast`: `{ results, errors: [], failure: { item, error } }`
-- With `failLate`: `{ results, errors: [...], failure: true }`
-- With `skip`: `{ results, errors: [], failure: null }`
+**Return Type**: `{ results, errors, failure }` — same shape as `series`:
+- `results`: Original items where the predicate returned truthy
+- `failure`: `false` on success (no errors), `{item, error}` for `failFast`, `true` for `failLate`
+
+**Key Characteristics**:
+- The predicate's return value is never placed into `results` — only truthiness is checked, and the original `item` is what gets kept or dropped.
+- Pattern objects are supported: `filter({active: true}, users)` works via `where()`.
 
 **Usage Example**:
 ```javascript
-import { filter, failFast } from './functional.js'
+import { filter } from 'pipelean'
 
-// Filter valid emails from a list (default is collect)
-const validEmails = await filter(
-  async (email) => {
-    return email.includes('@')
-  },
-  emails,
-  {
-    strategy: failFast  // Override default to stop on first invalid email
-  }
+const adults = await filter(
+  user => user.age >= 18,
+  users,
 )
+// result.results = [user1, user3, ...] — original items, not predicate output
 ```
 
 ---
@@ -343,6 +336,7 @@ const validEmails = await filter(
 - Output of one function becomes input to the next
 - Supports both synchronous and asynchronous functions
 - Natural data flow from input through transformations
+- **Undefined Short-Circuit**: If any step returns `undefined`, remaining steps are skipped and `undefined` is returned. This enables selection (filtering) within a composed pipe — see [series](#series) drop behavior.
 
 **Usage Example**:
 ```javascript
@@ -366,6 +360,18 @@ const result = await pipe(
 ```
 
 **Best Practice**: Use `pipe()` when you need to chain operations that form a coherent data processing pipeline.
+
+**Selection in pipe** (via undefined short-circuit):
+```javascript
+import { pipe, series } from 'pipelean'
+
+// Merge filter and transform in a single operation
+const result = await series(items, pipe(
+  x => x.active ? x : undefined,  // drop inactive items
+  x => x.name,                     // extract name
+))
+// Items where active is false are skipped entirely
+```
 
 ---
 

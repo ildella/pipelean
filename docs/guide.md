@@ -79,6 +79,18 @@ const isValid = pipe(
 const adults = await filter(isValid, users)
 ```
 
+**Undefined Short-Circuit**: When any step returns `undefined`, remaining steps are skipped and `undefined` propagates out. Combined with `series` (which drops items when the operation returns `undefined`), this merges transformation and selection in a single pass:
+
+```js
+import { series, pipe } from 'pipelean'
+
+const result = await series(numbers, pipe(
+  x => x % 2 === 0 ? x : undefined, // select: drop odds
+  x => x * 2,                        // transform: double
+))
+// result.results = [4, 8, 12] from inputs [2, 4, 6]
+```
+
 #### Wrappers
 
 Pipelean also provides lightweight wrappers that add behavior to **individual functions**. These act as reusable middleware / lifecycle hooks and compose naturally with `pipe`.

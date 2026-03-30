@@ -33,6 +33,5 @@ The vocabulary we have established for the pipelean project:
        
   * Operation: The function passed to an iterator (like series). It can be a simple function or a composed function (pipe).
   * Transform (Mapping): An operation that changes the shape or value of an item. (A→B).
-  * Selection (Filtering): An operation that decides whether to keep or drop an item. (A→A or A→∅ 
-  ). In our merged model, this is signaled by returning undefined.
+  * Selection (Filtering): An operation that decides whether to keep or drop an item. (A→A or A→∅). In our merged model, this is signaled by returning undefined.
   * Outcome: The structural result returned by iterators: {results, errors, failure}.

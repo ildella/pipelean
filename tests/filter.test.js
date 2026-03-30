@@ -3,12 +3,12 @@ import {filter} from '$src/functional'
 
 test('predicate truthy keeps item in results', async () => {
   const result = await filter([1, 2, 3, 4], x => x > 2)
-  expect(result).toEqual({results: [3, 4], errors: [], failure: null})
+  expect(result).toEqual({results: [3, 4], errors: [], failure: false})
 })
 
 test('predicate falsy excludes item without error', async () => {
   const result = await filter([1, 2, 3], () => false)
-  expect(result).toEqual({results: [], errors: [], failure: null})
+  expect(result).toEqual({results: [], errors: [], failure: false})
 })
 
 test('predicate throws with failFast stops and populates failure', async () => {
@@ -31,7 +31,7 @@ test('predicate throws with default collect collects errors', async () => {
     return true
   })
   expect(result.results).toEqual([1, 3])
-  expect(result.failure).toBe(null)
+  expect(result.failure).toBe(false)
   expect(result.errors).toEqual([
     {item: 2, error: bang},
     {item: 4, error: bang},
@@ -51,10 +51,10 @@ test('curried form returns a function', () => {
 test('curried form executes when called with items', async () => {
   const evens = filter(x => x % 2 === 0)
   const result = await evens([1, 2, 3, 4])
-  expect(result).toEqual({results: [2, 4], errors: [], failure: null})
+  expect(result).toEqual({results: [2, 4], errors: [], failure: false})
 })
 
 test('empty array returns empty result shape', async () => {
   const result = await filter([], () => true)
-  expect(result).toEqual({results: [], errors: [], failure: null})
+  expect(result).toEqual({results: [], errors: [], failure: false})
 })
