@@ -25,13 +25,13 @@ We prefer Explicit Results over Lazy Iterables. When you run series or scan, the
 
 The vocabulary we have established for the pipelean project: 
 
-  * Iteration (Horizontal): The process of traversing a list of items one by one. This is the "width" of the process.
+  * **Iteration** (Horizontal): The process of traversing a list of items one by one. This is the "width" of the process.
        Implementations: series, scan, filter.
        
-  * Composition (Vertical): The process of chaining functions together to run sequentially on a single item. This is the "depth" of the process.
+  * **Composition** (Vertical): The process of chaining functions together to run sequentially on a single item. This is the "depth" of the process.
        Implementation: pipe.
        
-  * Operation: The function passed to an iterator (like series). It can be a simple function or a composed function (pipe).
-  * Transform (Mapping): An operation that changes the shape or value of an item. (A→B).
-  * Selection (Filtering): An operation that decides whether to keep or drop an item. (A→A or A→∅). In our merged model, this is signaled by returning undefined.
-  * Outcome: The structural result returned by iterators: {results, errors, failure}.
+  * **Operation**: The function passed to an iterator (like series). It can be a simple function or a composed function (pipe).
+    - *Transform* (Mapping): An operation that changes the shape or value of an item. (A→B).
+    - *Selection* (Filtering): An operation that decides whether to keep or drop an item. (A→A or A→∅). In our merged model, this is signaled by returning undefined.
+  * **Outcome**: The structural result returned by iterators: {results, errors, failure}.
