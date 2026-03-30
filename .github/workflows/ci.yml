@@ -1,8 +1,8 @@
-name: CI
+name: Code Check
 
 on:
   push:
-    branches: [master, upgrade-test-newrules-reorg]
+    branches: [master]
   pull_request:
     branches: [master]
 
