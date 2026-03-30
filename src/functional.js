@@ -79,7 +79,7 @@ export const series = (...args) => {
     })
 
     let index = 0
-    let failure = null
+    let failure = false
 
     for await (const item of inputItems) {
       // eslint-disable-next-line no-undefined
@@ -90,7 +90,7 @@ export const series = (...args) => {
         const result = await safeFn(item, index)
         results.push(result)
       } catch (error) {
-        const strategyName = strategy?.name ?? strategy
+        const strategyName = strategy.name ?? strategy
 
         if (strategyName === 'failFast') {
           if (onFailure) {
@@ -111,7 +111,7 @@ export const series = (...args) => {
       index++
     }
 
-    failure = strategy?.name === 'failLate' && errors.length > 0 ? true : null
+    failure = !!(strategy.name === 'failLate' && errors.length > 0)
 
     if (failure && onFailure) {
       onFailure(true)
@@ -163,7 +163,7 @@ export const filter = (...args) => {
           results.push(item)
         }
       } catch (error) {
-        const strategyName = strategy?.name ?? strategy
+        const strategyName = strategy.name ?? strategy
 
         if (onErrorParam) {
           await onErrorParam(error)
@@ -187,7 +187,7 @@ export const filter = (...args) => {
       index++
     }
 
-    failure = strategy?.name === 'failLate' && errors.length > 0 ? true : null
+    failure = strategy.name === 'failLate' && errors.length > 0 ? true : null
 
     if (failure && onFailure) {
       onFailure(true)
@@ -211,7 +211,7 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
       acc = await scanner(acc, item)
       results.push(acc)
     } catch (error) {
-      const strategyName = strategy?.name ?? strategy
+      const strategyName = strategy.name ?? strategy
 
       if (onError) {
         await onError(error)
@@ -238,7 +238,7 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   }
 
   const failure =
-    strategy?.name === 'failLate' && errors.length > 0 ? true : null
+    strategy.name === 'failLate' && errors.length > 0 ? true : null
 
   if (failure && onFailure) {
     onFailure(true)
