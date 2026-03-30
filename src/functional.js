@@ -137,73 +137,18 @@ export const filter = (...args) => {
     !Array.isArray(x)
   const toPredicate = x => isPattern(x) ? where(x) : x
   const immediate = typeof args[0] !== 'function' && !isPattern(args[0])
-  const [
-    items,
-    rawPredicate,
-    opts,
-  ] = immediate ? args : [null, args[0], args[1]]
+  const [items, rawPredicate, opts] = immediate
+    ? args
+    : [null, args[0], args[1]]
   const predicate = toPredicate(rawPredicate)
 
-  // eslint-disable-next-line complexity, max-statements
-  const run = async inputItems => {
-    const {
-      strategy = collect,
-      onError: onErrorParam,
-      take,
-      onFailure,
-    } = opts || {}
-
-    const results = []
-    const errors = []
-
-    let index = 0
-    let failure = null
-
-    for await (const item of inputItems) {
-      // eslint-disable-next-line no-undefined
-      if (take !== undefined && results.length >= take) {
-        break
-      }
-
-      try {
-        const keep = await predicate(item, index)
-        if (keep) {
-          results.push(item)
-        }
-      } catch (error) {
-        const strategyName = strategy.name ?? strategy
-
-        if (onErrorParam) {
-          await onErrorParam(error)
-        }
-
-        if (strategyName === 'failFast') {
-          if (onFailure) {
-            onFailure({item, error})
-          }
-          return {results, errors, failure: {item, error}}
-        }
-
-        if (strategyName === 'skip') {
-          index++
-          continue
-        }
-
-        errors.push({item, error})
-      }
-
-      index++
-    }
-
-    failure = strategy.name === 'failLate' && errors.length > 0 ? true : null
-
-    if (failure && onFailure) {
-      onFailure(true)
-    }
-
-    return {results, errors, failure}
+  const transform = async (item, index) => {
+    const keep = await predicate(item, index)
+    // eslint-disable-next-line no-undefined
+    return keep ? item : undefined
   }
 
+  const run = inputItems => series(inputItems, transform, opts)
   return immediate ? run(items) : run
 }
 
