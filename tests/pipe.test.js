@@ -28,6 +28,19 @@ test('propagates errors', async () => {
   await expect(pipeline(1)).rejects.toThrow('pipe broke')
 })
 
+test('short-circuits on undefined', async () => {
+  let called = false
+  const result = await pipe(
+    () => undefined,
+    () => {
+      called = true
+      return 'should not reach'
+    },
+  )(1)
+  expect(result).toBeUndefined()
+  expect(called).toBe(false)
+})
+
 test('passes result through async chain', async () => {
   const result = await pipe(
     x => Promise.resolve(x + 1),

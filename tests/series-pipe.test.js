@@ -49,29 +49,29 @@ test('curried functions inside the pipe', async () => {
   })
 })
 
-// test('mixed mapping and filtering logic within a pipe', async () => {
-//   const items = [1, 2, 3, 4, 5, 6]
+test(
+  'filter after transform in a pipe (short-circuit mid-pipe)',
+  async () => {
+    const items = [1, 2, 3, 4, 5, 6]
 
-//   // This simulates the "Merge": mapping AND selecting in one pass
-//   // Logic: Double it, then filter out odd numbers, then increment
-//   // 1 -> 2 (drop)
-//   // 2 -> 4 -> 5
-//   // 3 -> 6 -> 7
-//   // 4 -> 8 -> 9
-//   const operation = pipe(
-//     double,
-//     x => isEven(x) ? x : undefined, // Manual inline "filter"
-//     increment
-//   )
+    // NOTE: double(n) is always even for integers, so the
+    // filter step (drop odds) is a no-op here.
+    // 1->2->3, 2->4->5, 3->6->7, 4->8->9, 5->10->11, 6->12->13
+    const operation = pipe(
+      double,
+      x => isEven(x) ? x : undefined,
+      increment,
+    )
 
-//   const result = await series(items, operation)
+    const result = await series(items, operation)
 
-//   expect(result).toEqual({
-//     results: [5, 7, 9], // Derived from inputs 2, 3, 4
-//     errors: [],
-//     failure: false,
-//   })
-// })
+    expect(result).toEqual({
+      results: [3, 5, 7, 9, 11, 13],
+      errors: [],
+      failure: false,
+    })
+  },
+)
 
 test('mixed mapping and filtering logic within a pipe', async () => {
   const items = [1, 2, 3, 4, 5, 6]
@@ -89,7 +89,7 @@ test('mixed mapping and filtering logic within a pipe', async () => {
   const result = await series(items, operation)
 
   expect(result).toEqual({
-    results: [5, 9, 13], // Derived from inputs 2, 4, 6
+    results: [5, 9, 13], // inputs: 2, 4, 6
     errors: [],
     failure: false,
   })

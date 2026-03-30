@@ -88,8 +88,10 @@ export const series = (...args) => {
 
       try {
         const result = await safeFn(item, index)
-        // Why the next line: If the operation (or pipe) returns undefined, we drop the item.
-        // It is a temporary hack: we should collect drops as we do for errors.
+        // Why the next line:
+        // If the operation (or pipe) returns undefined, we drop the item.
+        // Is this a temporary hack?
+        // Should we collect drops as we do for errors.
         if (result !== undefined) {
           results.push(result)
         }
@@ -252,7 +254,11 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
 }
 
 export const pipe = (...fns) => input =>
-  fns.reduce(async (acc, fn) => fn(await acc), input)
+  fns.reduce(async (acc, fn) => {
+    const value = await acc
+    // eslint-disable-next-line no-undefined
+    return value === undefined ? undefined : fn(value)
+  }, input)
 
 export const compose = pipe
 
