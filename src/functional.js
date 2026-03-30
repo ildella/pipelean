@@ -138,7 +138,8 @@ export const filter = (...args) => {
   const toPredicate = x => isPattern(x) ? where(x) : x
   const immediate = typeof args[0] !== 'function' && !isPattern(args[0])
   const [items, rawPredicate, opts] = immediate
-    ? args : [null, args[0], args[1]]
+    ? args
+    : [null, args[0], args[1]]
   const predicate = toPredicate(rawPredicate)
 
   const transform = async (item, index) => {
@@ -147,7 +148,7 @@ export const filter = (...args) => {
     return keep ? item : undefined
   }
 
-  const run = async inputItems => series(inputItems, transform, opts)
+  const run = inputItems => series(inputItems, transform, opts)
   return immediate ? run(items) : run
 }
 
