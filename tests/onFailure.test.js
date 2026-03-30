@@ -70,7 +70,7 @@ test('onFailure called for failLate with true', async () => {
   expect(result.errors).toHaveLength(2)
 })
 
-test('onFailure NOT called for collect (failure: null)', async () => {
+test('onFailure NOT called for collect (failure: false)', async () => {
   const onFailure = vi.fn()
   const items = [1, 2, 3]
 
@@ -80,12 +80,12 @@ test('onFailure NOT called for collect (failure: null)', async () => {
   })
 
   expect(onFailure).not.toHaveBeenCalled()
-  expect(result.failure).toBe(null)
+  expect(result.failure).toBe(false)
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(1)
 })
 
-test('onFailure NOT called for skip (failure: null)', async () => {
+test('onFailure NOT called for skip (failure: false)', async () => {
   const onFailure = vi.fn()
   const items = [1, 2, 3]
 
@@ -95,7 +95,7 @@ test('onFailure NOT called for skip (failure: null)', async () => {
   })
 
   expect(onFailure).not.toHaveBeenCalled()
-  expect(result.failure).toBe(null)
+  expect(result.failure).toBe(false)
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(0)
 })
@@ -172,7 +172,7 @@ test('onFailure works with scan', async () => {
 
 test('Application-layer wrapper with default onFailure', async () => {
   // Simulating an application-layer wrapper
-  let lastFailure = null
+  let lastFailure = false
 
   const withDefaultOnFailure = (fn, opts) => ({
     ...opts,
@@ -214,9 +214,9 @@ test('onFailure with skip strategy still allows onError', async () => {
   expect(onError).toHaveBeenCalledTimes(1)
   expect(onError).toHaveBeenCalledWith(new Error('Error at 2'))
 
-  // onFailure should NOT be called (failure is null)
+  // onFailure should NOT be called (failure is false)
   expect(onFailure).not.toHaveBeenCalled()
-  expect(result.failure).toBe(null)
+  expect(result.failure).toBe(false)
   expect(result.errors).toHaveLength(0)
   expect(result.results).toEqual([2, 6])
 })

@@ -200,7 +200,7 @@ test('failLate with series returns success before error', async () => {
   expect(result.failure).toBe(true)
 })
 
-test('collect strategy still works (failure: null)', async () => {
+test('collect strategy still works (failure: false)', async () => {
   const items = [1, 2, 3]
   const fn = item => {
     if (item === 2)

@@ -60,7 +60,7 @@ export const series = (...args) => {
   const immediate = typeof args[0] !== 'function'
   const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
 
-  // eslint-disable-next-line complexity
+  // eslint-disable-next-line complexity, max-statements
   const run = async inputItems => {
     const {
       strategy = collect,
@@ -88,7 +88,11 @@ export const series = (...args) => {
 
       try {
         const result = await safeFn(item, index)
-        results.push(result)
+        // Why the next line: If the operation (or pipe) returns undefined, we drop the item.
+        // It is a temporary hack: we should collect drops as we do for errors.
+        if (result !== undefined) {
+          results.push(result)
+        }
       } catch (error) {
         const strategyName = strategy.name ?? strategy
 
