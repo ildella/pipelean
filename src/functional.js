@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
 export const failLate = Object.freeze({name: 'failLate'})
@@ -92,6 +93,7 @@ export const series = (...args) => {
         // If the operation (or pipe) returns undefined, we drop the item.
         // Is this a temporary hack?
         // Should we collect drops as we do for errors.
+        // eslint-disable-next-line no-undefined
         if (result !== undefined) {
           results.push(result)
         }
