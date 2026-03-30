@@ -83,7 +83,6 @@ export const series = (...args) => {
     let failure = false
 
     for await (const item of inputItems) {
-      // eslint-disable-next-line no-undefined
       if (take !== undefined && index >= take)
         break
 
@@ -93,7 +92,7 @@ export const series = (...args) => {
         // If the operation (or pipe) returns undefined, we drop the item.
         // Is this a temporary hack?
         // Should we collect drops as we do for errors.
-        // eslint-disable-next-line no-undefined
+
         if (result !== undefined) {
           results.push(result)
         }
@@ -144,7 +143,7 @@ export const filter = (...args) => {
 
   const transform = async (item, index) => {
     const keep = await predicate(item, index)
-    // eslint-disable-next-line no-undefined
+
     return keep ? item : undefined
   }
 
@@ -203,7 +202,7 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
 export const pipe = (...fns) => input =>
   fns.reduce(async (acc, fn) => {
     const value = await acc
-    // eslint-disable-next-line no-undefined
+
     return value === undefined ? undefined : fn(value)
   }, input)
 
