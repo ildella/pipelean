@@ -231,5 +231,3 @@ export async function * safeAsyncIterator (iterable, transform, {
     }
   }
 }
-
-export const collectAsync = iterator => series(iterator, x => x)
