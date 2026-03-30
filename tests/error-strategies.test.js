@@ -76,7 +76,7 @@ test('failLate: no errors returns failure: null', async () => {
 
   expect(result.results).toEqual([2, 4, 6])
   expect(result.errors).toHaveLength(0)
-  expect(result.failure).toBe(null)
+  expect(result.failure).toBe(false)
 })
 
 test('skip: ignores errors without collection', async () => {
@@ -91,7 +91,7 @@ test('skip: ignores errors without collection', async () => {
 
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(0)
-  expect(result.failure).toBe(null)
+  expect(result.failure).toBe(false)
 })
 
 test('skip: calls onError if present', async () => {
@@ -113,7 +113,7 @@ test('skip: calls onError if present', async () => {
   expect(onErrorCalls[0]).toEqual(new Error('Error at 2'))
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(0)
-  expect(result.failure).toBe(null)
+  expect(result.failure).toBe(false)
 })
 
 test('fail alias works as failFast in series', async () => {
@@ -181,7 +181,7 @@ test('skip works with filter', async () => {
 
   expect(result.results).toEqual([]) // 2 and 4 failed
   expect(result.errors).toHaveLength(0)
-  expect(result.failure).toBe(null)
+  expect(result.failure).toBe(false)
 })
 
 test('failLate with series returns success before error', async () => {
@@ -200,7 +200,7 @@ test('failLate with series returns success before error', async () => {
   expect(result.failure).toBe(true)
 })
 
-test('collect strategy still works (failure: null)', async () => {
+test('collect strategy still works (failure: false)', async () => {
   const items = [1, 2, 3]
   const fn = item => {
     if (item === 2)
@@ -212,5 +212,5 @@ test('collect strategy still works (failure: null)', async () => {
 
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(1)
-  expect(result.failure).toBe(null)
+  expect(result.failure).toBe(false)
 })

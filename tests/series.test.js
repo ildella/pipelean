@@ -3,7 +3,7 @@ import {series, collect} from '$src/functional'
 
 test('all items succeed returns results with no errors', async () => {
   const result = await series([1, 2, 3], x => x * 2)
-  expect(result).toEqual({results: [2, 4, 6], errors: [], failure: null})
+  expect(result).toEqual({results: [2, 4, 6], errors: [], failure: false})
 })
 
 test('failFast stops on first error with partial results', async () => {
@@ -27,7 +27,7 @@ test('collect continues past errors same as skip', async () => {
   }, {strategy: collect})
   expect(result.results).toEqual([10, 30])
   expect(result.errors).toEqual([{item: 2, error: bang}])
-  expect(result.failure).toBeNull()
+  expect(result.failure).toBe(false)
 })
 
 test('async mapping functions work', async () => {
@@ -46,7 +46,7 @@ test('passes index as second arg to fn', async () => {
 
 test('empty array returns empty result shape', async () => {
   const result = await series([], x => x)
-  expect(result).toEqual({results: [], errors: [], failure: null})
+  expect(result).toEqual({results: [], errors: [], failure: false})
 })
 
 test('curried form returns a function', () => {
@@ -57,5 +57,5 @@ test('curried form returns a function', () => {
 test('curried form executes when called with items', async () => {
   const double = series(x => x * 2)
   const result = await double([1, 2, 3])
-  expect(result).toEqual({results: [2, 4, 6], errors: [], failure: null})
+  expect(result).toEqual({results: [2, 4, 6], errors: [], failure: false})
 })

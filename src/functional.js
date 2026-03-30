@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
 export const failLate = Object.freeze({name: 'failLate'})
@@ -60,7 +61,7 @@ export const series = (...args) => {
   const immediate = typeof args[0] !== 'function'
   const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
 
-  // eslint-disable-next-line complexity
+  // eslint-disable-next-line complexity, max-statements
   const run = async inputItems => {
     const {
       strategy = collect,
@@ -79,7 +80,7 @@ export const series = (...args) => {
     })
 
     let index = 0
-    let failure = null
+    let failure = false
 
     for await (const item of inputItems) {
       // eslint-disable-next-line no-undefined
@@ -88,9 +89,16 @@ export const series = (...args) => {
 
       try {
         const result = await safeFn(item, index)
-        results.push(result)
+        // Why the next line:
+        // If the operation (or pipe) returns undefined, we drop the item.
+        // Is this a temporary hack?
+        // Should we collect drops as we do for errors.
+        // eslint-disable-next-line no-undefined
+        if (result !== undefined) {
+          results.push(result)
+        }
       } catch (error) {
-        const strategyName = strategy?.name ?? strategy
+        const strategyName = strategy.name ?? strategy
 
         if (strategyName === 'failFast') {
           if (onFailure) {
@@ -111,7 +119,7 @@ export const series = (...args) => {
       index++
     }
 
-    failure = strategy?.name === 'failLate' && errors.length > 0 ? true : null
+    failure = !!(strategy.name === 'failLate' && errors.length > 0)
 
     if (failure && onFailure) {
       onFailure(true)
@@ -163,7 +171,7 @@ export const filter = (...args) => {
           results.push(item)
         }
       } catch (error) {
-        const strategyName = strategy?.name ?? strategy
+        const strategyName = strategy.name ?? strategy
 
         if (onErrorParam) {
           await onErrorParam(error)
@@ -187,7 +195,7 @@ export const filter = (...args) => {
       index++
     }
 
-    failure = strategy?.name === 'failLate' && errors.length > 0 ? true : null
+    failure = strategy.name === 'failLate' && errors.length > 0 ? true : null
 
     if (failure && onFailure) {
       onFailure(true)
@@ -211,7 +219,7 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
       acc = await scanner(acc, item)
       results.push(acc)
     } catch (error) {
-      const strategyName = strategy?.name ?? strategy
+      const strategyName = strategy.name ?? strategy
 
       if (onError) {
         await onError(error)
@@ -238,7 +246,7 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   }
 
   const failure =
-    strategy?.name === 'failLate' && errors.length > 0 ? true : null
+    strategy.name === 'failLate' && errors.length > 0 ? true : null
 
   if (failure && onFailure) {
     onFailure(true)
@@ -248,7 +256,11 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
 }
 
 export const pipe = (...fns) => input =>
-  fns.reduce(async (acc, fn) => fn(await acc), input)
+  fns.reduce(async (acc, fn) => {
+    const value = await acc
+    // eslint-disable-next-line no-undefined
+    return value === undefined ? undefined : fn(value)
+  }, input)
 
 export const compose = pipe
 
