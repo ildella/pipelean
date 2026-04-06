@@ -60,9 +60,9 @@ test('curried form executes when called with items', async () => {
   expect(result).toEqual({results: [2, 4, 6], errors: [], failure: false})
 })
 
-test('series with throttle waits between successful items', async () => {
+test('series with pause waits between successful items', async () => {
   const start = Date.now()
-  const result = await series([1, 2, 3], x => x * 2, {throttle: 10})
+  const result = await series([1, 2, 3], x => x * 2, {pause: 10})
   const elapsed = Date.now() - start
   expect(result.results).toEqual([2, 4, 6])
   expect(result.errors).toEqual([])
@@ -70,29 +70,29 @@ test('series with throttle waits between successful items', async () => {
   expect(elapsed).toBeGreaterThanOrEqual(20)
 })
 
-test('series with throttle does NOT wait after errors by default', async () => {
+test('series with pause does NOT wait after errors by default', async () => {
   const start = Date.now()
   const result = await series([1, 2, 3], x => {
     if (x === 2)
       throw new Error('fail')
     return x * 2
-  }, {throttle: 10, strategy: 'collect'})
+  }, {pause: 10, strategy: 'collect'})
   const elapsed = Date.now() - start
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(1)
-  // Should take at least 10ms (only 1 delay, error at 2 skips throttle)
+  // Should take at least 10ms (only 1 delay, error at 2 skips pause)
   expect(elapsed).toBeGreaterThanOrEqual(10)
   // And less than 25ms (no second delay, allowing some system overhead)
   expect(elapsed).toBeLessThan(25)
 })
 
-test('series with throttleOnErrors waits after errors too', async () => {
+test('series with pauseOnErrors waits after errors too', async () => {
   const start = Date.now()
   const result = await series([1, 2, 3], x => {
     if (x === 2)
       throw new Error('fail')
     return x * 2
-  }, {throttle: 10, throttleOnErrors: true, strategy: 'collect'})
+  }, {pause: 10, pauseOnErrors: true, strategy: 'collect'})
   const elapsed = Date.now() - start
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(1)
@@ -101,14 +101,14 @@ test('series with throttleOnErrors waits after errors too', async () => {
 })
 
 test(
-  'series with throttle and skip strategy applies throttle after skip',
+  'series with pause and skip strategy applies pause after skip',
   async () => {
     const start = Date.now()
     const result = await series([1, 2, 3], x => {
       if (x === 2)
         throw new Error('fail')
       return x * 2
-    }, {throttle: 10, strategy: 'skip'})
+    }, {pause: 10, strategy: 'skip'})
     const elapsed = Date.now() - start
     expect(result.results).toEqual([2, 6])
     expect(result.errors).toEqual([]) // skip doesn't collect errors
@@ -118,14 +118,14 @@ test(
 )
 
 test(
-  'series with throttle and failFast does NOT throttle after final error',
+  'series with pause and failFast does NOT pause after final error',
   async () => {
     const start = Date.now()
     const result = await series([1, 2, 3], x => {
       if (x === 2)
         throw new Error('fail')
       return x * 2
-    }, {throttle: 10, strategy: 'failFast'})
+    }, {pause: 10, strategy: 'failFast'})
     const elapsed = Date.now() - start
     expect(result.results).toEqual([2])
     expect(result.failure).toBeTruthy()
@@ -136,12 +136,12 @@ test(
   },
 )
 
-test('series with throttle works with take option', async () => {
+test('series with pause works with take option', async () => {
   const start = Date.now()
   const result = await series(
     [1, 2, 3, 4, 5],
     x => x * 2,
-    {throttle: 10, take: 3},
+    {pause: 10, take: 3},
   )
   const elapsed = Date.now() - start
   expect(result.results).toEqual([2, 4, 6])
@@ -151,12 +151,12 @@ test('series with throttle works with take option', async () => {
   expect(elapsed).toBeLessThan(35)
 })
 
-test('series with no throttle runs immediately', async () => {
+test('series with no pause runs immediately', async () => {
   const result = await series([1, 2, 3], x => x * 2)
   expect(result.results).toEqual([2, 4, 6])
 })
 
-test('series with zero throttle runs immediately', async () => {
-  const result = await series([1, 2, 3], x => x * 2, {throttle: 0})
+test('series with zero pause runs immediately', async () => {
+  const result = await series([1, 2, 3], x => x * 2, {pause: 0})
   expect(result.results).toEqual([2, 4, 6])
 })

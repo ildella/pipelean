@@ -66,7 +66,7 @@ export const series = (...args) => {
   const run = async inputItems => {
     const {
       strategy = collect,
-      take, onProgress, onError, onFailure, throttle, throttleOnErrors = false,
+      take, onProgress, onError, onFailure, pause, pauseOnErrors = false,
     } = opts
     const results = []
     const errors = []
@@ -97,9 +97,9 @@ export const series = (...args) => {
         if (result !== undefined) {
           results.push(result)
         }
-        // Throttle after successful item
-        if (throttle) {
-          await delay(throttle)
+        // Pause after successful item
+        if (pause) {
+          await delay(pause)
         }
       } catch (error) {
         const strategyName = strategy.name ?? strategy
@@ -115,17 +115,17 @@ export const series = (...args) => {
           // Don't collect errors, just continue
           // onError is still called via safeFn
           index++
-          // Throttle after skip (maintain spacing even when skipping)
-          if (throttle) {
-            await delay(throttle)
+          // Pause after skip (maintain spacing even when skipping)
+          if (pause) {
+            await delay(pause)
           }
           continue
         }
 
         errors.push({item, error})
-        // Throttle after error (only if throttleOnErrors is enabled)
-        if (throttle && throttleOnErrors) {
-          await delay(throttle)
+        // Pause after error (only if pauseOnErrors is enabled)
+        if (pause && pauseOnErrors) {
+          await delay(pause)
         }
       }
       index++

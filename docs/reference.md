@@ -222,8 +222,8 @@ await series(items, fn, {
 - `onError`: Optional callback called for each error
 - `onFailure`: Optional callback called when `failure` is truthy (failFast: `{item, error}`, failLate: `true`)
 - `take`: Optional number of items to process
-- `throttle`: Optional number of milliseconds to wait between processing each successful item
-- `throttleOnErrors`: Optional boolean (default: `false`) - Whether to also throttle after errors. When `false`, only successful items trigger the delay.
+- `pause`: Optional number of milliseconds to pause between operations. Acts as a "sequential spacer" — keeping execution strictly sequential where each operation takes the time it needs, and a space is inserted only *after* the operation completes.
+- `pauseOnErrors`: Optional boolean (default: `false`) - Whether to also pause after errors. When `false`, only successful items trigger the delay.
 
 **Usage Example**:
 ```javascript
@@ -244,20 +244,20 @@ const result = await series(
   user.id                               // Pass ID to next step
 )
 
-// Example with throttling for rate-limited APIs
+// Example with a pause for rate-limited APIs
 const result = await series(
   apiEndpoints,
   async endpoint => fetch(endpoint),
-  { throttle: 500 }  // Wait 500ms between each successful request
+  { pause: 500 }  // Wait 500ms between each successful request
 )
 
-// Example with throttling even after errors
+// Example with a pause even after errors
 const result = await series(
   tasks,
   async task => processTask(task),
   {
-    throttle: 100,
-    throttleOnErrors: true,  // Wait even if a task fails
+    pause: 100,
+    pauseOnErrors: true,  // Wait even if a task fails
     strategy: 'collect'
   }
 )
@@ -314,7 +314,7 @@ const { results, errors } = await scan(
 - `items`: The iterable to filter (immediate mode)
 - `opts` (optional): Options passed through to `series`
 
-**Options**: Same as `series` — `strategy`, `onError`, `onFailure`, `take`, `onProgress`, `throttle`, `throttleOnErrors`.
+**Options**: Same as `series` — `strategy`, `onError`, `onFailure`, `take`, `onProgress`, `pause`, `pauseOnErrors`.
 
 **Return Type**: `{ results, errors, failure }` — same shape as `series`:
 - `results`: Original items where the predicate returned truthy
