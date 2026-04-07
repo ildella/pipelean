@@ -57,6 +57,7 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
 export const where = pattern => item =>
   Object.entries(pattern).every(([key, value]) => item[key] === value)
 
+// eslint-disable-next-line max-lines-per-function
 export const series = (...args) => {
   const immediate = typeof args[0] !== 'function'
   const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
@@ -65,7 +66,7 @@ export const series = (...args) => {
   const run = async inputItems => {
     const {
       strategy = collect,
-      take, onProgress, onError, onFailure,
+      take, onProgress, onError, onFailure, pause, pauseOnErrors = false,
     } = opts
     const results = []
     const errors = []
@@ -96,6 +97,10 @@ export const series = (...args) => {
         if (result !== undefined) {
           results.push(result)
         }
+        // Pause after successful item
+        if (pause) {
+          await delay(pause)
+        }
       } catch (error) {
         const strategyName = strategy.name ?? strategy
 
@@ -110,10 +115,18 @@ export const series = (...args) => {
           // Don't collect errors, just continue
           // onError is still called via safeFn
           index++
+          // Pause after skip (maintain spacing even when skipping)
+          if (pause) {
+            await delay(pause)
+          }
           continue
         }
 
         errors.push({item, error})
+        // Pause after error (only if pauseOnErrors is enabled)
+        if (pause && pauseOnErrors) {
+          await delay(pause)
+        }
       }
       index++
     }
