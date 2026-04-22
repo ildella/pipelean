@@ -71,6 +71,29 @@ export default [
 ]
 ```
 
+## AI & Agentic Development
+
+Pipelean is "Agent-Ready." It ships with built-in **Skills** and an **Agent Persona** to help AI assistants (like Claude, Gemini CLI, or Cursor) write better code using this library.
+
+### 1. Install Skills
+
+The easiest way to install the skills is using the Vercel [agent-skills](https://github.com/vercel-labs/skills) CLI:
+
+```sh
+npx skills add https://github.com/ildella/pipelean/tree/refactor-skills-agent/skills
+```
+
+This will install:
+- `pipelean-core`
+- `pipelean-functional-programming`
+
+### 2. (Experimental) using [skills-npm](https://github.com/antfu/skills-npm/)
+
+```sh
+yarn add -D skills-npm
+yarn skills-npm
+```
+
 ## Documentation
 
   * [Architecture](docs/architecture.md) : The philosophy and design principles.

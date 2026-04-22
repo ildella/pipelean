@@ -10,4 +10,4 @@ Checks with `yarn lint` and `yarn test`.
 
 - **[guide.md](docs/guide.md)** - High level guide
 - **[examples.md](../examples.md)** - Practical usage examples for all functions
-- **[functional.md](docs/functional.md)** - Reference docs
+- **[reference.md](docs/reference.md)** - Reference docs
