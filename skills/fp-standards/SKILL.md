@@ -1,6 +1,7 @@
-# Pipelean FP Standards Skill
-
-Use this skill to enforce Pipelean's pragmatic functional programming standards and architectural principles on any codebase.
+---
+name: Pipelean Functional Programming
+description: "General Functional Programming principles and patterns. Use this skill to enforce Pipelean's pragmatic functional programming standards and architectural principles on any codebase."
+---
 
 ## Core Philosophy
 1. **No swallowed errors**: Do not swallow errors or inconsistencies (`undefined`, `null`) during array sync/async operations.
@@ -14,4 +15,3 @@ Use this skill to enforce Pipelean's pragmatic functional programming standards 
 - **Undefined Short-Circuit**: When composing operations (via `pipe`), returning `undefined` signals dropping the item (selection/filtering).
 
 **Documentation**: Read the full architectural philosophy in [docs/architecture.md](../../docs/architecture.md) (or [online](https://github.com/ildella/pipelean/blob/master/docs/architecture.md)).
-

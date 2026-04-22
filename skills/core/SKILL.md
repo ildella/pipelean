@@ -1,6 +1,7 @@
-# Pipelean Core Skill
-
-Use this skill when you need to perform sequential async operations, control flow, error handling, or batch processing using the `pipelean` library.
+---
+name: Pipelean Core
+description: "Pipelean core functionalities for iteration, composition and error management for pure FP in pure Javascript. Use this skill when you need to perform sequential async operations, control flow, error handling, or batch processing using the `pipelean` library"
+---
 
 ## Available Functions
 
@@ -27,4 +28,3 @@ Use this skill when you need to perform sequential async operations, control flo
 - **`skip`**: Ignores errors entirely.
 
 **Documentation**: Read full examples in [docs/reference.md](../../docs/reference.md) (or [online](https://github.com/ildella/pipelean/blob/master/docs/reference.md)).
-
