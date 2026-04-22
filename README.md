@@ -71,6 +71,24 @@ export default [
 ]
 ```
 
+## AI & Agentic Development
+
+Pipelean is "Agent-Ready." It ships with built-in **Skills** and an **Agent Persona** to help AI assistants (like Claude, Gemini CLI, or Cursor) write better code using this library.
+
+### 1. Install Skills
+
+```sh
+npx skills add ildella/pipelean@core
+npx skills add ildella/pipelean@fp-standards
+```
+
+### 2. Use the Agent Persona
+The repository includes \`pipelean-agent.md\`, a model-agnostic system prompt. You can use it to initialize a "Pipelean Architect" session in your favorite AI CLI:
+
+```sh
+gemini -p pipelean-agent.md
+```
+
 ## Documentation
 
   * [Architecture](docs/architecture.md) : The philosophy and design principles.

@@ -13,4 +13,5 @@ Use this skill to enforce Pipelean's pragmatic functional programming standards 
 - **Eager Execution**: Do not yield generators or use lazy execution unless strictly required by a specific framework boundary. Get a structured report `{ results, errors, failure }` back immediately.
 - **Undefined Short-Circuit**: When composing operations (via `pipe`), returning `undefined` signals dropping the item (selection/filtering).
 
-**Documentation**: Read the full architectural philosophy in `/home/della/projects/personal/pipelean/docs/architecture.md`.
+**Documentation**: Read the full architectural philosophy in [docs/architecture.md](../../docs/architecture.md) (or [online](https://github.com/ildella/pipelean/blob/master/docs/architecture.md)).
+

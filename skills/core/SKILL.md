@@ -26,4 +26,5 @@ Use this skill when you need to perform sequential async operations, control flo
 - **`failLate`**: Collects all errors, sets `failure: true` at the end if any occurred.
 - **`skip`**: Ignores errors entirely.
 
-**Documentation**: Read full examples in `/home/della/projects/personal/pipelean/docs/reference.md`.
+**Documentation**: Read full examples in [docs/reference.md](../../docs/reference.md) (or [online](https://github.com/ildella/pipelean/blob/master/docs/reference.md)).
+
