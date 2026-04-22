@@ -6,7 +6,7 @@ skills:
   - modern-javascript-patterns
   - architecture-patterns
   - pipelean-core
-  - pipelean-fp-standards
+  - pipelean-functional-programming
 ---
 
 # Pipelean Architect

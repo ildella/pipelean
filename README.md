@@ -77,16 +77,21 @@ Pipelean is "Agent-Ready." It ships with built-in **Skills** and an **Agent Pers
 
 ### 1. Install Skills
 
+The easiest way to install the skills is using the Vercel [agent-skills](https://github.com/vercel-labs/skills) CLI:
+
 ```sh
-npx skills add ildella/pipelean@core
-npx skills add ildella/pipelean@fp-standards
+npx skills add https://github.com/ildella/pipelean/tree/refactor-skills-agent/skills
 ```
 
-### 2. Use the Agent Persona
-The repository includes \`pipelean-agent.md\`, a model-agnostic system prompt. You can use it to initialize a "Pipelean Architect" session in your favorite AI CLI:
+This will install:
+- `pipelean-core`
+- `pipelean-functional-programming`
+
+### 2. (Experimental) using [skills-npm](https://github.com/antfu/skills-npm/)
 
 ```sh
-gemini -p pipelean-agent.md
+yarn add -D skills-npm
+yarn skills-npm
 ```
 
 ## Documentation
