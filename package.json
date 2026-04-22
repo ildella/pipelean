@@ -29,7 +29,8 @@
   },
   "files": [
     "src",
-    "SKILL.md",
+    "skills",
+    "pipelean-agent.md",
     "docs"
   ],
   "scripts": {
