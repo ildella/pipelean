@@ -1,5 +1,5 @@
 ---
-name: Pipelean Functional Programming
+name: "Pipelean Functional Programming"
 description: "General Functional Programming principles and patterns. Use this skill to enforce Pipelean's pragmatic functional programming standards and architectural principles on any codebase."
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: Pipelean Core
+name: "Pipelean Core"
 description: "Pipelean core functionalities for iteration, composition and error management for pure FP in pure Javascript. Use this skill when you need to perform sequential async operations, control flow, error handling, or batch processing using the `pipelean` library"
 ---
 
