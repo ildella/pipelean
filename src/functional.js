@@ -164,6 +164,24 @@ export const filter = (...args) => {
   return immediate ? run(items) : run
 }
 
+/**
+ * Accumulate values while scanning an iterable.
+ *
+ * By default `scan` behaves like the original implementation and returns a
+ * `{ results, errors, failure }` object containing every intermediate result.
+ *
+ * When the caller only cares about the final accumulated value (e.g. using
+ * `scan` as a pure reduce), set `storePartialResults: false`. In that mode the
+ * function returns `{ value, errors, failure }`, where `value` is the last
+ * successful accumulator.
+ *
+ * @param {AsyncIterable|Array} iterable - Source of values.
+ * @param {(accumulator, item) => Promise<Accumulator>} scanner
+ * @param {*} initialValue.
+ * @param {{
+ *  strategy?: StrategyFn, onError?, onFailure?, storePartialResults?: boolean
+ * }} opts
+ */
 // eslint-disable-next-line complexity
 export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   const {
