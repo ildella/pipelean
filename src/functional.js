@@ -164,9 +164,29 @@ export const filter = (...args) => {
   return immediate ? run(items) : run
 }
 
+/**
+ * Accumulate values while scanning an iterable.
+ *
+ * By default `scan` behaves like the original implementation and returns a
+ * `{ results, errors, failure }` object containing every intermediate result.
+ *
+ * When the caller only cares about the final accumulated value (e.g. using
+ * `scan` as a pure reduce), set `storePartialResults: false`. In that mode the
+ * function returns `{ value, errors, failure }`, where `value` is the last
+ * successful accumulator.
+ *
+ * @param {AsyncIterable|Array} iterable - Source of values.
+ * @param {(accumulator, item) => Promise<Accumulator>} scanner
+ * @param {*} initialValue.
+ * @param {{
+ *  strategy?: StrategyFn, onError?, onFailure?, storePartialResults?: boolean
+ * }} opts
+ */
 // eslint-disable-next-line complexity
 export const scan = async (iterable, scanner, initialValue, opts = {}) => {
-  const {strategy = failFast, onError, onFailure} = opts
+  const {
+    strategy = failFast, onError, onFailure, storePartialResults = true,
+  } = opts
   const results = []
   let acc = initialValue
   const errors = []
@@ -174,7 +194,8 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   for await (const item of iterable) {
     try {
       acc = await scanner(acc, item)
-      results.push(acc)
+      if (storePartialResults)
+        results.push(acc)
     } catch (error) {
       const strategyName = strategy.name ?? strategy
 
@@ -186,12 +207,9 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
         if (onFailure) {
           onFailure({item, error})
         }
-        errors.push({item, error})
-        return {
-          results,
-          errors,
-          failure: {item, error},
-        }
+        return storePartialResults
+          ? {results, errors, failure: {item, error}}
+          : {result: acc, errors, failure: {item, error}}
       }
 
       if (strategyName === 'skip') {
@@ -209,7 +227,9 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
     onFailure(true)
   }
 
-  return {results, errors, failure}
+  return storePartialResults
+    ? {results, errors, failure}
+    : {result: acc, errors, failure}
 }
 
 export const pipe = (...fns) => input =>
