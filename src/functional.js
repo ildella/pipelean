@@ -11,7 +11,6 @@ export const stopOnError = failFast
 
 export const tryCatch = (fn, {
   onStart, onSuccess, onError, onFinally,
-  rethrow = false,
 } = {}) =>
   async (...args) => {
     try {
@@ -24,8 +23,6 @@ export const tryCatch = (fn, {
     } catch (error) {
       if (onError)
         await onError(error)
-      if (rethrow)
-        throw error
       return null
     } finally {
       if (onFinally)
@@ -72,14 +69,20 @@ export const series = (...args) => {
     const results = []
     const errors = []
 
-    // Wrap the function ONCE.
-    // It handles onProgress (via onSuccess) and onError (via onError).
-    // It rethrows so 'series' can handle the strategy.
-    const safeFn = tryCatch(fn, {
-      onSuccess: onProgress,
-      onError,
-      rethrow: true,
-    })
+    // Wrap the function ONCE and handle onProgress/onError; rethrows so
+    // 'series' can handle the chosen strategy.
+    const runFn = async (item, index) => {
+      try {
+        const result = await fn(item, index)
+        if (onProgress && result !== undefined)
+          await onProgress(result)
+        return result
+      } catch (error) {
+        if (onError)
+          await onError(error)
+        throw error
+      }
+    }
 
     let index = 0
     let failure = false
@@ -89,12 +92,10 @@ export const series = (...args) => {
         break
 
       try {
-        const result = await safeFn(item, index)
-        // Why the next line:
-        // If the operation (or pipe) returns undefined, we drop the item.
-        // Is this a temporary hack?
-        // Should we collect drops as we do for errors.
-
+        const result = await runFn(item, index)
+        // undefined is the sentinel value for "drop this item".
+        // This enables selection/filtering within pipes and
+        // is how filter() works internally.
         if (result !== undefined) {
           results.push(result)
         }
@@ -243,5 +244,3 @@ export const pipe = (...fns) => input =>
 
     return value === undefined ? undefined : fn(value)
   }, input)
-
-export const compose = pipe

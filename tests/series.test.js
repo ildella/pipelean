@@ -158,3 +158,51 @@ test('series with zero pause runs immediately', async () => {
   const result = await series([1, 2, 3], x => x * 2, {pause: 0})
   expect(result.results).toEqual([2, 4, 6])
 })
+
+test('calls onProgress after each successful item', async () => {
+  const progress = []
+  const result = await series([1, 2, 3], x => x * 10, {
+    onProgress: value => progress.push(value),
+  })
+  expect(result.results).toEqual([10, 20, 30])
+  expect(progress).toEqual([10, 20, 30])
+})
+
+test('does not call onProgress for errored items', async () => {
+  const progress = []
+  const result = await series([1, 2, 3], x => {
+    if (x === 2)
+      throw new Error('fail')
+    return x * 10
+  }, {
+    strategy: 'collect',
+    onProgress: value => progress.push(value),
+  })
+  expect(result.results).toEqual([10, 30])
+  expect(progress).toEqual([10, 30])
+})
+
+test('does not call onProgress for undefined results', async () => {
+  const progress = []
+  const result = await series([1, 2, 3], x => {
+    if (x === 2)
+      return undefined
+    return x * 10
+  }, {
+    onProgress: value => progress.push(value),
+  })
+  expect(result.results).toEqual([10, 30])
+  // undefined items are dropped — onProgress should not be called for them
+  expect(progress).toEqual([10, 30])
+})
+
+test('undefined result drops the item from results', async () => {
+  const result = await series([10, 20, 30], x => {
+    if (x === 20)
+      return undefined
+    return x * 2
+  })
+  expect(result.results).toEqual([20, 60])
+  expect(result.errors).toEqual([])
+  expect(result.failure).toBe(false)
+})
