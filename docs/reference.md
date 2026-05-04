@@ -16,6 +16,7 @@
 ### Error strategies
 
 - [failFast](#failfast) - Error Strategy Identifier (aliases: `stopOnError`, `fail`)
+- [throw_](#throw_) - Error Strategy Identifier (throws on first error)
 - [failLate](#faillate) - Error Strategy Identifier
 - [collect](#collect) - Error Strategy Identifier
 - [skip](#skip) - Error Strategy Identifier
@@ -55,7 +56,7 @@
 - Calls `onFailure({item, error})` immediately
 - Stops iteration
 
-**Return Format**: `{results, errors: [], failure: {item, error}}`
+**Return Format**: `{results: [], errors: [], failure: {item, error}}`
 
 **Example**:
 ```javascript
@@ -66,7 +67,36 @@ const result = await series([1, 2, 3], async item => {
   return item * 2
 }, {strategy: failFast})
 
-// result = {results: [2], errors: [], failure: {item: 2, error: Error(...)}}
+// result = {results: [], errors: [], failure: {item: 2, error: Error(...)}}
+```
+
+---
+
+### throw_
+
+**Purpose**: Error strategy identifier that throws the error immediately on the first failure. Does NOT return a structured result on failure.
+
+**Use when**: "Let it crash" / fail-early patterns where the caller is expected to handle errors externally (e.g. via try/catch).
+
+**Behavior**:
+- Throws the error on first failure
+- Does NOT call `onFailure`
+- `onError` is still called if present (in `series`; `scan` calls it before throw)
+
+**Return Format**: On success: `{results, errors: [], failure: false}`
+
+**Example**:
+```javascript
+import {series, throw_} from 'pipelean'
+
+try {
+  const result = await series([1, 2, 3], async item => {
+    if (item === 2) throw new Error('Error')
+    return item * 2
+  }, {strategy: throw_})
+} catch (error) {
+  // error = Error('Error')
+}
 ```
 
 ---
@@ -79,10 +109,10 @@ const result = await series([1, 2, 3], async item => {
 
 **Behavior**:
 - Collects all errors in `errors` array
-- Sets `failure: null`
+- Sets `failure: false`
 - Does NOT call `onFailure`
 
-**Return Format**: `{results, errors: [...], failure: null}`
+**Return Format**: `{results, errors: [...], failure: false}`
 
 **Example**:
 ```javascript
@@ -93,7 +123,7 @@ const result = await series([1, 2, 3], async item => {
   return item * 2
 }, {strategy: collect})
 
-// result = {results: [2, 6], errors: [{item: 2, error: ...}, {item: 4, error: ...}], failure: null}
+// result = {results: [2, 6], errors: [{item: 2, error: ...}, {item: 4, error: ...}], failure: false}
 ```
 ---
 
@@ -131,10 +161,10 @@ const result = await series([1, 2, 3], async item => {
 
 **Behavior**:
 - Ignores errors (no collection, `errors` stays empty)
-- Sets `failure: null`
+- Sets `failure: false`
 - Does NOT call `onFailure`
 
-**Return Format**: `{results, errors: [], failure: null}`
+**Return Format**: `{results, errors: [], failure: false}`
 
 **Example**:
 ```javascript
@@ -145,7 +175,7 @@ const result = await series([1, 2, 3], async item => {
   return item * 2
 }, {strategy: skip})
 
-// result = {results: [2, 6], errors: [], failure: null}
+// result = {results: [2, 6], errors: [], failure: false}
 ```
 
 ---
@@ -177,7 +207,7 @@ Optional callback for application-layer error handling (UI updates, notification
 - Depends on strategy:
   - `failFast`: called with `{item, error}`
   - `failLate`: called with `true`
-  - `collect` / `skip`: NOT called (failure is null)
+  - `collect` / `skip`: NOT called (failure is false)
 
 ```javascript
 await series(items, fn, {
@@ -217,7 +247,7 @@ await series(items, fn, {
 - Can be nested to build complex transformation pipelines
 
 **Options**:
-- `strategy`: Error strategy object (`failFast`, `collect`, `failLate`, `skip`, or aliases)
+- `strategy`: Error strategy object (`failFast`, `collect`, `failLate`, `skip`, `throw_`, or aliases)
 - `onProgress`: Optional callback called after each successful item
 - `onError`: Optional callback called for each error
 - `onFailure`: Optional callback called when `failure` is truthy (failFast: `{item, error}`, failLate: `true`)
@@ -277,9 +307,10 @@ const result = await series(
 - `initialValue`: The starting value for the accumulator
 
 **Return Type**: A Promise that resolves to an object containing:
-- `results`: Array of all successful transformations
-- `errors`: Array of errors encountered
-- `failure`: The item/index where failure occurred (if scan stopped early)
+- `results`: Array of intermediate results (or `[]` on failFast failure)
+- `errors`: Array of errors encountered (empty for failFast, skip, throw)
+- `failure`: `false` on success; `{item, error}` for failFast; `true` for failLate
+- `value`: Final accumulated value when `storePartialResults: false` (only on success)
 
 **Key Characteristics**:
 - **Stateful**: Each transformation depends on the previous result

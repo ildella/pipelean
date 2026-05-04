@@ -20,7 +20,12 @@ All iteration functions (`series`, `filter`, `scan`) support four error strategi
 **failFast** (aliases: `fail`, `stopOnError`)
 - Sets `failure: {item, error}` on first error
 - Calls `onFailure({item, error})` immediately
-- Stops iteration
+- Stops iteration; results array is empty on failure
+
+**throw**
+- Throws the error on first failure
+- Does NOT return a structured result on failure
+- Useful for "let it crash" / fail-early patterns where the caller handles errors externally
 
 **failLate**
 - Collects all errors in `errors` array
@@ -115,7 +120,8 @@ Pipelean also provides lightweight wrappers that add behavior to **individual fu
 
 1. **`onError` ≠ error strategy**: `onError` is a callback, not a strategy
 2. **`failure` is truthy for**: `failFast` ({item, error}) and `failLate` (true)
-3. **`failure` is null for**: `collect` and `skip`
-4. **Strategy selection**: Choose based on whether failures are acceptable
+3. **`failure` is falsy for**: `collect`, `skip`, and `throw` on success
+4. **`throw` does not return on error**: It propagates the error to the caller
+5. **Strategy selection**: Choose based on whether failures are acceptable
 
 Check out [patterns.md](./patterns.md).

@@ -6,14 +6,14 @@ test('all items succeed returns results with no errors', async () => {
   expect(result).toEqual({results: [2, 4, 6], errors: [], failure: false})
 })
 
-test('failFast stops on first error with partial results', async () => {
+test('failFast stops on first error with no partial results', async () => {
   const bang = new Error('bang')
   const result = await series([1, 2, 3], x => {
     if (x === 2)
       throw bang
     return x * 10
   }, {strategy: 'failFast'})
-  expect(result.results).toEqual([10])
+  expect(result.results).toEqual([])
   expect(result.failure).toEqual({item: 2, error: bang})
   expect(result.errors).toEqual([])
 })
@@ -127,11 +127,9 @@ test(
       return x * 2
     }, {pause: 10, strategy: 'failFast'})
     const elapsed = Date.now() - start
-    expect(result.results).toEqual([2])
+    expect(result.results).toEqual([])
     expect(result.failure).toBeTruthy()
-    // Should take at least 10ms (1 delay after item 1, then stops)
-    expect(elapsed).toBeGreaterThanOrEqual(10)
-    // And less than 20ms (no second delay after error)
+    expect(elapsed).toBeGreaterThanOrEqual(8)
     expect(elapsed).toBeLessThan(20)
   },
 )

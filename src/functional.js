@@ -3,6 +3,7 @@ export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
 export const failLate = Object.freeze({name: 'failLate'})
 export const skip = Object.freeze({name: 'skip'})
+export const throw_ = Object.freeze({name: 'throw'})
 
 // Aliases
 export const fail = failFast
@@ -104,18 +105,19 @@ export const series = (...args) => {
       } catch (error) {
         const strategyName = strategy.name ?? strategy
 
+        if (strategyName === 'throw') {
+          throw error
+        }
+
         if (strategyName === 'failFast') {
           if (onFailure) {
             onFailure({item, error})
           }
-          return {results, errors, failure: {item, error}}
+          return {results: [], errors, failure: {item, error}}
         }
 
         if (strategyName === 'skip') {
-          // Don't collect errors, just continue
-          // onError is still called via safeFn
           index++
-          // Pause after skip (maintain spacing even when skipping)
           if (pause) {
             await delay(pause)
           }
@@ -123,7 +125,6 @@ export const series = (...args) => {
         }
 
         errors.push({item, error})
-        // Pause after error (only if pauseOnErrors is enabled)
         if (pause && pauseOnErrors) {
           await delay(pause)
         }
@@ -203,13 +204,17 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
         await onError(error)
       }
 
+      if (strategyName === 'throw') {
+        throw error
+      }
+
       if (strategyName === 'failFast') {
         if (onFailure) {
           onFailure({item, error})
         }
         return storePartialResults
-          ? {results, errors, failure: {item, error}}
-          : {result: acc, errors, failure: {item, error}}
+          ? {results: [], errors, failure: {item, error}}
+          : {errors, failure: {item, error}}
       }
 
       if (strategyName === 'skip') {
@@ -221,7 +226,7 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   }
 
   const failure =
-    strategy.name === 'failLate' && errors.length > 0 ? true : null
+    strategy.name === 'failLate' && errors.length > 0
 
   if (failure && onFailure) {
     onFailure(true)
@@ -229,7 +234,7 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
 
   return storePartialResults
     ? {results, errors, failure}
-    : {result: acc, errors, failure}
+    : {value: acc, errors, failure}
 }
 
 export const pipe = (...fns) => input =>

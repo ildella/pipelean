@@ -18,7 +18,7 @@ test('predicate throws with failFast stops and populates failure', async () => {
       throw bang
     return true
   }, {strategy: 'failFast'})
-  expect(result.results).toEqual([1])
+  expect(result.results).toEqual([])
   expect(result.failure).toEqual({item: 2, error: bang})
   expect(result.errors).toEqual([])
 })

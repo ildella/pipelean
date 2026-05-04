@@ -68,7 +68,7 @@ test('failLate: collects all errors and returns failure: true', async () => {
   expect(result.failure).toBe(true)
 })
 
-test('failLate: no errors returns failure: null', async () => {
+test('failLate: no errors returns failure: false', async () => {
   const items = [1, 2, 3]
   const fn = item => item * 2
 
@@ -126,7 +126,7 @@ test('fail alias works as failFast in series', async () => {
 
   const result = await series(items, fn, {strategy: fail})
 
-  expect(result.results).toEqual([2])
+  expect(result.results).toEqual([])
   expect(result.errors).toHaveLength(0)
   expect(result.failure).toEqual({
     item: 2,
@@ -144,7 +144,7 @@ test('stopOnError alias works as failFast in series', async () => {
 
   const result = await series(items, fn, {strategy: stopOnError})
 
-  expect(result.results).toEqual([2])
+  expect(result.results).toEqual([])
   expect(result.errors).toHaveLength(0)
   expect(result.failure).toEqual({
     item: 2,

@@ -40,8 +40,8 @@ const { results, failure } = await scan(
 )
 
 // If Track 2 fails, execution stops immediately (Fail Fast).
-// 'results' contains IDs of successfully added tracks.
 // 'failure' contains the track that broke the chain.
+// 'results' is empty — no partial results on failure.
 ```
 
 Why not series?

@@ -51,7 +51,7 @@ test('onFailure called for failFast with {item, error}', async () => {
     item: 2,
     error: new Error('Error at 2'),
   })
-  expect(result.results).toEqual([2])
+  expect(result.results).toEqual([])
 })
 
 test('onFailure called for failLate with true', async () => {
@@ -130,7 +130,7 @@ test('onFailure works with filter', async () => {
     item: 3,
     error: new Error('Error at 3'),
   })
-  expect(result.results).toEqual([2])
+  expect(result.results).toEqual([])
 })
 
 test('onFailure works with filter and failLate', async () => {
@@ -167,7 +167,7 @@ test('onFailure works with scan', async () => {
     item: 2,
     error: new Error('Error at 2'),
   })
-  expect(result.results).toEqual([1])
+  expect(result.results).toEqual([])
 })
 
 test('Application-layer wrapper with default onFailure', async () => {

@@ -1,5 +1,5 @@
 import {test, expect} from 'vitest'
-import {scan, failFast} from '$src/functional'
+import {scan} from '$src/functional'
 
 test('returns final value when storePartialResults is false', async () => {
   const tracks = [
@@ -8,7 +8,7 @@ test('returns final value when storePartialResults is false', async () => {
     {duration: 10},
   ]
 
-  const {result: totalDuration} = await scan(
+  const {value: totalDuration} = await scan(
     tracks,
     (accumulator, {duration}) => accumulator + duration,
     0,
@@ -25,7 +25,7 @@ test('failFast stops on error with storePartialResults false', async () => {
     {duration: 10},
   ]
 
-  const {result, failure, errors} = await scan(
+  const {value, failure, errors} = await scan(
     tracks,
     (accumulator, {duration}) => {
       if (duration > 7)
@@ -33,38 +33,36 @@ test('failFast stops on error with storePartialResults false', async () => {
       return accumulator + duration
     },
     0,
-    {strategy: failFast, storePartialResults: false},
+    {storePartialResults: false},
   )
 
-  expect(result).toBe(12) // 5 + 7 before error
+  expect(value).toBeUndefined()
   expect(failure).toEqual({
     item: {duration: 10},
     error: new Error('Duration too long'),
   })
-  // failFast doesn't collect errors in the errors array
   expect(errors).toHaveLength(0)
 })
 
-test('failFast throws when accessing missing property', async () => {
+test('failFast returns no value when accessing missing property', async () => {
   const tracks = [
     {duration: 5},
-    {}, // Missing duration property - will cause error when trying to access it
+    {},
     {duration: 10},
   ]
 
-  const {result, failure, errors} = await scan(
+  const {value, failure, errors} = await scan(
     tracks,
     (accumulator, item) => {
-      // Explicitly throw on missing property to test failFast behavior
       if (item.duration === undefined)
         throw new Error('Missing duration')
       return accumulator + item.duration
     },
     0,
-    {strategy: failFast, storePartialResults: false},
+    {storePartialResults: false},
   )
 
-  expect(result).toBe(5) // Only first item processed
+  expect(value).toBeUndefined()
   expect(failure.item).toEqual({})
   expect(failure.error.message).toBe('Missing duration')
   expect(errors).toEqual([])
@@ -73,7 +71,7 @@ test('failFast throws when accessing missing property', async () => {
 test(
   'empty iterable returns initial value with storePartialResults false',
   async () => {
-    const {result: total} = await scan(
+    const {value: total} = await scan(
       [],
       (accumulator, item) => accumulator + item,
       42,
