@@ -55,7 +55,7 @@ We believe Pipelean is a pragmatic middle path: sequential by design, with built
 
 ## ESLint Plugin
 
-Pipelean ships a small ESLint plugin that flags `.forEach()` and `.reduce()` and suggests the pipelean equivalents. It is a separate entry point — importing it does not pull in the runtime library.
+Pipelean ships a small ESLint plugin that flags `.forEach()`, `.reduce()`, and `Promise.*` static combinators, suggesting pipelean equivalents. It is a separate entry point — importing it does not pull in the runtime library.
 
 ```js
 import pipeleanPlugin from 'pipelean/eslint'
@@ -64,8 +64,9 @@ export default [
   {
     plugins: { pipelean: pipeleanPlugin },
     rules: {
-      'pipelean/no-array-foreach': 'warn', // suggests series()
-      'pipelean/no-array-reduce': 'warn',  // suggests scan()
+      'pipelean/no-array-foreach': 'warn',         // suggests series()
+      'pipelean/no-array-reduce': 'warn',           // suggests scan()
+      'pipelean/no-promise-combinators': 'warn',    // suggests series() / tryCatch()
     },
   },
 ]
