@@ -52,7 +52,7 @@ test('failFast throws when accessing missing property', async () => {
     {duration: 10},
   ]
 
-  const {result, failure} = await scan(
+  const {result, failure, errors} = await scan(
     tracks,
     (accumulator, item) => {
       // Explicitly throw on missing property to test failFast behavior
@@ -67,6 +67,7 @@ test('failFast throws when accessing missing property', async () => {
   expect(result).toBe(5) // Only first item processed
   expect(failure.item).toEqual({})
   expect(failure.error.message).toBe('Missing duration')
+  expect(errors).toEqual([])
 })
 
 test(
