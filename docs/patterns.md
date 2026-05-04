@@ -17,7 +17,7 @@ await series(items, fn, {
   strategy: skip,
   onError: (error) => metrics.increment('errors')
 })
-// Result has no errors array, failure is null
+// Result has no errors array, failure is false
 ```
 
 ### Pattern 3: Critical Fail + UI (`failFast` + `onFailure`)

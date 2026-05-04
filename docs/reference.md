@@ -230,67 +230,49 @@ await series(items, fn, {
 
 ### series
 
-**Purpose**: Horizontal composition tool - executes multiple functions in sequence, passing output of one as input to the next.
+**Purpose**: Stateless sequential execution over an iterable. Runs a function on each item, one at a time.
 
-**Type**: `(...fns) => (input) => Promise<ReturnType<LastFn>>`
+**Type**: `(items, fn, opts?) => Promise<Outcome>` — immediate mode
+Curried: `(fn, opts?) => (items) => Promise<Outcome>`
 
 **Parameters**:
-- Variadic arguments: Any number of async functions to execute sequentially
-- `input`: The initial value passed to the first function
+- `items`: An iterable (array, async iterable, generator)
+- `fn(item, index)`: The function to apply. Returns the mapped value, or throws, or returns `undefined` to drop the item.
+- `opts` (optional):
+  - `strategy`: Error strategy (default: `collect`). `failFast`, `collect`, `failLate`, `skip`, `throw_`.
+  - `onProgress(result)`: Called after each successful item with the mapped result. NOT called for errors or `undefined` drops.
+  - `onError(error)`: Called for each error. Does not affect control flow.
+  - `onFailure(failure)`: Called when failure is truthy. Receives `{item, error}` for `failFast`, `true` for `failLate`.
+  - `take`: Limit items processed.
+  - `pause`: Milliseconds between successful items.
+  - `pauseOnErrors`: Whether to also pause after errors (default: `false`).
 
-**Return Type**: A Promise that resolves to the final result.
-
-**Key Characteristics**:
-- Functions execute **left-to-right** (first argument is applied to `input`)
-- Each function receives the result of the previous function as its first argument
-- Supports synchronous or asynchronous functions
-- Can be nested to build complex transformation pipelines
-
-**Options**:
-- `strategy`: Error strategy object (`failFast`, `collect`, `failLate`, `skip`, `throw_`, or aliases)
-- `onProgress`: Optional callback called after each successful item
-- `onError`: Optional callback called for each error
-- `onFailure`: Optional callback called when `failure` is truthy (failFast: `{item, error}`, failLate: `true`)
-- `take`: Optional number of items to process
-- `pause`: Optional number of milliseconds to pause between operations. Acts as a "sequential spacer" — keeping execution strictly sequential where each operation takes the time it needs, and a space is inserted only *after* the operation completes.
-- `pauseOnErrors`: Optional boolean (default: `false`) - Whether to also pause after errors. When `false`, only successful items trigger the delay.
+**Return**: `{results, errors, failure}` where `failure` is `false` on success.
 
 **Usage Example**:
 ```javascript
-import { series, failFast } from './functional.js'
+import { series, failFast } from 'pipelean'
 
-// Transform a value through multiple steps
-const result = await series(
-  async (x) => x * 2,           // Step 1: Double
-  async (x) => x + 10,         // Step 2: Add 10
-  async (x) => x.toString(),    // Step 3: Convert to string
-  42                                   // Initial value
-)
+// Basic: double each number
+const { results } = await series([1, 2, 3], x => x * 2)
+// results = [2, 4, 6]
 
-// Example with async operations
-const result = await series(
-  async (id) => fetchUser(id),      // Get user data
-  async (user, data) => updateUser(user, data), // Update user
-  user.id                               // Pass ID to next step
-)
+// With failFast: stop on first error
+const result = await series(items, fn, { strategy: failFast })
 
-// Example with a pause for rate-limited APIs
-const result = await series(
-  apiEndpoints,
-  async endpoint => fetch(endpoint),
-  { pause: 500 }  // Wait 500ms between each successful request
-)
+// With pause for rate limiting
+const result = await series(endpoints, fn, { pause: 500 })
 
-// Example with a pause even after errors
-const result = await series(
-  tasks,
-  async task => processTask(task),
-  {
-    pause: 100,
-    pauseOnErrors: true,  // Wait even if a task fails
-    strategy: 'collect'
-  }
-)
+// Curried: create a reusable transform
+const double = series(x => x * 2)
+const { results } = await double([1, 2, 3])
+
+// Integration with pipe for filtering
+import { pipe } from 'pipelean'
+const { results } = await series(items, pipe(
+  x => x.active ? x : undefined,  // drop inactive
+  x => x.name,                     // extract name
+))
 ```
 
 ---
@@ -428,6 +410,28 @@ const result = await series(items, pipe(
 
 ## Misc
 
+### where
+
+**Purpose**: Creates a predicate function for strict equality object matching. Primarily used with `filter` for pattern-based selection.
+
+**Type**: `(pattern) => (item) => boolean`
+
+**Parameters**:
+- `pattern`: A plain object with key-value pairs to match against.
+
+**Return Type**: A predicate function.
+
+**Usage Example**:
+```javascript
+import { where, filter } from 'pipelean'
+
+const isAdmin = where({role: 'admin'})
+const admins = await filter(isAdmin, users)
+
+// Or use pattern directly with filter (curried or immediate)
+const adults = await filter({active: true}, users)
+```
+
 ### retry
 
 **Purpose**: Retry async functions with configurable attempts and delays between attempts.
@@ -466,44 +470,44 @@ const result = await retry(
 
 ### tryCatch
 
-**Purpose**: Wraps individual async functions with lifecycle hooks for comprehensive error handling and telemetry.
+**Purpose**: Wraps individual async functions with lifecycle hooks for comprehensive error handling and telemetry. Always catches errors — returns `null` on failure.
 
 **Type**: `(fn, options) => wrapperFunction`
 
 **Parameters**:
 - `fn`: The async function to wrap
 - `options`: Configuration object with the following properties:
-  - `onStart`: `(fn, args) => void` - Called before function execution
-  - `onSuccess`: `(fn, args, result) => void | Promise<void>` - Called on successful completion
-  - `onError`: `(fn, args, error) => void` - Called on error
-  - `onFinally`: `(fn, args) => void` - Called regardless of success/failure
-  - `rethrow`: `boolean` (default: `false`) - Whether to rethrow errors after handling
+  - `onStart: () => void` — Called before function execution (no arguments)
+  - `onSuccess: (result) => void | Promise<void>` — Called on successful completion (result only)
+  - `onError: (error) => void` — Called on error (error only)
+  - `onFinally: () => void` — Called regardless of success/failure (no arguments)
 
-**Return Type**: Returns a wrapper function with the same signature as `fn`.
+**Return Type**: Returns a wrapper function with the same signature as `fn`. Returns `null` on error.
 
 **Features**:
 - Automatic `async/await` wrapping
 - Preserves original function signature
 - Comprehensive lifecycle: onStart → onSuccess/onError → onFinally
-- Optional rethrow for error propagation
 - Deep telemetry support for debugging
 
 **Usage Example**:
 ```javascript
-import { tryCatch } from './functional.js'
+import { tryCatch } from 'pipelean'
 
-// Example: Try/catch mode
 const safeFetch = tryCatch(
   async (url) => {
     const response = await fetch(url)
     return await response.json()
   },
   {
-    onError: async (error) => {
+    onError: (error) => {
       console.error('Fetch failed:', error)
     }
   }
 )
+
+const data = await safeFetch('https://api.example.com')
+// data is the parsed JSON on success, null on error
 ```
 
 ---

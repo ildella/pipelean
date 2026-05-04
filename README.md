@@ -117,7 +117,7 @@ const pipeline = await pipe(
   writeToDatabase,
 )
 
-const {results, errors} = series(pipeline, {
-  strategy: 'failFast',
+const {results, errors} = await series(items, pipeline, {
+  strategy: failFast,
 })
 ```

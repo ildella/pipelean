@@ -34,12 +34,12 @@ All iteration functions (`series`, `filter`, `scan`) support four error strategi
 
 **collect** (default for `series` and `filter`)
 - Collects all errors in `errors` array
-- Sets `failure: null`
+- Sets `failure: false`
 - Does NOT call `onFailure`
 
 **skip**
 - Ignores errors (no collection, `errors` stays empty)
-- Sets `failure: null`
+- Sets `failure: false`
 - Does NOT call `onFailure`
 
 ---
@@ -56,6 +56,7 @@ All iteration functions (`series`, `filter`, `scan`) support four error strategi
 
 * **Universal Mapper**
   - Handles both Synchronous and Asynchronous mapper functions automatically.
+  - `filter` accepts patterns via `where()`: `filter({active: true}, users)` is equivalent to `filter(where({active: true}), users)`.
 
 * **Structured Results**
   - Always returns a predictable object: `{ results, errors, failure }`.

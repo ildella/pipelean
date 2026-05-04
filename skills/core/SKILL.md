@@ -19,11 +19,12 @@ description: "Pipelean core functionalities for iteration, composition and error
    - Chains functions left-to-right.
    - If any step returns `undefined`, remaining steps are skipped (short-circuit).
 5. **`retry(fn, { attempts, delay })`**: Configurable retry logic.
-6. **`tryCatch(fn, { onStart, onSuccess, onError, onFinally, rethrow })`**: Single function lifecycle hooks.
+6. **`tryCatch(fn, { onStart, onSuccess, onError, onFinally })`**: Single function lifecycle hooks.
+7. **`where(pattern)`**: Creates a predicate for strict equality object matching. Used with `filter`.
 
 ## Error Strategies
 - **`failFast`**: Stops immediately on first error. `failure: {item, error}`.
-- **`collect`**: Continues processing, collects all errors. `failure: null`. (Default for series)
+- **`collect`**: Continues processing, collects all errors. `failure: false`. (Default for series)
 - **`failLate`**: Collects all errors, sets `failure: true` at the end if any occurred.
 - **`skip`**: Ignores errors entirely.
 
