@@ -83,7 +83,7 @@ Pipelean is "Agent-Ready." It ships with built-in **Skills** and an **Agent Pers
 The easiest way to install the skills is using the Vercel [agent-skills](https://github.com/vercel-labs/skills) CLI:
 
 ```sh
-npx skills add https://github.com/ildella/pipelean/tree/refactor-skills-agent/skills
+npx skills add https://github.com/ildella/pipelean/tree/master/skills
 ```
 
 This will install:
