@@ -55,6 +55,24 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
 export const where = pattern => item =>
   Object.entries(pattern).every(([key, value]) => item[key] === value)
 
+const getKnownTotal = (items, total) =>
+  total !== undefined ? total : items.length
+
+const getPlannedTotal = ({items, take, total}) => {
+  const knownTotal = getKnownTotal(items, total)
+
+  if (knownTotal === undefined)
+    return undefined
+
+  if (take === undefined)
+    return knownTotal
+
+  return Math.min(take, knownTotal)
+}
+
+const withTotal = (payload, total) =>
+  total === undefined ? payload : {...payload, total}
+
 // eslint-disable-next-line max-lines-per-function
 export const series = (...args) => {
   const immediate = typeof args[0] !== 'function'
@@ -63,25 +81,19 @@ export const series = (...args) => {
   // eslint-disable-next-line complexity, max-statements
   const run = async inputItems => {
     const {
-      strategy = collect,
+      strategy = collect, total,
       take, onProgress, onError, onFailure, pause, pauseOnErrors = false,
     } = opts
     const results = []
     const errors = []
+    const strategyName = strategy.name ?? strategy
+    const plannedTotal = getPlannedTotal({items: inputItems, take, total})
 
-    // Wrap the function ONCE and handle onProgress/onError; rethrows so
-    // 'series' can handle the chosen strategy.
     const runFn = async (item, index) => {
-      try {
-        const result = await fn(item, index)
-        if (onProgress && result !== undefined)
-          await onProgress(result)
-        return result
-      } catch (error) {
-        if (onError)
-          await onError(error)
-        throw error
-      }
+      const result = await fn(item, index)
+      if (onProgress && result !== undefined)
+        await onProgress(withTotal({item, result, index}, plannedTotal))
+      return result
     }
 
     let index = 0
@@ -104,17 +116,20 @@ export const series = (...args) => {
           await delay(pause)
         }
       } catch (error) {
-        const strategyName = strategy.name ?? strategy
-
         if (strategyName === 'throw') {
           throw error
         }
 
+        const errorContext = {item, error, index}
+
+        if (onError)
+          await onError(withTotal(errorContext, plannedTotal))
+
         if (strategyName === 'failFast') {
           if (onFailure) {
-            onFailure({item, error})
+            onFailure(errorContext)
           }
-          return {results: [], errors, failure: {item, error}}
+          return {results: [], errors, failure: errorContext}
         }
 
         if (strategyName === 'skip') {
@@ -125,7 +140,7 @@ export const series = (...args) => {
           continue
         }
 
-        errors.push({item, error})
+        errors.push(errorContext)
         if (pause && pauseOnErrors) {
           await delay(pause)
         }
@@ -133,10 +148,12 @@ export const series = (...args) => {
       index++
     }
 
-    failure = !!(strategy.name === 'failLate' && errors.length > 0)
+    failure = strategyName === 'failLate' && errors.length > 0
+      ? {errors}
+      : false
 
     if (failure && onFailure) {
-      onFailure(true)
+      onFailure(failure)
     }
 
     return {results, errors, failure}

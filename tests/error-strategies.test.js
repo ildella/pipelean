@@ -1,9 +1,11 @@
-import {test, expect} from 'vitest'
+/* eslint-disable max-lines */
+import {test, expect, vi} from 'vitest'
 import {
   failFast,
   collect,
   failLate,
   skip,
+  throw_,
   fail,
   stopOnError,
   series,
@@ -51,7 +53,7 @@ test('strategies are distinct references', () => {
   expect(failLate).not.toBe(skip)
 })
 
-test('failLate: collects all errors and returns failure: true', async () => {
+test('failLate: collects all errors and returns failure context', async () => {
   const items = [1, 2, 3, 4]
   const fn = item => {
     if (item === 2 || item === 4)
@@ -63,9 +65,17 @@ test('failLate: collects all errors and returns failure: true', async () => {
 
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(2)
-  expect(result.errors[0]).toEqual({item: 2, error: new Error('Error at 2')})
-  expect(result.errors[1]).toEqual({item: 4, error: new Error('Error at 4')})
-  expect(result.failure).toBe(true)
+  expect(result.errors[0]).toEqual({
+    item: 2,
+    error: new Error('Error at 2'),
+    index: 1,
+  })
+  expect(result.errors[1]).toEqual({
+    item: 4,
+    error: new Error('Error at 4'),
+    index: 3,
+  })
+  expect(result.failure).toEqual({errors: result.errors})
 })
 
 test('failLate: no errors returns failure: false', async () => {
@@ -110,7 +120,12 @@ test('skip: calls onError if present', async () => {
   })
 
   expect(onErrorCalls).toHaveLength(1)
-  expect(onErrorCalls[0]).toEqual(new Error('Error at 2'))
+  expect(onErrorCalls[0]).toEqual({
+    item: 2,
+    error: new Error('Error at 2'),
+    index: 1,
+    total: 3,
+  })
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(0)
   expect(result.failure).toBe(false)
@@ -131,6 +146,7 @@ test('fail alias works as failFast in series', async () => {
   expect(result.failure).toEqual({
     item: 2,
     error: new Error('Error at 2'),
+    index: 1,
   })
 })
 
@@ -149,6 +165,7 @@ test('stopOnError alias works as failFast in series', async () => {
   expect(result.failure).toEqual({
     item: 2,
     error: new Error('Error at 2'),
+    index: 1,
   })
 })
 
@@ -164,9 +181,17 @@ test('failLate works with filter', async () => {
 
   expect(result.results).toEqual([1, 3, 5])
   expect(result.errors).toHaveLength(2)
-  expect(result.errors[0]).toEqual({item: 2, error: new Error('Error at 2')})
-  expect(result.errors[1]).toEqual({item: 4, error: new Error('Error at 4')})
-  expect(result.failure).toBe(true)
+  expect(result.errors[0]).toEqual({
+    item: 2,
+    error: new Error('Error at 2'),
+    index: 1,
+  })
+  expect(result.errors[1]).toEqual({
+    item: 4,
+    error: new Error('Error at 4'),
+    index: 3,
+  })
+  expect(result.failure).toEqual({errors: result.errors})
 })
 
 test('skip works with filter', async () => {
@@ -197,7 +222,96 @@ test('failLate with series returns success before error', async () => {
   // All items processed: 1, 2, 4, 5 succeed, 3 fails
   expect(result.results).toEqual([2, 4, 8, 10])
   expect(result.errors).toHaveLength(1)
-  expect(result.failure).toBe(true)
+  expect(result.failure).toEqual({errors: result.errors})
+})
+
+test('collect onError strategy', async () => {
+  const onError = vi.fn()
+  const bang = new Error('bang')
+  const result = await series([1, 2, 3], item => {
+    if (item === 2)
+      throw bang
+    return item * 10
+  }, {strategy: collect, onError})
+
+  expect(onError).toHaveBeenCalledWith({
+    item: 2,
+    error: bang,
+    index: 1,
+    total: 3,
+  })
+  expect(result.errors).toEqual([{item: 2, error: bang, index: 1}])
+  expect(result.failure).toBe(false)
+})
+
+test('skip calls onError with context without storing errors', async () => {
+  const onError = vi.fn()
+  const bang = new Error('bang')
+  const result = await series([1, 2, 3], item => {
+    if (item === 2)
+      throw bang
+    return item * 10
+  }, {strategy: skip, onError})
+
+  expect(onError).toHaveBeenCalledWith({
+    item: 2,
+    error: bang,
+    index: 1,
+    total: 3,
+  })
+  expect(result.errors).toEqual([])
+  expect(result.failure).toBe(false)
+})
+
+test('failFast calls onError and onFailure with item context', async () => {
+  const onError = vi.fn()
+  const onFailure = vi.fn()
+  const bang = new Error('bang')
+  const result = await series([1, 2, 3], item => {
+    if (item === 2)
+      throw bang
+    return item * 10
+  }, {strategy: failFast, onError, onFailure})
+
+  expect(onError).toHaveBeenCalledWith({
+    item: 2,
+    error: bang,
+    index: 1,
+    total: 3,
+  })
+  expect(onFailure).toHaveBeenCalledWith({item: 2, error: bang, index: 1})
+  expect(result.failure).toEqual({item: 2, error: bang, index: 1})
+})
+
+test('failLate calls onFailure with collected contextual errors', async () => {
+  const onFailure = vi.fn()
+  const result = await series([1, 2, 3], item => {
+    if (item > 1)
+      throw new Error(`Error at ${item}`)
+    return item * 10
+  }, {strategy: failLate, onFailure})
+
+  expect(result.errors).toEqual([
+    {item: 2, error: new Error('Error at 2'), index: 1},
+    {item: 3, error: new Error('Error at 3'), index: 2},
+  ])
+  expect(onFailure).toHaveBeenCalledWith({errors: result.errors})
+  expect(result.failure).toEqual({errors: result.errors})
+})
+
+test('throw strategy throws without calling onError or onFailure', async () => {
+  const onError = vi.fn()
+  const onFailure = vi.fn()
+  const bang = new Error('bang')
+
+  await expect(series([1, 2, 3], item => {
+    if (item === 2)
+      throw bang
+    return item * 10
+  }, {strategy: throw_, onError, onFailure})).rejects.toThrow(bang)
+
+  expect(onError).not.toHaveBeenCalled()
+  expect(onFailure).not.toHaveBeenCalled()
 })
 
 test('collect strategy still works (failure: false)', async () => {

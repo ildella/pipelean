@@ -19,7 +19,7 @@ test('predicate throws with failFast stops and populates failure', async () => {
     return true
   }, {strategy: 'failFast'})
   expect(result.results).toEqual([])
-  expect(result.failure).toEqual({item: 2, error: bang})
+  expect(result.failure).toEqual({item: 2, error: bang, index: 1})
   expect(result.errors).toEqual([])
 })
 
@@ -33,8 +33,8 @@ test('predicate throws with default collect collects errors', async () => {
   expect(result.results).toEqual([1, 3])
   expect(result.failure).toBe(false)
   expect(result.errors).toEqual([
-    {item: 2, error: bang},
-    {item: 4, error: bang},
+    {item: 2, error: bang, index: 1},
+    {item: 4, error: bang, index: 3},
   ])
 })
 

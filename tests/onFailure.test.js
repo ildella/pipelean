@@ -33,7 +33,7 @@ const scannerThatFailsAt = failItem => (acc, item) => {
   return acc + item
 }
 
-test('onFailure called for failFast with {item, error}', async () => {
+test('onFailure called for failFast with item context', async () => {
   const onFailure = vi.fn()
   const items = [1, 2, 3]
 
@@ -46,15 +46,17 @@ test('onFailure called for failFast with {item, error}', async () => {
   expect(onFailure).toHaveBeenCalledWith({
     item: 2,
     error: new Error('Error at 2'),
+    index: 1,
   })
   expect(result.failure).toEqual({
     item: 2,
     error: new Error('Error at 2'),
+    index: 1,
   })
   expect(result.results).toEqual([])
 })
 
-test('onFailure called for failLate with true', async () => {
+test('onFailure called for failLate with errors context', async () => {
   const onFailure = vi.fn()
   const items = [1, 2, 3, 4]
 
@@ -64,10 +66,13 @@ test('onFailure called for failLate with true', async () => {
   })
 
   expect(onFailure).toHaveBeenCalledTimes(1)
-  expect(onFailure).toHaveBeenCalledWith(true)
-  expect(result.failure).toBe(true)
+  expect(onFailure).toHaveBeenCalledWith({errors: result.errors})
+  expect(result.failure).toEqual({errors: result.errors})
   expect(result.results).toEqual([2, 6])
-  expect(result.errors).toHaveLength(2)
+  expect(result.errors).toEqual([
+    {item: 2, error: new Error('Error at 2'), index: 1},
+    {item: 4, error: new Error('Error at 4'), index: 3},
+  ])
 })
 
 test('onFailure NOT called for collect (failure: false)', async () => {
@@ -109,6 +114,7 @@ test('onFailure is optional', async () => {
   expect(result.failure).toEqual({
     item: 2,
     error: new Error('Error at 2'),
+    index: 1,
   })
 })
 
@@ -125,10 +131,12 @@ test('onFailure works with filter', async () => {
   expect(onFailure).toHaveBeenCalledWith({
     item: 3,
     error: new Error('Error at 3'),
+    index: 2,
   })
   expect(result.failure).toEqual({
     item: 3,
     error: new Error('Error at 3'),
+    index: 2,
   })
   expect(result.results).toEqual([])
 })
@@ -143,10 +151,13 @@ test('onFailure works with filter and failLate', async () => {
   })
 
   expect(onFailure).toHaveBeenCalledTimes(1)
-  expect(onFailure).toHaveBeenCalledWith(true)
-  expect(result.failure).toBe(true)
+  expect(onFailure).toHaveBeenCalledWith({errors: result.errors})
+  expect(result.failure).toEqual({errors: result.errors})
   expect(result.results).toEqual([1, 3, 5])
-  expect(result.errors).toHaveLength(2)
+  expect(result.errors).toEqual([
+    {item: 2, error: new Error('Error at 2'), index: 1},
+    {item: 4, error: new Error('Error at 4'), index: 3},
+  ])
 })
 
 test('onFailure works with scan', async () => {
@@ -192,10 +203,12 @@ test('Application-layer wrapper with default onFailure', async () => {
   expect(lastFailure).toEqual({
     item: 2,
     error: new Error('Error at 2'),
+    index: 1,
   })
   expect(result.failure).toEqual({
     item: 2,
     error: new Error('Error at 2'),
+    index: 1,
   })
 })
 
@@ -212,7 +225,12 @@ test('onFailure with skip strategy still allows onError', async () => {
 
   // onError should be called even with skip
   expect(onError).toHaveBeenCalledTimes(1)
-  expect(onError).toHaveBeenCalledWith(new Error('Error at 2'))
+  expect(onError).toHaveBeenCalledWith({
+    item: 2,
+    error: new Error('Error at 2'),
+    index: 1,
+    total: 3,
+  })
 
   // onFailure should NOT be called (failure is false)
   expect(onFailure).not.toHaveBeenCalled()
