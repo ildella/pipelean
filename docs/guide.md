@@ -77,21 +77,21 @@ All iteration functions (`series`, `filter`, `scan`) support four error strategi
 
 #### Composition: pipe
 
-Combine multiple filter predicates into a single reusable filter:
+Compose multiple operations into a single reusable function for `series()`:
 
 ```js
-import { filter, pipe } from 'pipelean'
+import { series, pipe } from 'pipelean'
 
-const isValid = pipe(
-  (user) => user.age >= 18,
-  (user) => user.email.includes('@'),
-  (user) => !user.blocked
+const normalizeActiveUser = pipe(
+  user => user.active ? user : undefined,
+  user => user.email,
+  email => email.toLowerCase()
 )
 
-const adults = await filter(isValid, users)
+const result = await series(users, normalizeActiveUser)
 ```
 
-**Undefined Short-Circuit**: When any step returns `undefined`, remaining steps are skipped and `undefined` propagates out. Combined with `series` (which drops items when the operation returns `undefined`), this merges transformation and selection in a single pass:
+`pipe()` is Pipelean's operation composer. It chains functions left-to-right and preserves Pipelean's drop signal: when any step returns `undefined`, remaining steps are skipped and `undefined` propagates out. Combined with `series` (which drops items when the operation returns `undefined`), this merges transformation and selection in a single pass:
 
 ```js
 import { series, pipe } from 'pipelean'

@@ -360,12 +360,12 @@ const adults = await filter(
 
 ### pipe
 
-**Purpose**: Vertical composition tool - chains functions left-to-right (Unix pipe pattern).
+**Purpose**: Pipelean operation composer - chains functions left-to-right and preserves Pipelean's `undefined` drop signal.
 
 **Type**: `(...fns) => (input) => Promise<ReturnType<LastFn>>`
 
 **Parameters**:
-- Variadic arguments: Any number of async functions to execute sequentially
+- Variadic arguments: Any number of sync or async functions to execute sequentially
 - `input`: The initial value passed to the first function
 
 **Return Type**: A Promise that resolves to the final result.
@@ -375,27 +375,28 @@ const adults = await filter(
 - Output of one function becomes input to the next
 - Supports both synchronous and asynchronous functions
 - Natural data flow from input through transformations
-- **Undefined Short-Circuit**: If any step returns `undefined`, remaining steps are skipped and `undefined` is returned. This enables selection (filtering) within a composed pipe — see [series](#series) drop behavior.
+- Designed for composing reusable operations passed to `series()` or used directly
+- **Undefined Short-Circuit**: If any step returns `undefined`, remaining steps are skipped and `undefined` is returned. This enables selection within a composed operation — see [series](#series) drop behavior.
 
 **Usage Example**:
 ```javascript
 import { pipe } from './functional.js'
 
-// Process user through validation, transformation, and storage
-const userId = await pipe(
-  async (id) => validateUserId(id),    // Step 1
-  async (id) => fetchUser(id),              // Step 2
-  async (user, data) => saveUser(user, data), // Step 3
-  userId                                   // Starting value
+const normalizeUser = pipe(
+  async id => validateUserId(id),
+  async id => fetchUser(id),
+  user => user.active ? user : undefined,
+  user => ({...user, email: user.email.toLowerCase()}),
 )
+
+const user = await normalizeUser(userId)
 
 // Compose operations in a readable pipeline
 const result = await pipe(
-  async (data) => validate(data),
-  async (data) => transform(data),
-  async (data) => persist(data),
-  null  // No initial data needed
-)
+  async data => validate(data),
+  async data => transform(data),
+  async data => persist(data),
+)(input)
 ```
 
 **Best Practice**: Use `pipe()` when you need to chain operations that form a coherent data processing pipeline.
