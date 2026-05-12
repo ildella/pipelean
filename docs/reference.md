@@ -297,7 +297,7 @@ const { results } = await series(items, pipe(
 **Return Type**: A Promise that resolves to an object containing:
 - `results`: Array of intermediate results (or `[]` on failFast failure)
 - `errors`: Array of errors encountered (empty for failFast, skip, throw)
-- `failure`: `false` on success; `{item, error}` for failFast; `true` for failLate
+- `failure`: `false` on success; `{item, error, index}` for failFast; `{errors}` for failLate
 - `value`: Final accumulated value when `storePartialResults: false` (only on success)
 
 **Key Characteristics**:

@@ -173,10 +173,12 @@ test('onFailure works with scan', async () => {
   expect(onFailure).toHaveBeenCalledWith({
     item: 2,
     error: new Error('Error at 2'),
+    index: 1,
   })
   expect(result.failure).toEqual({
     item: 2,
     error: new Error('Error at 2'),
+    index: 1,
   })
   expect(result.results).toEqual([])
 })

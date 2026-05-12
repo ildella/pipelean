@@ -201,7 +201,7 @@ export const filter = (...args) => {
  *  strategy?: StrategyFn, onError?, onFailure?, storePartialResults?: boolean
  * }} opts
  */
-// eslint-disable-next-line complexity
+// eslint-disable-next-line complexity, max-statements
 export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   const {
     strategy = failFast, onError, onFailure, storePartialResults = true,
@@ -209,45 +209,52 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   const results = []
   let acc = initialValue
   const errors = []
+  const strategyName = strategy.name ?? strategy
+  const plannedTotal = getPlannedTotal({items: iterable})
+  let index = 0
 
   for await (const item of iterable) {
     try {
-      acc = await scanner(acc, item)
+      acc = await scanner(acc, item, index)
       if (storePartialResults)
         results.push(acc)
     } catch (error) {
-      const strategyName = strategy.name ?? strategy
-
-      if (onError) {
-        await onError(error)
-      }
+      const errorContext = {item, error, index}
 
       if (strategyName === 'throw') {
         throw error
       }
 
+      if (onError) {
+        await onError(withTotal(errorContext, plannedTotal))
+      }
+
       if (strategyName === 'failFast') {
         if (onFailure) {
-          onFailure({item, error})
+          onFailure(errorContext)
         }
         return storePartialResults
-          ? {results: [], errors, failure: {item, error}}
-          : {errors, failure: {item, error}}
+          ? {results: [], errors, failure: errorContext}
+          : {errors, failure: errorContext}
       }
 
       if (strategyName === 'skip') {
+        index++
         continue
       }
 
-      errors.push({item, error})
+      errors.push(errorContext)
     }
+    index++
   }
 
   const failure =
-    strategy.name === 'failLate' && errors.length > 0
+    strategyName === 'failLate' && errors.length > 0
+      ? {errors}
+      : false
 
   if (failure && onFailure) {
-    onFailure(true)
+    onFailure(failure)
   }
 
   return storePartialResults
