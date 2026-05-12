@@ -8,15 +8,6 @@ Sequential async pipelines with **first-class retry, error boundaries, and smart
 
 Just plain JavaScript. Eager execution. Perfect stack traces.
 
-```js
-const result = await series([
-  () => fetchUser(id),
-  user  => validateAndEnrich(user),
-  final => saveToDatabase(final),
-  saved => sendWebhook(saved),
-], { strategy: collect });   // or failFast, retry(3), custom...
-```
-
 ## Why Pipelean?
 
 To stop writing the same try/catch and manual accumulation boilerplate.
@@ -113,7 +104,7 @@ const downloadSomething = async () => {...}
 const transformSomething = () => {...}
 const writeToDatabase = async () => {...}
 
-const pipeline = await pipe(
+const pipeline = pipe(
   downloadSomething,
   transformSomething,
   writeToDatabase,
