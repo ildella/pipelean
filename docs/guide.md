@@ -18,19 +18,20 @@ Pipelean provides four main tools, grouped by **data flow direction** (horizonta
 All iteration functions (`series`, `filter`, `scan`) support four error strategies:
 
 **failFast** (aliases: `fail`, `stopOnError`)
-- Sets `failure: {item, error}` on first error
-- Calls `onFailure({item, error})` immediately
+- Sets `failure: {item, error, index}` on first error
+- Calls `onError({item, error, index, total})`, then `onFailure({item, error, index})` immediately
 - Stops iteration; results array is empty on failure
 
 **throw**
 - Throws the error on first failure
 - Does NOT return a structured result on failure
+- Does NOT call `onError` or `onFailure`
 - Useful for "let it crash" / fail-early patterns where the caller handles errors externally
 
 **failLate**
 - Collects all errors in `errors` array
-- Sets `failure: true` after loop completes (only if `errors.length > 0`)
-- Calls `onFailure(true)` if `failure` is truthy
+- Sets `failure: {errors}` after loop completes (only if `errors.length > 0`)
+- Calls `onFailure({errors})` if `failure` is truthy
 
 **collect** (default for `series` and `filter`)
 - Collects all errors in `errors` array
@@ -62,6 +63,11 @@ All iteration functions (`series`, `filter`, `scan`) support four error strategi
   - Always returns a predictable object: `{ results, errors, failure }`.
   - Errors are treated as data, removing the need for consumer-side `try/catch` blocks.
 
+* **Contextual Callbacks**
+  - `onProgress({item, result, index, total})` runs after each successful item.
+  - `onError({item, error, index, total})` runs for handled item errors.
+  - `total` is included only when Pipelean can know it cheaply, or when the caller passes `total`.
+
 * **Order Guarantee**
   - Because execution is sequential, output order strictly matches input order (no race conditions).
 
@@ -71,21 +77,21 @@ All iteration functions (`series`, `filter`, `scan`) support four error strategi
 
 #### Composition: pipe
 
-Combine multiple filter predicates into a single reusable filter:
+Compose multiple operations into a single reusable function for `series()`:
 
 ```js
-import { filter, pipe } from 'pipelean'
+import { series, pipe } from 'pipelean'
 
-const isValid = pipe(
-  (user) => user.age >= 18,
-  (user) => user.email.includes('@'),
-  (user) => !user.blocked
+const normalizeActiveUser = pipe(
+  user => user.active ? user : undefined,
+  user => user.email,
+  email => email.toLowerCase()
 )
 
-const adults = await filter(isValid, users)
+const result = await series(users, normalizeActiveUser)
 ```
 
-**Undefined Short-Circuit**: When any step returns `undefined`, remaining steps are skipped and `undefined` propagates out. Combined with `series` (which drops items when the operation returns `undefined`), this merges transformation and selection in a single pass:
+`pipe()` is Pipelean's operation composer. It chains functions left-to-right and preserves Pipelean's drop signal: when any step returns `undefined`, remaining steps are skipped and `undefined` propagates out. Combined with `series` (which drops items when the operation returns `undefined`), this merges transformation and selection in a single pass:
 
 ```js
 import { series, pipe } from 'pipelean'
@@ -120,7 +126,7 @@ Pipelean also provides lightweight wrappers that add behavior to **individual fu
 ## Key Principles
 
 1. **`onError` ≠ error strategy**: `onError` is a callback, not a strategy
-2. **`failure` is truthy for**: `failFast` ({item, error}) and `failLate` (true)
+2. **`failure` is truthy for**: `failFast` (`{item, error, index}`) and `failLate` (`{errors}`)
 3. **`failure` is falsy for**: `collect`, `skip`, and `throw` on success
 4. **`throw` does not return on error**: It propagates the error to the caller
 5. **Strategy selection**: Choose based on whether failures are acceptable

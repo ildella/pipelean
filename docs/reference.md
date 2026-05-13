@@ -52,11 +52,11 @@
 **Use when**: Critical operations where failure means the entire pipeline is invalid.
 
 **Behavior**:
-- Sets `failure: {item, error}` on first error
-- Calls `onFailure({item, error})` immediately
+- Sets `failure: {item, error, index}` on first error
+- Calls `onError({item, error, index, total})`, then `onFailure({item, error, index})` immediately
 - Stops iteration
 
-**Return Format**: `{results: [], errors: [], failure: {item, error}}`
+**Return Format**: `{results: [], errors: [], failure: {item, error, index}}`
 
 **Example**:
 ```javascript
@@ -67,7 +67,7 @@ const result = await series([1, 2, 3], async item => {
   return item * 2
 }, {strategy: failFast})
 
-// result = {results: [], errors: [], failure: {item: 2, error: Error(...)}}
+// result = {results: [], errors: [], failure: {item: 2, error: Error(...), index: 1}}
 ```
 
 ---
@@ -81,7 +81,7 @@ const result = await series([1, 2, 3], async item => {
 **Behavior**:
 - Throws the error on first failure
 - Does NOT call `onFailure`
-- `onError` is still called if present (in `series`; `scan` calls it before throw)
+- Does NOT call `onError` in `series`
 
 **Return Format**: On success: `{results, errors: [], failure: false}`
 
@@ -112,7 +112,7 @@ try {
 - Sets `failure: false`
 - Does NOT call `onFailure`
 
-**Return Format**: `{results, errors: [...], failure: false}`
+**Return Format**: `{results, errors: [{item, error, index}], failure: false}`
 
 **Example**:
 ```javascript
@@ -123,22 +123,22 @@ const result = await series([1, 2, 3], async item => {
   return item * 2
 }, {strategy: collect})
 
-// result = {results: [2, 6], errors: [{item: 2, error: ...}, {item: 4, error: ...}], failure: false}
+// result = {results: [2, 6], errors: [{item: 2, error: ..., index: 1}], failure: false}
 ```
 ---
 
 ### failLate
 
-**Purpose**: Error strategy identifier that collects all errors and returns `failure: true` at the end.
+**Purpose**: Error strategy identifier that collects all errors and returns `failure: {errors}` at the end.
 
 **Use when**: Application-layer needs to detect if *any* error occurred.
 
 **Behavior**:
 - Collects all errors in `errors` array
-- Sets `failure: true` after loop completes (only if `errors.length > 0`)
-- Calls `onFailure(true)` if `failure` is truthy
+- Sets `failure: {errors}` after loop completes (only if `errors.length > 0`)
+- Calls `onFailure({errors})` if `failure` is truthy
 
-**Return Format**: `{results, errors: [...], failure: true}` (if any errors occurred)
+**Return Format**: `{results, errors: [{item, error, index}], failure: {errors}}` (if any errors occurred)
 
 **Example**:
 ```javascript
@@ -149,7 +149,7 @@ const result = await series([1, 2, 3], async item => {
   return item * 2
 }, {strategy: failLate})
 
-// result = {results: [2, 6], errors: [{item: 2, error: ...}, {item: 4, error: ...}], failure: true}
+// result = {results: [2, 6], errors: [{item: 2, error: ..., index: 1}], failure: {errors}}
 ```
 ---
 
@@ -186,14 +186,15 @@ const result = await series([1, 2, 3], async item => {
 
 Optional callback for verification/telemetry (logging, metrics).
 
-- Called for **every** error
+- Called for every handled item error in `series`
 - Does NOT affect control flow
+- Receives `{item, error, index, total}`; `total` is omitted when unknown
 - Use for: logging, metrics, external error reporting
 
 ```javascript
 await series(items, fn, {
   strategy: skip,
-  onError: (error) => console.error('Error:', error.message) // Called for each error
+  onError: ({item, error}) => console.error('Error:', item.id, error.message)
 })
 ```
 
@@ -205,19 +206,17 @@ Optional callback for application-layer error handling (UI updates, notification
 
 - Called when `failure` is truthy
 - Depends on strategy:
-  - `failFast`: called with `{item, error}`
-  - `failLate`: called with `true`
+  - `failFast`: called with `{item, error, index}`
+  - `failLate`: called with `{errors}`
   - `collect` / `skip`: NOT called (failure is false)
 
 ```javascript
 await series(items, fn, {
-  strategy: failFast,
+  strategy: failLate,
   onFailure: (failure) => {
-    if (failure === true) {
-      // failLate: show general error notification
+    if (failure.errors) {
       showToast('Some items failed')
     } else {
-      // failFast: show specific error with item
       showToast(`Item ${failure.item} failed: ${failure.error.message}`)
     }
   }
@@ -240,14 +239,15 @@ Curried: `(fn, opts?) => (items) => Promise<Outcome>`
 - `fn(item, index)`: The function to apply. Returns the mapped value, or throws, or returns `undefined` to drop the item.
 - `opts` (optional):
   - `strategy`: Error strategy (default: `collect`). `failFast`, `collect`, `failLate`, `skip`, `throw_`.
-  - `onProgress(result)`: Called after each successful item with the mapped result. NOT called for errors or `undefined` drops.
-  - `onError(error)`: Called for each error. Does not affect control flow.
-  - `onFailure(failure)`: Called when failure is truthy. Receives `{item, error}` for `failFast`, `true` for `failLate`.
+  - `onProgress({item, result, index, total})`: Called after each successful item. NOT called for errors or `undefined` drops.
+  - `onError({item, error, index, total})`: Called for each handled item error. Does not affect control flow.
+  - `onFailure(failure)`: Called when failure is truthy. Receives `{item, error, index}` for `failFast`, `{errors}` for `failLate`.
   - `take`: Limit items processed.
+  - `total`: Explicit planned input count for progress/error callbacks. If omitted, `series` uses a cheap known input size when available. If `take` is set, callback `total` is limited to `Math.min(take, knownTotal)`. If no total is known, the `total` key is omitted.
   - `pause`: Milliseconds between successful items.
   - `pauseOnErrors`: Whether to also pause after errors (default: `false`).
 
-**Return**: `{results, errors, failure}` where `failure` is `false` on success.
+**Return**: `{results, errors, failure}` where `failure` is `false` on success. Collected `errors` are `{item, error, index}`.
 
 **Usage Example**:
 ```javascript
@@ -262,6 +262,12 @@ const result = await series(items, fn, { strategy: failFast })
 
 // With pause for rate limiting
 const result = await series(endpoints, fn, { pause: 500 })
+
+// With UI progress
+await series(items, saveItem, {
+  onProgress: ({index, total}) => updateProgress(index + 1, total),
+  onError: ({item, error}) => reportItemError(item.id, error),
+})
 
 // Curried: create a reusable transform
 const double = series(x => x * 2)
@@ -291,7 +297,7 @@ const { results } = await series(items, pipe(
 **Return Type**: A Promise that resolves to an object containing:
 - `results`: Array of intermediate results (or `[]` on failFast failure)
 - `errors`: Array of errors encountered (empty for failFast, skip, throw)
-- `failure`: `false` on success; `{item, error}` for failFast; `true` for failLate
+- `failure`: `false` on success; `{item, error, index}` for failFast; `{errors}` for failLate
 - `value`: Final accumulated value when `storePartialResults: false` (only on success)
 
 **Key Characteristics**:
@@ -327,11 +333,11 @@ const { results, errors } = await scan(
 - `items`: The iterable to filter (immediate mode)
 - `opts` (optional): Options passed through to `series`
 
-**Options**: Same as `series` — `strategy`, `onError`, `onFailure`, `take`, `onProgress`, `pause`, `pauseOnErrors`.
+**Options**: Same as `series` — `strategy`, `onError`, `onFailure`, `take`, `total`, `onProgress`, `pause`, `pauseOnErrors`.
 
 **Return Type**: `{ results, errors, failure }` — same shape as `series`:
 - `results`: Original items where the predicate returned truthy
-- `failure`: `false` on success (no errors), `{item, error}` for `failFast`, `true` for `failLate`
+- `failure`: `false` on success (no errors), `{item, error, index}` for `failFast`, `{errors}` for `failLate`
 
 **Key Characteristics**:
 - The predicate's return value is never placed into `results` — only truthiness is checked, and the original `item` is what gets kept or dropped.
@@ -354,12 +360,12 @@ const adults = await filter(
 
 ### pipe
 
-**Purpose**: Vertical composition tool - chains functions left-to-right (Unix pipe pattern).
+**Purpose**: Pipelean operation composer - chains functions left-to-right and preserves Pipelean's `undefined` drop signal.
 
 **Type**: `(...fns) => (input) => Promise<ReturnType<LastFn>>`
 
 **Parameters**:
-- Variadic arguments: Any number of async functions to execute sequentially
+- Variadic arguments: Any number of sync or async functions to execute sequentially
 - `input`: The initial value passed to the first function
 
 **Return Type**: A Promise that resolves to the final result.
@@ -369,27 +375,28 @@ const adults = await filter(
 - Output of one function becomes input to the next
 - Supports both synchronous and asynchronous functions
 - Natural data flow from input through transformations
-- **Undefined Short-Circuit**: If any step returns `undefined`, remaining steps are skipped and `undefined` is returned. This enables selection (filtering) within a composed pipe — see [series](#series) drop behavior.
+- Designed for composing reusable operations passed to `series()` or used directly
+- **Undefined Short-Circuit**: If any step returns `undefined`, remaining steps are skipped and `undefined` is returned. This enables selection within a composed operation — see [series](#series) drop behavior.
 
 **Usage Example**:
 ```javascript
 import { pipe } from './functional.js'
 
-// Process user through validation, transformation, and storage
-const userId = await pipe(
-  async (id) => validateUserId(id),    // Step 1
-  async (id) => fetchUser(id),              // Step 2
-  async (user, data) => saveUser(user, data), // Step 3
-  userId                                   // Starting value
+const normalizeUser = pipe(
+  async id => validateUserId(id),
+  async id => fetchUser(id),
+  user => user.active ? user : undefined,
+  user => ({...user, email: user.email.toLowerCase()}),
 )
+
+const user = await normalizeUser(userId)
 
 // Compose operations in a readable pipeline
 const result = await pipe(
-  async (data) => validate(data),
-  async (data) => transform(data),
-  async (data) => persist(data),
-  null  // No initial data needed
-)
+  async data => validate(data),
+  async data => transform(data),
+  async data => persist(data),
+)(input)
 ```
 
 **Best Practice**: Use `pipe()` when you need to chain operations that form a coherent data processing pipeline.

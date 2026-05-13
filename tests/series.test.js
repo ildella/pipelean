@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {test, expect} from 'vitest'
 import {series, collect} from '$src/functional'
 
@@ -14,7 +15,7 @@ test('failFast stops on first error with no partial results', async () => {
     return x * 10
   }, {strategy: 'failFast'})
   expect(result.results).toEqual([])
-  expect(result.failure).toEqual({item: 2, error: bang})
+  expect(result.failure).toEqual({item: 2, error: bang, index: 1})
   expect(result.errors).toEqual([])
 })
 
@@ -26,7 +27,7 @@ test('collect continues past errors same as skip', async () => {
     return x * 10
   }, {strategy: collect})
   expect(result.results).toEqual([10, 30])
-  expect(result.errors).toEqual([{item: 2, error: bang}])
+  expect(result.errors).toEqual([{item: 2, error: bang, index: 1}])
   expect(result.failure).toBe(false)
 })
 
@@ -165,7 +166,76 @@ test('calls onProgress after each successful item', async () => {
     onProgress: value => progress.push(value),
   })
   expect(result.results).toEqual([10, 20, 30])
-  expect(progress).toEqual([10, 20, 30])
+  expect(progress).toEqual([
+    {
+      item: 1, result: 10, index: 0, total: 3,
+    },
+    {
+      item: 2, result: 20, index: 1, total: 3,
+    },
+    {
+      item: 3, result: 30, index: 2, total: 3,
+    },
+  ])
+})
+
+test('onProgress uses take as planned total', async () => {
+  const progress = []
+  const result = await series([1, 2, 3, 4, 5], x => x * 10, {
+    take: 2,
+    onProgress: value => progress.push(value),
+  })
+
+  expect(result.results).toEqual([10, 20])
+  expect(progress).toEqual([
+    {
+      item: 1, result: 10, index: 0, total: 2,
+    },
+    {
+      item: 2, result: 20, index: 1, total: 2,
+    },
+  ])
+})
+
+test('onProgress uses explicit total override limited by take', async () => {
+  const progress = []
+  const result = await series([1, 2, 3, 4, 5], x => x * 10, {
+    total: 10,
+    take: 3,
+    onProgress: value => progress.push(value),
+  })
+
+  expect(result.results).toEqual([10, 20, 30])
+  expect(progress).toEqual([
+    {
+      item: 1, result: 10, index: 0, total: 3,
+    },
+    {
+      item: 2, result: 20, index: 1, total: 3,
+    },
+    {
+      item: 3, result: 30, index: 2, total: 3,
+    },
+  ])
+})
+
+test('onProgress omits total for inputs without cheap size', async () => {
+  async function * numbers () {
+    yield 1
+    yield 2
+  }
+
+  const progress = []
+  const result = await series(numbers(), x => x * 10, {
+    onProgress: value => progress.push(value),
+  })
+
+  expect(result.results).toEqual([10, 20])
+  expect(progress).toEqual([
+    {item: 1, result: 10, index: 0},
+    {item: 2, result: 20, index: 1},
+  ])
+  expect(Object.hasOwn(progress[0], 'total')).toBe(false)
 })
 
 test('does not call onProgress for errored items', async () => {
@@ -179,7 +249,14 @@ test('does not call onProgress for errored items', async () => {
     onProgress: value => progress.push(value),
   })
   expect(result.results).toEqual([10, 30])
-  expect(progress).toEqual([10, 30])
+  expect(progress).toEqual([
+    {
+      item: 1, result: 10, index: 0, total: 3,
+    },
+    {
+      item: 3, result: 30, index: 2, total: 3,
+    },
+  ])
 })
 
 test('does not call onProgress for undefined results', async () => {
@@ -193,7 +270,14 @@ test('does not call onProgress for undefined results', async () => {
   })
   expect(result.results).toEqual([10, 30])
   // undefined items are dropped — onProgress should not be called for them
-  expect(progress).toEqual([10, 30])
+  expect(progress).toEqual([
+    {
+      item: 1, result: 10, index: 0, total: 3,
+    },
+    {
+      item: 3, result: 30, index: 2, total: 3,
+    },
+  ])
 })
 
 test('undefined result drops the item from results', async () => {

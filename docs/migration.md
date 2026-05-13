@@ -2,6 +2,173 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.7: `series()` callbacks receive context objects
+
+Pipelean 0.7 changes `series()` lifecycle callbacks from raw values to named context objects. This is a breaking change, but it makes app tasks easier to write because UI progress and error reporting get the item, index, result/error, and known total in one place.
+
+### `onProgress(result)` → `onProgress({result})`
+
+**Before:**
+```js
+await series(items, fn, {
+  onProgress: result => updateUi(result),
+})
+```
+
+**After:**
+```js
+await series(items, fn, {
+  onProgress: ({result}) => updateUi(result),
+})
+```
+
+The full progress payload is:
+
+```js
+{item, result, index, total}
+```
+
+`total` is omitted when Pipelean cannot know it cheaply. Pass `total` explicitly when the planned count comes from your app:
+
+```js
+await series(items, fn, {
+  total: items.length,
+  onProgress: ({index, total}) => updateProgress(index + 1, total),
+})
+```
+
+If `take` is set, callback `total` means planned execution total:
+
+```js
+await series(items, fn, {
+  take: 10,
+  total: 100,
+  onProgress: ({total}) => {
+    // total is 10
+  },
+})
+```
+
+### `onError(error)` → `onError({error})`
+
+**Before:**
+```js
+await series(items, fn, {
+  strategy: collect,
+  onError: error => report(error),
+})
+```
+
+**After:**
+```js
+await series(items, fn, {
+  strategy: collect,
+  onError: ({item, error, index}) => report({item, error, index}),
+})
+```
+
+Collected errors now also include `index`:
+
+```js
+const {errors} = await series(items, fn, {strategy: collect})
+// errors = [{item, error, index}]
+```
+
+### `failFast` failure includes `index`
+
+**Before:**
+```js
+const result = await series(items, fn, {strategy: failFast})
+// result.failure = {item, error}
+```
+
+**After:**
+```js
+const result = await series(items, fn, {strategy: failFast})
+// result.failure = {item, error, index}
+```
+
+`onFailure` receives the same shape:
+
+```js
+await series(items, fn, {
+  strategy: failFast,
+  onFailure: ({item, error, index}) => showItemError(item, error, index),
+})
+```
+
+### `failLate` failure changes from `true` to `{errors}`
+
+**Before:**
+```js
+const result = await series(items, fn, {strategy: failLate})
+
+if (result.failure === true) {
+  showToast('Some items failed')
+}
+```
+
+**After:**
+```js
+const result = await series(items, fn, {strategy: failLate})
+
+if (result.failure) {
+  showToast(`${result.failure.errors.length} items failed`)
+}
+```
+
+`onFailure` receives `{errors}`:
+
+```js
+await series(items, fn, {
+  strategy: failLate,
+  onFailure: ({errors}) => showToast(`${errors.length} items failed`),
+})
+```
+
+### `throw` does not call lifecycle callbacks
+
+In `series()`, `throw` now throws the original error immediately and does not call `onError` or `onFailure`.
+
+```js
+await series(items, fn, {
+  strategy: throw_,
+  onError: () => {
+    // not called
+  },
+  onFailure: () => {
+    // not called
+  },
+})
+```
+
+### App task progress example
+
+```js
+const albumsToSync = await getAlbumsByStatus({statusFilter})
+
+const result = await series(albumsToSync, album => importAlbum({
+  sourceId: album.sourceId,
+  libraryId: album.libraryId,
+  fast,
+}), {
+  take: limit,
+  strategy: collect,
+  onProgress: ({index, total}) => {
+    operation.sync.total = total
+    operation.sync.current = index + 1
+  },
+  onError: ({item, error}) => {
+    reportAlbumImportError({
+      sourceId: item.sourceId,
+      title: item.title,
+      name: error.name,
+      content: error.message,
+    })
+  },
+})
+```
+
 ## for-loop with try/catch → series
 
 **Before:**

@@ -5,7 +5,7 @@
 ```javascript
 await series(items, fn, {
   strategy: collect,
-  onError: (error) => logger.error(error)
+  onError: ({item, error}) => logger.error({item, error})
 })
 // Check failure manually: if (result.errors.length > 0) { ... }
 ```
@@ -15,7 +15,7 @@ await series(items, fn, {
 ```javascript
 await series(items, fn, {
   strategy: skip,
-  onError: (error) => metrics.increment('errors')
+  onError: ({item, error}) => metrics.increment('errors', {item, error})
 })
 // Result has no errors array, failure is false
 ```
@@ -38,7 +38,7 @@ await series(items, fn, {
 const withErrorHandling = (opts) => ({
   ...opts,
   onFailure: (failure) => {
-    if (failure === true) {
+    if (failure.errors) {
       showToast('Some items failed')
     } else {
       showToast(`Error: ${failure.error.message}`)
@@ -49,3 +49,34 @@ const withErrorHandling = (opts) => ({
 
 await series(items, fn, withErrorHandling({strategy: failFast}))
 ```
+
+### Pattern 5: App Task + UI Progress
+
+Use `series()` when an app task needs one loop, predictable errors, and progress updates. The query and UI state stay in the app; Pipelean owns the iteration, callback timing, and final outcome.
+
+```javascript
+const albumsToSync = await getAlbumsByStatus({statusFilter})
+
+const result = await series(albumsToSync, album => importAlbum({
+  sourceId: album.sourceId,
+  libraryId: album.libraryId,
+  fast,
+}), {
+  take: limit,
+  strategy: collect,
+  onProgress: ({index, total}) => {
+    operation.sync.total = total
+    operation.sync.current = index + 1
+  },
+  onError: ({item, error}) => {
+    reportAlbumImportError({
+      sourceId: item.sourceId,
+      title: item.title,
+      name: error.name,
+      content: error.message,
+    })
+  },
+})
+```
+
+If `total` is unknown, Pipelean omits the key. Pass `total` explicitly when the planned count comes from a database query or another app-level source.
