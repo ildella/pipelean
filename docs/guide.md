@@ -57,7 +57,7 @@ All iteration functions (`series`, `filter`, `scan`) support four error strategi
 
 * **Universal Mapper**
   - Handles both Synchronous and Asynchronous mapper functions automatically.
-  - `filter` accepts patterns via `where()`: `filter({active: true}, users)` is equivalent to `filter(where({active: true}), users)`.
+  - `filter` accepts patterns via `where()`: `filter(users, {active: true})` is equivalent to `filter(users, where({active: true}))`.
 
 * **Structured Results**
   - Always returns a predictable object: `{ results, errors, failure }`.

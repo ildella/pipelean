@@ -311,7 +311,7 @@ import { scan } from './functional.js'
 
 // Track insertions in a database
 const { results, errors } = await scan(
-  async records,
+  records,
   async (acc, record) => {
     const inserted = await db.insert(record)
     return acc + inserted  // Accumulate count
@@ -341,15 +341,15 @@ const { results, errors } = await scan(
 
 **Key Characteristics**:
 - The predicate's return value is never placed into `results` — only truthiness is checked, and the original `item` is what gets kept or dropped.
-- Pattern objects are supported: `filter({active: true}, users)` works via `where()`.
+- Pattern objects are supported: `filter(users, {active: true})` works via `where()`.
 
 **Usage Example**:
 ```javascript
 import { filter } from 'pipelean'
 
 const adults = await filter(
-  user => user.age >= 18,
   users,
+  user => user.age >= 18,
 )
 // result.results = [user1, user3, ...] — original items, not predicate output
 ```
@@ -433,10 +433,10 @@ const result = await series(items, pipe(
 import { where, filter } from 'pipelean'
 
 const isAdmin = where({role: 'admin'})
-const admins = await filter(isAdmin, users)
+const admins = await filter(users, isAdmin)
 
-// Or use pattern directly with filter (curried or immediate)
-const adults = await filter({active: true}, users)
+// Or use pattern directly with filter
+const adults = await filter(users, {active: true})
 ```
 
 ### retry
