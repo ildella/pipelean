@@ -10,7 +10,7 @@ description: "General Functional Programming principles and patterns. Use this s
 
 ## Coding Rules
 - **No `Array.prototype.forEach`**: ForEach swallows promises and doesn't handle async errors correctly. Use `series` instead.
-- **No `Array.prototype.reduce`**: Reduce is often unreadable and mixes state with iteration. Use `scan` for stateful accumulation.
+- **No `Array.prototype.reduce`**: Reduce is often unreadable and mixes state with iteration. Use `scanReduce` for simple reduction (sums, counts), `scan` for dependent stateful transformation where intermediate values matter.
 - **Eager Execution**: Do not yield generators or use lazy execution unless strictly required by a specific framework boundary. Get a structured report `{ results, errors, failure }` back immediately.
 - **Undefined Short-Circuit**: When composing operations (via `pipe`), returning `undefined` signals dropping the item (selection/filtering).
 

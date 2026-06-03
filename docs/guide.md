@@ -8,14 +8,15 @@ Pipelean provides four main tools, grouped by **data flow direction** (horizonta
 - **Vertical** tools transform **one item** through a chain of steps.
 - Some tools are **stateless** (each step independent), others **stateful** (later steps depend on previous results).
 
-  1. series (Horizontal / Stateless transformation)
-  2. scan (Horizontal / Stateful transformation)
-  3. filter (Horizontal / Stateless selection)
-  4. pipe (Vertical / Composition)
+   1. series (Horizontal / Stateless transformation)
+   2. scan (Horizontal / Stateful transformation — returns all intermediate results)
+   3. scanReduce (Horizontal / Pure reduction — returns only the final value)
+   4. filter (Horizontal / Stateless selection)
+   5. pipe (Vertical / Composition)
 
 ## Error Strategies
 
-All iteration functions (`series`, `filter`, `scan`) support four error strategies:
+All iteration functions (`series`, `filter`, `scan`, `scanReduce`) support four error strategies:
 
 **failFast** (aliases: `fail`, `stopOnError`)
 - Sets `failure: {item, error, index}` on first error
@@ -47,7 +48,7 @@ All iteration functions (`series`, `filter`, `scan`) support four error strategi
 
 ## Features
 
-#### Iterations: series / scan / filter
+#### Iterations: series / scan / scanReduce / filter
 
 * **Error Strategies**
   - Built-in and first-class (see [Error Strategies](#error-strategies) above)

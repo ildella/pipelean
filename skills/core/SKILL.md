@@ -9,10 +9,14 @@ description: "Pipelean core functionalities for iteration, composition and error
    - Runs `fn` on each item one by one.
    - `options`: `{ strategy: failFast | failLate | collect | skip, pause: ms, pauseOnErrors: boolean }`
    - Returns: `{ results, errors, failure }`
-2. **`scan(items, scannerFn, initialValue)`**: Stateful sequential transformation.
-   - `scannerFn(acc, item, index)`
-   - Returns: `{ results, errors, failure }`
-3. **`filter(items, predicate, options)`** (immediate) or **`filter(predicate, options)`** (curried): Stateless selection.
+ 2. **`scan(items, scannerFn, initialValue)`**: Stateful sequential transformation.
+    - `scannerFn(acc, item, index)`
+    - Returns: `{ results, errors, failure }`
+ 3. **`scanReduce(items, scannerFn, initialValue)`**: Pure reduction — like `scan` but returns only the final accumulated value.
+    - `scannerFn(acc, item, index)`
+    - Returns: `{ value, errors, failure }`
+    - Use for sums, counts, and simple accumulation where intermediate values aren't needed.
+ 4. **`filter(items, predicate, options)`** (immediate) or **`filter(predicate, options)`** (curried): Stateless selection.
    - Predicate returns truthy to keep, falsy to drop.
    - Returns original items where predicate matched in `results`.
 4. **`pipe(...fns)`**: Vertical composition.

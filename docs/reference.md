@@ -322,6 +322,54 @@ const { results, errors } = await scan(
 
 ---
 
+### scanReduce
+
+**Purpose**: Pure reduction - transforms each item sequentially and returns only the final accumulated value. A convenience wrapper around `scan` with `storePartialResults: false` baked in.
+
+**Type**: `(iterable, scanner, initialValue, opts?) => Promise<Outcome>`
+
+**Parameters**:
+- `iterable`: An async iterable (array, generator, or any object implementing the iteration protocol)
+- `scanner`: A function with signature `(accumulator, item, index) => newAccumulator`
+- `initialValue`: The starting value for the accumulator
+- `opts` (optional):
+  - `strategy`: Error strategy (default: `failFast`). `failFast`, `failLate`, `skip`, `throw_`.
+  - `onError`: Called for each handled item error. Does not affect control flow.
+  - `onFailure`: Called when failure is truthy.
+
+**Return Type**: A Promise that resolves to an object containing:
+- `value`: The final accumulated value (on success). `undefined` on failFast failure.
+- `errors`: Array of errors encountered (empty for failFast, skip, throw)
+- `failure`: `false` on success; `{item, error, index}` for failFast; `{errors}` for failLate
+
+**Key Characteristics**:
+- **Single value**: Returns `{value, errors, failure}` instead of intermediate results
+- **No boilerplate**: No need for `results.at(-1) || 0` — the final value is direct
+- **Error handling**: Same error strategies as `scan` and `series`
+
+**Usage Example**:
+```javascript
+import { scanReduce } from 'pipelean'
+
+// Sum track durations into album total
+const {value: totalDuration} = await scanReduce(
+  tracks,
+  (accumulator, {duration}) => accumulator + duration,
+  0,
+)
+// totalDuration = 22 (no intermediate array, no .at(-1))
+```
+
+**When to use**:
+- Summing, counting, concatenating
+- Any reduction where you only need the final result
+- When `scan`'s intermediate results array is unnecessary overhead
+
+**When to use `scan` instead**:
+- When you need every intermediate accumulator value (e.g. dependent sequential operations where each step's output is meaningful)
+
+---
+
 ### filter
 
 **Purpose**: Stateless selection tool - filters items from an iterable based on a predicate function. Delegates to `series` internally: the predicate is converted to a transform that returns the original item (keep) or `undefined` (drop).

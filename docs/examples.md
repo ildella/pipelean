@@ -48,6 +48,30 @@ Why not series?
 
 Series runs items independently. It cannot pass the ID from Track 1 to Track 2. scan is required when Step N depends on the output of Step N-1.
 
+#### Example: scanReduce (Pure Reduction)
+
+Scenario: You need a simple sum of track durations. With `scan` you'd have to fish the last value out of the intermediate results array. `scanReduce` gives you the final value directly.
+
+```js
+import { scanReduce } from 'pipelean'
+
+// Before: clunky, error-prone
+const {results: durations} = await scan(
+  tracks,
+  (acc, {duration}) => acc + duration,
+  0,
+)
+const totalDuration = durations.at(-1) || 0
+
+// After: clean, direct
+const {value: totalDuration} = await scanReduce(
+  tracks,
+  (acc, {duration}) => acc + duration,
+  0,
+)
+// totalDuration = 22 — no .at(-1), no fallback
+```
+
 #### Example: tryCatch as an App-Layer Primitive
 
 Scenario: You want a reusable "Error Boundary" for your application that automatically logs errors to a monitoring service (like Sentry) and pushes a notification to your UI state (e.g., a Svelte store), ensuring the app never crashes silently. 
