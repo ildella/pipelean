@@ -39,6 +39,10 @@
 - [retry](#retry) - Configurable Retry Logic
 - [tryCatch](#trycatch) - Single Function Lifecycle Hooks
 
+### Sync Variants
+
+- [Sync Functions](#sync-functions) - Synchronous counterparts for synchronous code
+
 ---
 
 ## Error strategies
@@ -563,6 +567,48 @@ const safeFetch = tryCatch(
 
 const data = await safeFetch('https://api.example.com')
 // data is the parsed JSON on success, null on error
+```
+
+---
+
+## Sync Functions
+
+`seriesSync`, `filterSync`, `scanSync`, `scanReduceSync`, `pipeSync`, and
+`tryCatchSync` are synchronous counterparts of the core functions.
+
+They use the same APIs, error strategies, and return shapes as their async
+counterparts, but return values directly instead of wrapped in a Promise. Use
+them when your data and operations are synchronous and you still want Pipelean's
+structured error collection.
+
+**Available sync variants**:
+
+- `seriesSync` returns `{results, errors, failure}` directly
+- `filterSync` returns `{results, errors, failure}` directly
+- `scanSync` returns `{results, errors, failure}` directly
+- `scanReduceSync` returns `{value, errors, failure}` directly
+- `pipeSync` composes synchronous functions left-to-right
+- `tryCatchSync` wraps a synchronous function with lifecycle hooks
+
+**Not supported in sync variants**:
+
+- `pause` and `pauseOnErrors`, because they depend on async `delay()`
+- async iterables, because sync variants use plain synchronous iteration
+
+**Usage Example**:
+
+```javascript
+import { seriesSync, collect } from 'pipelean'
+
+const {results, errors, failure} = seriesSync([1, 2, 3], x => {
+  if (x === 2)
+    throw new Error('bang')
+  return x * 10
+}, {strategy: collect})
+
+// results: [10, 30]
+// errors: [{item: 2, error: Error('bang'), index: 1}]
+// failure: false
 ```
 
 ---

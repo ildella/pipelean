@@ -10,9 +10,17 @@ Pipelean provides four main tools, grouped by **data flow direction** (horizonta
 
    1. series (Horizontal / Stateless transformation)
    2. scan (Horizontal / Stateful transformation — returns all intermediate results)
-   3. scanReduce (Horizontal / Pure reduction — returns only the final value)
-   4. filter (Horizontal / Stateless selection)
-   5. pipe (Vertical / Composition)
+    3. scanReduce (Horizontal / Pure reduction — returns only the final value)
+    4. filter (Horizontal / Stateless selection)
+    5. pipe (Vertical / Composition)
+
+> **Sync variants** — The iteration functions above also have synchronous
+> counterparts: `seriesSync`, `filterSync`, `scanSync`, and `scanReduceSync`.
+> `pipeSync` and `tryCatchSync` are available too. They use the same APIs,
+> error strategies, and return shapes, but return `{results, errors, failure}`
+> or `{value, errors, failure}` directly instead of a Promise. Use them when
+> your data and operations are synchronous and you want Pipelean's error
+> collection without `await`.
 
 ## Error Strategies
 

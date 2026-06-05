@@ -35,6 +35,7 @@ Pipelean gives you:
 - `tryCatch` and `retry` middleware you can reuse across your app
 - Built-in error strategies with sensible defaults for each operation
 - Structured results and progress hooks — no silent crashes
+- `*Sync` variants for synchronous code — same error collection, no promises
 
 ## The alternatives
 
