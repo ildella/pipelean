@@ -132,7 +132,7 @@ In `series()`, `throw` now throws the original error immediately and does not ca
 
 ```js
 await series(items, fn, {
-  strategy: throw_,
+  strategy: rethrow,
   onError: () => {
     // not called
   },

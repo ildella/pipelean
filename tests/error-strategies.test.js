@@ -5,7 +5,7 @@ import {
   collect,
   failLate,
   skip,
-  throw_,
+  rethrow,
   fail,
   stopOnError,
   series,
@@ -308,7 +308,7 @@ test('throw strategy throws without calling onError or onFailure', async () => {
     if (item === 2)
       throw bang
     return item * 10
-  }, {strategy: throw_, onError, onFailure})).rejects.toThrow(bang)
+  }, {strategy: rethrow, onError, onFailure})).rejects.toThrow(bang)
 
   expect(onError).not.toHaveBeenCalled()
   expect(onFailure).not.toHaveBeenCalled()

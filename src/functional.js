@@ -1,9 +1,11 @@
 /* eslint-disable max-lines */
+import {getPlannedTotal, withTotal} from './shared.js'
+
 export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
 export const failLate = Object.freeze({name: 'failLate'})
 export const skip = Object.freeze({name: 'skip'})
-export const throw_ = Object.freeze({name: 'throw'})
+export const rethrow = Object.freeze({name: 'throw'})
 
 // Aliases
 export const fail = failFast
@@ -54,24 +56,6 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
 
 export const where = pattern => item =>
   Object.entries(pattern).every(([key, value]) => item[key] === value)
-
-const getKnownTotal = (items, total) =>
-  total !== undefined ? total : items.length
-
-const getPlannedTotal = ({items, take, total}) => {
-  const knownTotal = getKnownTotal(items, total)
-
-  if (knownTotal === undefined)
-    return undefined
-
-  if (take === undefined)
-    return knownTotal
-
-  return Math.min(take, knownTotal)
-}
-
-const withTotal = (payload, total) =>
-  total === undefined ? payload : {...payload, total}
 
 // eslint-disable-next-line max-lines-per-function
 export const series = (...args) => {

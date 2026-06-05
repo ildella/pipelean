@@ -16,7 +16,7 @@
 ### Error strategies
 
 - [failFast](#failfast) - Error Strategy Identifier (aliases: `stopOnError`, `fail`)
-- [throw_](#throw_) - Error Strategy Identifier (throws on first error)
+- [rethrow](#rethrow) - Error Strategy Identifier (throws on first error)
 - [failLate](#faillate) - Error Strategy Identifier
 - [collect](#collect) - Error Strategy Identifier
 - [skip](#skip) - Error Strategy Identifier
@@ -72,7 +72,7 @@ const result = await series([1, 2, 3], async item => {
 
 ---
 
-### throw_
+### rethrow
 
 **Purpose**: Error strategy identifier that throws the error immediately on the first failure. Does NOT return a structured result on failure.
 
@@ -87,13 +87,13 @@ const result = await series([1, 2, 3], async item => {
 
 **Example**:
 ```javascript
-import {series, throw_} from 'pipelean'
+import {series, rethrow} from 'pipelean'
 
 try {
   const result = await series([1, 2, 3], async item => {
     if (item === 2) throw new Error('Error')
     return item * 2
-  }, {strategy: throw_})
+  }, {strategy: rethrow})
 } catch (error) {
   // error = Error('Error')
 }
@@ -238,7 +238,7 @@ Curried: `(fn, opts?) => (items) => Promise<Outcome>`
 - `items`: An iterable (array, async iterable, generator)
 - `fn(item, index)`: The function to apply. Returns the mapped value, or throws, or returns `undefined` to drop the item.
 - `opts` (optional):
-  - `strategy`: Error strategy (default: `collect`). `failFast`, `collect`, `failLate`, `skip`, `throw_`.
+  - `strategy`: Error strategy (default: `collect`). `failFast`, `collect`, `failLate`, `skip`, `rethrow`.
   - `onProgress({item, result, index, total})`: Called after each successful item. NOT called for errors or `undefined` drops.
   - `onError({item, error, index, total})`: Called for each handled item error. Does not affect control flow.
   - `onFailure(failure)`: Called when failure is truthy. Receives `{item, error, index}` for `failFast`, `{errors}` for `failLate`.
@@ -333,7 +333,7 @@ const { results, errors } = await scan(
 - `scanner`: A function with signature `(accumulator, item, index) => newAccumulator`
 - `initialValue`: The starting value for the accumulator
 - `opts` (optional):
-  - `strategy`: Error strategy (default: `failFast`). `failFast`, `failLate`, `skip`, `throw_`.
+  - `strategy`: Error strategy (default: `failFast`). `failFast`, `failLate`, `skip`, `rethrow`.
   - `onError`: Called for each handled item error. Does not affect control flow.
   - `onFailure`: Called when failure is truthy.
 

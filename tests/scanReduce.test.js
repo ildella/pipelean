@@ -1,5 +1,5 @@
 import {test, expect, vi} from 'vitest'
-import {failLate, scanReduce, throw_} from '$src/functional'
+import {failLate, scanReduce, rethrow} from '$src/functional'
 
 test('returns final accumulated value', async () => {
   const tracks = [
@@ -91,7 +91,7 @@ test('throw strategy rejects', async () => {
     if (item === 2)
       throw new Error('bang')
     return acc + item
-  }, 0, {strategy: throw_})).rejects.toThrow('bang')
+  }, 0, {strategy: rethrow})).rejects.toThrow('bang')
 })
 
 test('default strategy is failFast', async () => {

@@ -1,5 +1,5 @@
 import {test, expect, vi} from 'vitest'
-import {failLate, scan, throw_} from '$src/functional'
+import {failLate, scan, rethrow} from '$src/functional'
 
 test('threads accumulator through items', async () => {
   const {results} = await scan(
@@ -79,7 +79,7 @@ test('throw strategy throws without calling onError or onFailure', async () => {
     if (item === 2)
       throw bang
     return acc + item
-  }, 0, {strategy: throw_, onError, onFailure})).rejects.toThrow(bang)
+  }, 0, {strategy: rethrow, onError, onFailure})).rejects.toThrow(bang)
 
   expect(onError).not.toHaveBeenCalled()
   expect(onFailure).not.toHaveBeenCalled()
