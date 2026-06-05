@@ -59,6 +59,7 @@ export default [
       'pipelean/no-array-reduce': 'warn',            // suggests scan()
       'pipelean/no-array-map-async': 'warn',         // suggests series()
       'pipelean/no-for-await-of': 'warn',            // suggests series()
+      'pipelean/no-loop-without-yield': 'warn',      // suggests series()
       'pipelean/no-promise-combinators': 'warn',     // suggests series() / tryCatch()
     },
   },

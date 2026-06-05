@@ -314,6 +314,7 @@ export default [{
   rules: {
     'pipelean/no-array-foreach': 'warn',
     'pipelean/no-array-reduce': 'warn',
+    'pipelean/no-loop-without-yield': 'warn',
     'pipelean/no-promise-combinators': 'warn',
   },
 }]
