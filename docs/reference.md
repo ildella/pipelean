@@ -548,6 +548,42 @@ const album2 = await processAlbum(rawAlbum2)
 
 ## Misc
 
+### assign
+
+**Purpose**: Creates a `flow()` operation that conditionally assigns a property to state. If `parse(state)` returns `undefined`, the property is skipped (empty patch). Otherwise the property is set to the parsed value.
+
+**Type**: `(property, parse) => (state) => {} | {[property]: value}`
+
+**Parameters**:
+- `property`: The property name (string) to set on state.
+- `parse`: A function `(state) => value | undefined`. Return `undefined` to skip the property.
+
+**Return Type**: A function suitable as a `flow()` operation. Returns `{}` when the parse is skipped, or `{[property]: value}` to merge into the accumulated state.
+
+**Key Characteristics**:
+- **Conditional assignment**: Only sets the property when `parse` returns a non-undefined value.
+- **Skip sentinel**: Only `undefined` triggers skip — `null`, `false`, `0`, `""` are all assigned normally.
+- **Composable**: Multiple `assign()` calls compose naturally inside `flow()`.
+
+**Usage Example**:
+```javascript
+import { assign, flow } from 'pipelean'
+
+const extractName = assign('name', state => state.rawName.trim())
+const extractYear = assign('year', state => {
+  const n = Number.parseInt(state.rawYear, 10)
+  return Number.isNaN(n) ? undefined : n
+})
+
+const {value} = await flow([extractName, extractYear])({
+  rawName: '  Alice  ',
+  rawYear: '1995',
+})
+// value = {rawName: '  Alice  ', rawYear: '1995', name: 'Alice', year: 1995}
+```
+
+---
+
 ### where
 
 **Purpose**: Creates a predicate function for strict equality object matching. Primarily used with `filter` for pattern-based selection.

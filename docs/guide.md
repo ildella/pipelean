@@ -15,6 +15,7 @@ Pipelean provides core tools grouped by **data flow direction** (horizontal vs v
 5. findSync (Horizontal / Stateless synchronous early-exit selection)
 6. pipe (Vertical / Composition)
 7. flow (Vertical / Stateful accumulation — one input, many enrichments, final accumulated value)
+8. assign (Utility for creating conditional property assignments for flow)
 
 > **Sync variants** — The iteration functions above also have synchronous
 > counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`, and
@@ -137,6 +138,28 @@ const processAlbum = flow([
 const {value, errors, failure} = await processAlbum(input)
 // value = {title, year, artists, ...input}
 ```
+
+##### Conditional property assignment with `assign`
+
+Use `assign(property, parse)` to create a `flow()` operation that conditionally enriches state. If `parse(state)` returns `undefined`, no property is set — the step is a no-op. Otherwise `{[property]: value}` is merged into the accumulated state.
+
+```js
+import { assign, flow } from 'pipelean'
+
+const extractName = assign('name', state => state.rawName.trim())
+const extractYear = assign('year', state => {
+  const n = Number.parseInt(state.rawYear, 10)
+  return Number.isNaN(n) ? undefined : n
+})
+
+const {value} = await flow([extractName, extractYear])({
+  rawName: '  Alice  ',
+})
+// value = {rawName: '  Alice  ', name: 'Alice'}
+// year is skipped because rawYear was missing
+```
+
+`assign()` only skips on `undefined` — `null`, `false`, `0`, and `""` are all assigned normally.
 
 `flow()` differs from `pipe()` in three ways:
 

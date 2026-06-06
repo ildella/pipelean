@@ -57,6 +57,11 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
 export const where = pattern => item =>
   Object.entries(pattern).every(([key, value]) => item[key] === value)
 
+export const assign = (property, parse) => state => {
+  const value = parse(state)
+  return value === undefined ? {} : {[property]: value}
+}
+
 // eslint-disable-next-line max-lines-per-function
 export const series = (...args) => {
   const immediate = typeof args[0] !== 'function'
