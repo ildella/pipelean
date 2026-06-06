@@ -45,6 +45,8 @@ Love reactive streams? → RxJS / most.js
 
 We believe Pipelean is a pragmatic middle path: sequential by design, with built-in error control and resiliency — so you stop rewriting the same boilerplate every time.
 
+Pipelean focuses on sequential workflows: compose operations, process collections one item at a time, carry state when needed, and control failures with built-in retry and error policies.
+
 ## ESLint Plugin
 
 Pipelean ships a small ESLint plugin that flags `.forEach()`, `.reduce()`, `.map(async ...)`, `for await...of`, and `Promise.*` static combinators, suggesting pipelean equivalents. It is a separate entry point — importing it does not pull in the runtime library.
