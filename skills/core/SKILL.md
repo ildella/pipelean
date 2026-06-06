@@ -12,7 +12,7 @@ description: "Pipelean core functionalities for iteration, composition and error
  2. **`scan(items, scannerFn, initialValue)`**: Stateful sequential transformation.
     - `scannerFn(acc, item, index)`
     - Returns: `{ results, errors, failure }`
- 3. **`scanReduce(items, scannerFn, initialValue)`**: Pure reduction — like `scan` but returns only the final accumulated value.
+ 3. **`reduce(items, scannerFn, initialValue)`**: Pure reduction — like `scan` but returns only the final accumulated value.
     - `scannerFn(acc, item, index)`
     - Returns: `{ value, errors, failure }`
     - Use for sums, counts, and simple accumulation where intermediate values aren't needed.

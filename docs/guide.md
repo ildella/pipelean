@@ -10,21 +10,24 @@ Pipelean provides core tools grouped by **data flow direction** (horizontal vs v
 
 1. series (Horizontal / Stateless transformation)
 2. scan (Horizontal / Stateful transformation — returns all intermediate results)
-3. scanReduce (Horizontal / Pure reduction — returns only the final value)
+3. reduce (Horizontal / Pure reduction — returns only the final value)
 4. filter (Horizontal / Stateless selection)
 5. findSync (Horizontal / Stateless synchronous early-exit selection)
 6. pipe (Vertical / Composition)
 
 > **Sync variants** — The iteration functions above also have synchronous
 > counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`, and
-> `scanReduceSync`. `pipeSync` and `tryCatchSync` are available too. They use
+> `reduceSync`. `pipeSync` and `tryCatchSync` are available too. They use
 > the same error strategies and structured return shapes, but return directly
 > instead of a Promise. `findSync` is sync-only for now, returns
 > `{result, errors, failure}`, and exits at the first matching item.
+>
+> `scanReduce` and `scanReduceSync` are kept as aliases of `reduce` and
+> `reduceSync` for backward compatibility.
 
 ## Error Strategies
 
-All iteration functions (`series`, `filter`, `scan`, `scanReduce`) support four error strategies:
+All iteration functions (`series`, `filter`, `scan`, `reduce`) support four error strategies:
 
 **failFast** (aliases: `fail`, `stopOnError`)
 - Sets `failure: {item, error, index}` on first error
@@ -56,7 +59,7 @@ All iteration functions (`series`, `filter`, `scan`, `scanReduce`) support four 
 
 ## Features
 
-#### Iterations: series / scan / scanReduce / filter
+#### Iterations: series / scan / reduce / filter
 
 * **Error Strategies**
   - Built-in and first-class (see [Error Strategies](#error-strategies) above)

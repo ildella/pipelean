@@ -1,5 +1,7 @@
 import {test, expect, vi} from 'vitest'
-import {failLate, scanReduce, rethrow} from '$src/functional'
+import {
+  failLate, reduce, scanReduce, rethrow,
+} from '$src/functional'
 
 test('returns final accumulated value', async () => {
   const tracks = [
@@ -8,7 +10,7 @@ test('returns final accumulated value', async () => {
     {duration: 10},
   ]
 
-  const {value} = await scanReduce(
+  const {value} = await reduce(
     tracks,
     (accumulator, {duration}) => accumulator + duration,
     0,
@@ -18,7 +20,7 @@ test('returns final accumulated value', async () => {
 })
 
 test('empty iterable returns initial value', async () => {
-  const {value} = await scanReduce(
+  const {value} = await reduce(
     [],
     (accumulator, item) => accumulator + item,
     42,
@@ -28,7 +30,7 @@ test('empty iterable returns initial value', async () => {
 })
 
 test('works with async scanner', async () => {
-  const {value} = await scanReduce(
+  const {value} = await reduce(
     [1, 2, 3],
     async (acc, item) => {
       await new Promise(resolve => setTimeout(resolve, 1))
@@ -44,7 +46,7 @@ test('failFast stops on error and returns no value', async () => {
   const onError = vi.fn()
   const onFailure = vi.fn()
 
-  const {value, errors, failure} = await scanReduce(
+  const {value, errors, failure} = await reduce(
     [1, 2, 3],
     (acc, item) => {
       if (item === 2)
@@ -69,7 +71,7 @@ test('failFast stops on error and returns no value', async () => {
 test('failLate collects errors and returns partial value', async () => {
   const onFailure = vi.fn()
 
-  const {value, errors, failure} = await scanReduce(
+  const {value, errors, failure} = await reduce(
     [1, 2, 3],
     (acc, item) => {
       if (item > 1)
@@ -87,7 +89,7 @@ test('failLate collects errors and returns partial value', async () => {
 })
 
 test('throw strategy rejects', async () => {
-  await expect(scanReduce([1, 2, 3], (acc, item) => {
+  await expect(reduce([1, 2, 3], (acc, item) => {
     if (item === 2)
       throw new Error('bang')
     return acc + item
@@ -95,7 +97,7 @@ test('throw strategy rejects', async () => {
 })
 
 test('default strategy is failFast', async () => {
-  const {value, failure} = await scanReduce(
+  const {value, failure} = await reduce(
     [1, 2, 3],
     (acc, item) => {
       if (item === 2)
@@ -107,4 +109,8 @@ test('default strategy is failFast', async () => {
 
   expect(value).toBeUndefined()
   expect(failure).toBeTruthy()
+})
+
+test('scanReduce alias points to reduce', () => {
+  expect(scanReduce).toBe(reduce)
 })

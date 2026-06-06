@@ -1,5 +1,7 @@
 import {test, expect, vi} from 'vitest'
-import {failLate, scanReduceSync, rethrow} from '$src/index'
+import {
+  failLate, reduceSync, scanReduceSync, rethrow,
+} from '$src/index'
 
 test('returns final accumulated value', () => {
   const tracks = [
@@ -8,7 +10,7 @@ test('returns final accumulated value', () => {
     {duration: 10},
   ]
 
-  const {value} = scanReduceSync(
+  const {value} = reduceSync(
     tracks,
     (accumulator, {duration}) => accumulator + duration,
     0,
@@ -18,7 +20,7 @@ test('returns final accumulated value', () => {
 })
 
 test('empty iterable returns initial value', () => {
-  const {value} = scanReduceSync(
+  const {value} = reduceSync(
     [],
     (accumulator, item) => accumulator + item,
     42,
@@ -31,7 +33,7 @@ test('failFast stops on error and returns no value', () => {
   const onError = vi.fn()
   const onFailure = vi.fn()
 
-  const {value, errors, failure} = scanReduceSync(
+  const {value, errors, failure} = reduceSync(
     [1, 2, 3],
     (acc, item) => {
       if (item === 2)
@@ -56,7 +58,7 @@ test('failFast stops on error and returns no value', () => {
 test('failLate collects errors and returns partial value', () => {
   const onFailure = vi.fn()
 
-  const {value, errors, failure} = scanReduceSync(
+  const {value, errors, failure} = reduceSync(
     [1, 2, 3],
     (acc, item) => {
       if (item > 1)
@@ -74,7 +76,7 @@ test('failLate collects errors and returns partial value', () => {
 })
 
 test('throw strategy throws', () => {
-  expect(() => scanReduceSync([1, 2, 3], (acc, item) => {
+  expect(() => reduceSync([1, 2, 3], (acc, item) => {
     if (item === 2)
       throw new Error('bang')
     return acc + item
@@ -82,7 +84,7 @@ test('throw strategy throws', () => {
 })
 
 test('default strategy is failFast', () => {
-  const {value, failure} = scanReduceSync(
+  const {value, failure} = reduceSync(
     [1, 2, 3],
     (acc, item) => {
       if (item === 2)
@@ -97,6 +99,10 @@ test('default strategy is failFast', () => {
 })
 
 test('returns value synchronously not a promise', () => {
-  const result = scanReduceSync([1, 2, 3], (acc, item) => acc + item, 0)
+  const result = reduceSync([1, 2, 3], (acc, item) => acc + item, 0)
   expect(result).not.toBeInstanceOf(Promise)
+})
+
+test('scanReduceSync alias points to reduceSync', () => {
+  expect(scanReduceSync).toBe(reduceSync)
 })

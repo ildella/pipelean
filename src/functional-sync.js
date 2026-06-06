@@ -250,10 +250,12 @@ export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
     : {value: acc, errors, failure}
 }
 
-export const scanReduceSync = (iterable, scanner, initialValue, opts) => {
+export const reduceSync = (iterable, scanner, initialValue, opts) => {
   const merged = {...opts, storePartialResults: false}
   return scanSync(iterable, scanner, initialValue, merged)
 }
+
+export const scanReduceSync = reduceSync
 
 export const pipeSync = (...fns) => input =>
   fns.reduce((acc, fn) =>

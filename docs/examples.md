@@ -48,12 +48,12 @@ Why not series?
 
 Series runs items independently. It cannot pass the ID from Track 1 to Track 2. scan is required when Step N depends on the output of Step N-1.
 
-#### Example: scanReduce (Pure Reduction)
+#### Example: reduce (Pure Reduction)
 
-Scenario: You need a simple sum of track durations. With `scan` you'd have to fish the last value out of the intermediate results array. `scanReduce` gives you the final value directly.
+Scenario: You need a simple sum of track durations. With `scan` you'd have to fish the last value out of the intermediate results array. `reduce` gives you the final value directly.
 
 ```js
-import { scanReduce } from 'pipelean'
+import { reduce } from 'pipelean'
 
 // Before: clunky, error-prone
 const {results: durations} = await scan(
@@ -64,7 +64,7 @@ const {results: durations} = await scan(
 const totalDuration = durations.at(-1) || 0
 
 // After: clean, direct
-const {value: totalDuration} = await scanReduce(
+const {value: totalDuration} = await reduce(
   tracks,
   (acc, {duration}) => acc + duration,
   0,

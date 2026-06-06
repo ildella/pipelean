@@ -326,7 +326,7 @@ const { results, errors } = await scan(
 
 ---
 
-### scanReduce
+### reduce
 
 **Purpose**: Pure reduction - transforms each item sequentially and returns only the final accumulated value. A convenience wrapper around `scan` with `storePartialResults: false` baked in.
 
@@ -353,10 +353,10 @@ const { results, errors } = await scan(
 
 **Usage Example**:
 ```javascript
-import { scanReduce } from 'pipelean'
+import { reduce } from 'pipelean'
 
 // Sum track durations into album total
-const {value: totalDuration} = await scanReduce(
+const {value: totalDuration} = await reduce(
   tracks,
   (accumulator, {duration}) => accumulator + duration,
   0,
@@ -371,6 +371,8 @@ const {value: totalDuration} = await scanReduce(
 
 **When to use `scan` instead**:
 - When you need every intermediate accumulator value (e.g. dependent sequential operations where each step's output is meaningful)
+
+**Alias**: `scanReduce` is kept as an alias of `reduce` for backward compatibility and points to the same function.
 
 ---
 
@@ -573,7 +575,7 @@ const data = await safeFetch('https://api.example.com')
 
 ## Sync Functions
 
-`seriesSync`, `filterSync`, `findSync`, `scanSync`, `scanReduceSync`, `pipeSync`, and
+`seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`, and
 `tryCatchSync` are synchronous counterparts of the core functions.
 
 They use the same error strategies and structured return conventions as the
@@ -587,9 +589,11 @@ want Pipelean's structured error collection.
 - `filterSync` returns `{results, errors, failure}` directly
 - `findSync` returns `{result, errors, failure}` directly and stops at the first match
 - `scanSync` returns `{results, errors, failure}` directly
-- `scanReduceSync` returns `{value, errors, failure}` directly
+- `reduceSync` returns `{value, errors, failure}` directly
 - `pipeSync` composes synchronous functions left-to-right
 - `tryCatchSync` wraps a synchronous function with lifecycle hooks
+
+> `scanReduceSync` is kept as an alias of `reduceSync` for backward compatibility.
 
 **Not supported in sync variants**:
 

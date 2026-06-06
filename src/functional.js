@@ -246,8 +246,10 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
     : {value: acc, errors, failure}
 }
 
-export const scanReduce = (iterable, scanner, initialValue, opts = {}) =>
+export const reduce = (iterable, scanner, initialValue, opts = {}) =>
   scan(iterable, scanner, initialValue, {...opts, storePartialResults: false})
+
+export const scanReduce = reduce
 
 export const pipe = (...fns) => input =>
   fns.reduce(async (acc, fn) => {
