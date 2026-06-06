@@ -1,6 +1,8 @@
 /* eslint-disable max-lines */
 import {getPlannedTotal, withTotal} from './shared.js'
-import {collect, failFast, where} from './functional.js'
+import {
+  collect, failFast, normalizeOperationError, where,
+} from './functional.js'
 
 export const tryCatchSync = (fn, {
   onStart, onSuccess, onError, onFinally,
@@ -223,7 +225,7 @@ export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
         }
         return storePartialResults
           ? {results: [], errors, failure: errorContext}
-          : {errors, failure: errorContext}
+          : {value: acc, errors, failure: errorContext}
       }
 
       if (strategyName === 'skip') {
@@ -256,6 +258,71 @@ export const reduceSync = (iterable, scanner, initialValue, opts) => {
 }
 
 export const scanReduceSync = reduceSync
+
+const normalizeFailure = failure => {
+  if (failure === false)
+    return false
+  if (failure.errors)
+    return {errors: failure.errors.map(normalizeOperationError)}
+  return normalizeOperationError(failure)
+}
+
+export const flowSync = (operations, opts = {}) => {
+  if (!Array.isArray(operations))
+    throw new TypeError('flowSync() requires an array of operations')
+  for (const op of operations) {
+    if (typeof op !== 'function') {
+      throw new TypeError(
+        'flowSync() requires every operation to be a function',
+      )
+    }
+  }
+
+  const {strategy = collect, onError, onFailure} = opts
+
+  return initialState => {
+    if (initialState === null ||
+      typeof initialState !== 'object' ||
+      Array.isArray(initialState)) {
+      throw new TypeError(
+        'flowSync() requires initialState to be a non-null, non-array object',
+      )
+    }
+
+    const scanner = (state, operation, index) => {
+      const patch = operation(state)
+      if (patch === null ||
+        typeof patch !== 'object' ||
+        Array.isArray(patch)) {
+        const name = operation.name || `operation-${index}`
+        throw new TypeError(
+          `Operation ${name} must return a non-null, non-array object`,
+        )
+      }
+      return {...state, ...patch}
+    }
+
+    const reduceOpts = {
+      strategy,
+      ...onError
+        ? {onError: ctx => onError(normalizeOperationError(ctx))}
+        : {},
+      ...onFailure
+        ? {onFailure: ctx => onFailure(normalizeFailure(ctx))}
+        : {},
+    }
+
+    const result = reduceSync(
+      operations, scanner, initialState, reduceOpts,
+    )
+
+    return {
+      value: result.value,
+      errors: result.errors.map(normalizeOperationError),
+      failure: normalizeFailure(result.failure),
+    }
+  }
+}
 
 export const pipeSync = (...fns) => input =>
   fns.reduce((acc, fn) =>

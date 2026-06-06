@@ -36,7 +36,7 @@ test('failFast stops on error with storePartialResults false', async () => {
     {storePartialResults: false},
   )
 
-  expect(value).toBeUndefined()
+  expect(value).toBe(12)
   expect(failure).toEqual({
     item: {duration: 10},
     error: new Error('Duration too long'),
@@ -63,7 +63,7 @@ test('failFast returns no value when accessing missing property', async () => {
     {storePartialResults: false},
   )
 
-  expect(value).toBeUndefined()
+  expect(value).toBe(5)
   expect(failure.item).toEqual({})
   expect(failure.error.message).toBe('Missing duration')
   expect(failure.index).toBe(1)

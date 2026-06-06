@@ -27,12 +27,13 @@ The vocabulary we have established for the pipelean project:
 
   * **Iteration** (Horizontal): The process of traversing a list of items one by one. This is the "width" of the process.
        Implementations: series, scan, filter.
-       
+        
   * **Composition** (Vertical): The process of chaining functions together to run sequentially on a single item. This is the "depth" of the process.
-       Implementation: pipe.
-       
-  * **Operation**: The function passed to an iterator (like series). It can be a simple function or a composed function (pipe).
+       Implementations: pipe, flow.
+        
+  * **Operation**: The function passed to an iterator (like series) or to a stateful pipeline (like flow). It can be a simple function or a composed function (pipe).
     - *Transform* (Mapping): An operation that changes the shape or value of an item. (A→B).
     - *Selection* (Filtering): An operation that decides whether to keep or drop an item. (A→A or A→∅). In our merged model, this is signaled by returning undefined.
-  * **Drop Signal**: Returning `undefined` from an operation (mapper in `series`, or any step in `pipe`) signals that the item should be dropped from results. This is how `filter` works internally and how selection-in-pipes works. `undefined` is NOT treated as a valid return value — it is the sentinel for "skip this item."
-  * **Outcome**: The structural result returned by iterators: {results, errors, failure}.
+    - *Patch* (Enrichment): An operation in `flow()` that returns an object shallow-merged into the accumulated state. `{...state, ...patch}`.
+  * **Drop Signal**: Returning `undefined` from an operation (mapper in `series`, or any step in `pipe`) signals that the item should be dropped from results. This is how `filter` works internally and how selection-in-pipes works. `undefined` is NOT treated as a valid return value — it is the sentinel for "skip this item." In `flow()`, an operation that has nothing to add must return `{}`, not `undefined`.
+  * **Outcome**: The structural result returned by iterators: {results, errors, failure}. `flow()` returns `{value, errors, failure}` — `value` is the final accumulated state, not a results array.

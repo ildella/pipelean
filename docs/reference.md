@@ -33,6 +33,7 @@
 ### Composition
 
 - [pipe](#pipe) - Vertical Composition
+- [flow](#flow) - Stateful Accumulation Across One Input
 
 ### Misc
 
@@ -469,6 +470,82 @@ const result = await series(items, pipe(
 
 ---
 
+### flow
+
+**Purpose**: Sequentially apply multiple state-enrichment operations to one accumulated value. Each successful operation returns an object patch. Errors are handled per operation using Pipelean strategies.
+
+**Type**: `(operations, options?) => (initialState) => Promise<{value, errors, failure}>`
+
+**Parameters**:
+- `operations`: An array of functions. Each function `operation(state)` must return a non-null, non-array object (the patch to merge into the state). Operations can be sync or async.
+- `options` (optional):
+  - `strategy`: Error strategy (default: `collect`). `failFast`, `collect`, `failLate`, `skip`, `rethrow`.
+  - `onError({operation, error, index, total})`: Called for each handled operation error. Receives a normalized shape where `operation` is the function's `name` (or `operation-${index}` for anonymous functions) and `total` is the operation count.
+  - `onFailure(failure)`: Called when `failure` is truthy. Receives `{operation, error, index}` for `failFast` and `{errors}` for `failLate` — both normalized.
+
+**Return**: A function `(initialState) => Promise<{value, errors, failure}>`.
+
+The returned function:
+- Validates `initialState` (non-null, non-array object) and throws `TypeError` otherwise.
+- Executes each operation in order, passing the **current accumulated state** to each one.
+- Shallow-merges the returned patch into the state.
+- Treats an invalid operation return (null, array, primitive) as that operation throwing a `TypeError`, so the selected strategy applies.
+- Returns `{value, errors, failure}` where:
+  - `value`: The final accumulated state. Even under `failFast`, this is the last successful accumulated state.
+  - `errors`: Array of `{operation, error, index}` (normalized). Empty for `skip` and `failFast`.
+  - `failure`: `false` for `collect` and `skip`; `{operation, error, index}` for `failFast`; `{errors}` for `failLate`. For `rethrow`, the original error is thrown instead of returning a result.
+
+**Key Characteristics**:
+- **Stateful accumulation**: Each operation enriches the same state object. Output of one operation becomes the input to the next.
+- **Shallow merge**: `{...state, ...patch}` — top-level keys are overwritten, nested objects are not deep-merged.
+- **Reusable pipeline**: The pipeline is defined once. The returned function is called with different inputs.
+- **Same error strategies as `series` / `scan`**: All four strategies work, with the same `onError` / `onFailure` semantics. Default is `collect`.
+- **No intermediate states**: Only the final accumulated value is returned. There is no `results` array.
+- **Empty operations array** is valid and returns the initial state untouched.
+
+**Usage Example**:
+```javascript
+import { flow, collect, failFast } from 'pipelean'
+
+const prepareAlbum = state => ({title: state.rawTitle.trim()})
+const extractYear = state => ({year: parseYear(state.rawYear)})
+const extractArtists = state => ({artists: state.artists ?? []})
+
+const processAlbum = flow([
+  prepareAlbum,
+  extractYear,
+  extractArtists,
+])
+
+const {value, errors, failure} = await processAlbum(input)
+// value = {title, year, artists, rawTitle, rawYear, ...input}
+
+// Strategy choice: stop on first failure
+const result = await processAlbum(input, {strategy: failFast})
+
+// Telemetry: normalized error context
+await processAlbum(input, {
+  onError: ({operation, error, index, total}) =>
+    logger.error({operation, error, index, total}),
+})
+
+// Reuse the same pipeline with different inputs
+const album1 = await processAlbum(rawAlbum1)
+const album2 = await processAlbum(rawAlbum2)
+```
+
+**When to use `flow()` vs `pipe()` vs `series()`**:
+- `flow()`: One input, many enrichments, final accumulated value. Stateful across the pipeline.
+- `pipe()`: Value-in / value-out composition. Each step transforms the previous step's return value. Stateless. Composable into `series()` and `flow()`.
+- `series()`: Many inputs, one operation per input. Horizontal.
+
+**Error callback payload** (always normalized):
+- `onError({operation, error, index, total})` — `operation` is the function's `name` if set, otherwise `operation-${index}`. `total` is the operations array length.
+- `onFailure({operation, error, index})` for `failFast`.
+- `onFailure({errors})` for `failLate`, where each entry is `{operation, error, index}`.
+
+---
+
 ## Misc
 
 ### where
@@ -575,8 +652,9 @@ const data = await safeFetch('https://api.example.com')
 
 ## Sync Functions
 
-`seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`, and
-`tryCatchSync` are synchronous counterparts of the core functions.
+`seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`,
+`flowSync`, and `tryCatchSync` are synchronous counterparts of the core
+functions.
 
 They use the same error strategies and structured return conventions as the
 async iteration functions, but return values directly instead of wrapped in a
@@ -591,6 +669,7 @@ want Pipelean's structured error collection.
 - `scanSync` returns `{results, errors, failure}` directly
 - `reduceSync` returns `{value, errors, failure}` directly
 - `pipeSync` composes synchronous functions left-to-right
+- `flowSync` returns `{value, errors, failure}` directly and runs a state-enrichment pipeline synchronously
 - `tryCatchSync` wraps a synchronous function with lifecycle hooks
 
 > `scanReduceSync` is kept as an alias of `reduceSync` for backward compatibility.
@@ -637,6 +716,26 @@ const {result, errors, failure} = findSync(users, {active: true})
 `findSync` supports the same predicate forms as `filterSync`, including object
 patterns via `where()`. It exits as soon as the first match is found. When no
 item matches, it returns `{result: undefined, errors: [], failure: false}`.
+
+**Synchronous state enrichment with `flowSync`**:
+
+```javascript
+import { flowSync, collect } from 'pipelean'
+
+const processAlbumSync = flowSync([
+  state => ({title: state.rawTitle.trim()}),
+  state => ({year: parseYear(state.rawYear)}),
+])
+
+const {value, errors, failure} = processAlbumSync(input)
+// value: the shallow-merged final state
+// errors: []
+// failure: false
+```
+
+`flowSync` mirrors `flow()` exactly but executes synchronously. Same
+strategies, same `onError` / `onFailure` semantics, same normalized error
+shapes. Use it when your operations and inputs are synchronous.
 
 ---
 

@@ -106,3 +106,104 @@ const saveSettings = withErrorBoundary(
 // The error is logged and the UI is notified.
 await saveSettings(newSettings)
 ```
+
+#### Example: flow (Stateful Accumulation Across One Input)
+
+Scenario: You have a raw album payload and want to derive `title`, `year`, and `artists` from it through a series of enrichment steps. Each step receives the **current accumulated state** and returns an **object patch** that gets shallow-merged in. The pipeline is defined once and reused with different inputs.
+
+```js
+import { flow } from 'pipelean'
+
+const prepareAlbum = state => ({
+  title: state.rawTitle.trim(),
+})
+
+const extractYear = state => ({
+  year: parseYear(state.rawYear),
+})
+
+const extractArtists = state => ({
+  artists: state.artists ?? [],
+})
+
+// 1) Define the pipeline once
+const processAlbum = flow([
+  prepareAlbum,
+  extractYear,
+  extractArtists,
+])
+
+// 2) Run the same pipeline with different inputs
+const a = await processAlbum({rawTitle: '  Kind of Blue  ', rawYear: 1959})
+// a.value = {title: 'Kind of Blue', year: 1959, artists: []}
+
+const b = await processAlbum({rawTitle: '  Blue Train  ', rawYear: 1958, artists: ['Coltrane']})
+// b.value = {title: 'Blue Train', year: 1958, artists: ['Coltrane']}
+```
+
+Why not `pipe()`?
+
+`pipe()` chains value-in / value-out. Each step transforms the previous step's return value. `flow()` chains state-patch-in / state-patch-out and accumulates state. With `flow()`, every step sees the full state built so far, and the result is structured: `{value, errors, failure}` — no need to thread a state object manually.
+
+#### Example: flow with failFast + onFailure telemetry
+
+Scenario: Some enrichment steps are critical (e.g., extracting the year from a date is required for cataloging). Stop the pipeline on first failure, but still notify the app layer through `onFailure`.
+
+```js
+import { flow, failFast } from 'pipelean'
+
+const processAlbum = flow(
+  [prepareAlbum, extractYear, extractArtists],
+  {strategy: failFast, onFailure: ({operation, error, index}) => {
+    reportEnrichmentError({step: operation, error, index})
+  }},
+)
+
+const {value, errors, failure} = await processAlbum(input)
+// failure is {operation, error, index} when extractYear (or any step) throws
+// value is the last successful accumulated state — still useful for partial progress
+```
+
+The error shape is normalized: `operation` is the function's `name` (e.g., `extractYear`) or `operation-${index}` for anonymous functions. `index` is the position in the pipeline. This makes error reports readable without writing string labels in the app layer.
+
+#### Example: flow with collect + onError per-step logging
+
+Scenario: You want best-effort enrichment. If a step fails (e.g., `extractArtists` cannot parse the artists list), log it and continue.
+
+```js
+import { flow, collect } from 'pipelean'
+
+const processAlbum = flow(
+  [prepareAlbum, extractYear, extractArtists],
+  {
+    strategy: collect,
+    onError: ({operation, error, index, total}) => {
+      logger.warn({step: operation, index, total, error: error.message})
+    },
+  },
+)
+
+const {value, errors, failure} = await processAlbum(input)
+// value contains everything that succeeded (e.g., title and year)
+// errors lists each failed step
+// failure is false — we made it to the end
+```
+
+#### Example: flowSync for synchronous enrichment
+
+Scenario: All your enrichment steps are pure synchronous functions (no I/O, no async dependencies). Use `flowSync` to avoid the `Promise` overhead and the `await` at the call site.
+
+```js
+import { flowSync } from 'pipelean'
+
+const processAlbumSync = flowSync([
+  state => ({title: state.rawTitle.trim()}),
+  state => ({year: Number(state.rawYear)}),
+  state => ({slug: `${state.year}-${state.title.toLowerCase().replace(/\s+/g, '-')}`}),
+])
+
+const {value} = processAlbumSync(rawAlbum)
+// value: {title, year, slug, rawTitle, rawYear}
+```
+
+`flowSync` returns `{value, errors, failure}` directly. Same strategies, same `onError` / `onFailure` semantics, same normalized error shapes as `flow()`. Use it whenever all your data and operations are synchronous.

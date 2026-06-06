@@ -44,7 +44,7 @@ test('failFast stops on error and returns no value', () => {
     {onError, onFailure},
   )
 
-  expect(value).toBeUndefined()
+  expect(value).toBe(1)
   expect(errors).toEqual([])
   expect(failure).toEqual({
     item: 2,
@@ -94,7 +94,7 @@ test('default strategy is failFast', () => {
     0,
   )
 
-  expect(value).toBeUndefined()
+  expect(value).toBe(1)
   expect(failure).toBeTruthy()
 })
 

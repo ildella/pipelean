@@ -31,6 +31,7 @@ array.filter(predicate).map(transform)
 Pipelean gives you:
 
 - `series` & `scan` for horizontal flows (independent or stateful steps)
+- `flow` for stateful accumulation across one input — each operation enriches the same state
 - `pipe` for vertical composition
 - `tryCatch` and `retry` middleware you can reuse across your app
 - Built-in error strategies with sensible defaults for each operation
@@ -118,3 +119,26 @@ const {results, errors} = await series(items, pipeline, {
   strategy: failFast,
 })
 ```
+
+## Stateful accumulation: `flow()`
+
+When each step should enrich the **same** state object (one input, many enrichments, final accumulated value), use `flow()`:
+
+```js
+import { flow } from 'pipelean'
+
+const prepareAlbum = state => ({title: state.rawTitle.trim()})
+const extractYear = state => ({year: parseYear(state.rawYear)})
+const extractArtists = state => ({artists: state.artists ?? []})
+
+const processAlbum = flow([
+  prepareAlbum,
+  extractYear,
+  extractArtists,
+])
+
+const {value, errors, failure} = await processAlbum(input)
+// value = {title, year, artists, ...input}
+```
+
+`flow()` defines the operation pipeline upfront and returns a function that runs that flow against different inputs. Each operation receives the current accumulated state and must return an **object patch** that gets shallow-merged in. Errors are handled per operation using Pipelean strategies, the same as `series` and `scan`. See [docs/reference.md](docs/reference.md#flow) for the full reference.

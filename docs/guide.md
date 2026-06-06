@@ -14,12 +14,13 @@ Pipelean provides core tools grouped by **data flow direction** (horizontal vs v
 4. filter (Horizontal / Stateless selection)
 5. findSync (Horizontal / Stateless synchronous early-exit selection)
 6. pipe (Vertical / Composition)
+7. flow (Vertical / Stateful accumulation — one input, many enrichments, final accumulated value)
 
 > **Sync variants** — The iteration functions above also have synchronous
 > counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`, and
-> `reduceSync`. `pipeSync` and `tryCatchSync` are available too. They use
-> the same error strategies and structured return shapes, but return directly
-> instead of a Promise. `findSync` is sync-only for now, returns
+> `reduceSync`. `pipeSync`, `flowSync`, and `tryCatchSync` are available too.
+> They use the same error strategies and structured return shapes, but return
+> directly instead of a Promise. `findSync` is sync-only for now, returns
 > `{result, errors, failure}`, and exits at the first matching item.
 >
 > `scanReduce` and `scanReduceSync` are kept as aliases of `reduce` and
@@ -116,6 +117,51 @@ const result = await series(numbers, pipe(
 // result.results = [4, 8, 12] from inputs [2, 4, 6]
 ```
 
+#### Stateful accumulation: flow
+
+When each step should enrich the **same** state object, use `flow()`. Define the operation pipeline once and call the returned function with different inputs. Each operation receives the current accumulated state and returns an **object patch** that gets shallow-merged in.
+
+```js
+import { flow } from 'pipelean'
+
+const prepareAlbum = state => ({title: state.rawTitle.trim()})
+const extractYear = state => ({year: parseYear(state.rawYear)})
+const extractArtists = state => ({artists: state.artists ?? []})
+
+const processAlbum = flow([
+  prepareAlbum,
+  extractYear,
+  extractArtists,
+])
+
+const {value, errors, failure} = await processAlbum(input)
+// value = {title, year, artists, ...input}
+```
+
+`flow()` differs from `pipe()` in three ways:
+
+- The pipeline is defined upfront and reused with different inputs.
+- Each step receives the **current accumulated state**, not the previous step's return value.
+- The result is structured: `{value, errors, failure}` — never throws on handled errors.
+
+`flow()` uses the same error strategies as `series` and `scan` (default `collect`). Operations can be sync or async. Return an empty object `{}` when a step has nothing to add — `undefined` is **not** a no-op signal. The merge is **shallow**: a later patch overwrites a top-level key but does not deep-merge nested objects.
+
+#### Stateless sequential transform with merge: use `flow()` not nested spreads
+
+If you find yourself writing `pipe(...lotsOfFunctionsThatReturnObjects)`, that's a sign you want `flow()` instead. `pipe()` chains value-in / value-out; `flow()` chains state-patch-in / state-patch-out and accumulates.
+
+```js
+// Before: hand-rolled accumulation
+const input = {...}
+const step1 = prepare(input)
+const step2 = {...step1, ...enrich(step1)}
+const step3 = {...step2, ...finalize(step2)}
+
+// After: flow() defines the pipeline once
+const process = flow([prepare, enrich, finalize])
+const {value} = await process(input)
+```
+
 #### Wrappers
 
 Pipelean also provides lightweight wrappers that add behavior to **individual functions**. These act as reusable middleware / lifecycle hooks and compose naturally with `pipe`.
@@ -143,5 +189,7 @@ Pipelean also provides lightweight wrappers that add behavior to **individual fu
 3. **`failure` is falsy for**: `collect`, `skip`, and `throw` on success
 4. **`throw` does not return on error**: It propagates the error to the caller
 5. **Strategy selection**: Choose based on whether failures are acceptable
+6. **`flow()` returns `{value, errors, failure}`**: never throws on handled errors unless you pick `rethrow`. The `value` is always the last successful accumulated state.
+7. **Patches are shallow-merged in `flow()`**: top-level keys are overwritten; nested objects are not deep-merged. Return `{}` (not `undefined`) when a step has nothing to add.
 
 Check out [patterns.md](./patterns.md).

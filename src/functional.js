@@ -219,7 +219,7 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
         }
         return storePartialResults
           ? {results: [], errors, failure: errorContext}
-          : {errors, failure: errorContext}
+          : {value: acc, errors, failure: errorContext}
       }
 
       if (strategyName === 'skip') {
@@ -250,6 +250,81 @@ export const reduce = (iterable, scanner, initialValue, opts = {}) =>
   scan(iterable, scanner, initialValue, {...opts, storePartialResults: false})
 
 export const scanReduce = reduce
+
+const normalizeOperationError = ({
+  item: operation, error, index, total,
+}) => {
+  const base = {
+    operation: operation.name || `operation-${index}`,
+    error,
+    index,
+  }
+  return total !== undefined ? {...base, total} : base
+}
+
+const normalizeFailure = failure => {
+  if (failure === false)
+    return false
+  if (failure.errors)
+    return {errors: failure.errors.map(normalizeOperationError)}
+  return normalizeOperationError(failure)
+}
+
+export const flow = (operations, opts = {}) => {
+  if (!Array.isArray(operations))
+    throw new TypeError('flow() requires an array of operations')
+  for (const op of operations) {
+    if (typeof op !== 'function')
+      throw new TypeError('flow() requires every operation to be a function')
+  }
+
+  const {strategy = collect, onError, onFailure} = opts
+
+  return async initialState => {
+    if (initialState === null ||
+      typeof initialState !== 'object' ||
+      Array.isArray(initialState)) {
+      throw new TypeError(
+        'flow() requires initialState to be a non-null, non-array object',
+      )
+    }
+
+    const scanner = async (state, operation, index) => {
+      const patch = await operation(state)
+      if (patch === null ||
+        typeof patch !== 'object' ||
+        Array.isArray(patch)) {
+        const name = operation.name || `operation-${index}`
+        throw new TypeError(
+          `Operation ${name} must return a non-null, non-array object`,
+        )
+      }
+      return {...state, ...patch}
+    }
+
+    const reduceOpts = {
+      strategy,
+      ...onError
+        ? {onError: ctx => onError(normalizeOperationError(ctx))}
+        : {},
+      ...onFailure
+        ? {onFailure: ctx => onFailure(normalizeFailure(ctx))}
+        : {},
+    }
+
+    const result = await reduce(
+      operations, scanner, initialState, reduceOpts,
+    )
+
+    return {
+      value: result.value,
+      errors: result.errors.map(normalizeOperationError),
+      failure: normalizeFailure(result.failure),
+    }
+  }
+}
+
+export {normalizeOperationError}
 
 export const pipe = (...fns) => input =>
   fns.reduce(async (acc, fn) => {
