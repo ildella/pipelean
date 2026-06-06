@@ -2,25 +2,25 @@
 
 ## Core Concepts
 
-Pipelean provides four main tools, grouped by **data flow direction** (horizontal vs vertical) and **state dependency**:
+Pipelean provides core tools grouped by **data flow direction** (horizontal vs vertical) and **state dependency**:
 
 - **Horizontal** tools process **multiple items** (lists/iterables) in sequence.
 - **Vertical** tools transform **one item** through a chain of steps.
 - Some tools are **stateless** (each step independent), others **stateful** (later steps depend on previous results).
 
-   1. series (Horizontal / Stateless transformation)
-   2. scan (Horizontal / Stateful transformation — returns all intermediate results)
-    3. scanReduce (Horizontal / Pure reduction — returns only the final value)
-    4. filter (Horizontal / Stateless selection)
-    5. pipe (Vertical / Composition)
+1. series (Horizontal / Stateless transformation)
+2. scan (Horizontal / Stateful transformation — returns all intermediate results)
+3. scanReduce (Horizontal / Pure reduction — returns only the final value)
+4. filter (Horizontal / Stateless selection)
+5. findSync (Horizontal / Stateless synchronous early-exit selection)
+6. pipe (Vertical / Composition)
 
 > **Sync variants** — The iteration functions above also have synchronous
-> counterparts: `seriesSync`, `filterSync`, `scanSync`, and `scanReduceSync`.
-> `pipeSync` and `tryCatchSync` are available too. They use the same APIs,
-> error strategies, and return shapes, but return `{results, errors, failure}`
-> or `{value, errors, failure}` directly instead of a Promise. Use them when
-> your data and operations are synchronous and you want Pipelean's error
-> collection without `await`.
+> counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`, and
+> `scanReduceSync`. `pipeSync` and `tryCatchSync` are available too. They use
+> the same error strategies and structured return shapes, but return directly
+> instead of a Promise. `findSync` is sync-only for now, returns
+> `{result, errors, failure}`, and exits at the first matching item.
 
 ## Error Strategies
 
@@ -67,6 +67,7 @@ All iteration functions (`series`, `filter`, `scan`, `scanReduce`) support four 
 * **Universal Mapper**
   - Handles both Synchronous and Asynchronous mapper functions automatically.
   - `filter` accepts patterns via `where()`: `filter(users, {active: true})` is equivalent to `filter(users, where({active: true}))`.
+  - `findSync` accepts the same predicate forms and returns the first matching item without scanning the rest of the iterable.
 
 * **Structured Results**
   - Always returns a predictable object: `{ results, errors, failure }`.

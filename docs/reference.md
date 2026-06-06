@@ -573,18 +573,19 @@ const data = await safeFetch('https://api.example.com')
 
 ## Sync Functions
 
-`seriesSync`, `filterSync`, `scanSync`, `scanReduceSync`, `pipeSync`, and
+`seriesSync`, `filterSync`, `findSync`, `scanSync`, `scanReduceSync`, `pipeSync`, and
 `tryCatchSync` are synchronous counterparts of the core functions.
 
-They use the same APIs, error strategies, and return shapes as their async
-counterparts, but return values directly instead of wrapped in a Promise. Use
-them when your data and operations are synchronous and you still want Pipelean's
-structured error collection.
+They use the same error strategies and structured return conventions as the
+async iteration functions, but return values directly instead of wrapped in a
+Promise. Use them when your data and operations are synchronous and you still
+want Pipelean's structured error collection.
 
 **Available sync variants**:
 
 - `seriesSync` returns `{results, errors, failure}` directly
 - `filterSync` returns `{results, errors, failure}` directly
+- `findSync` returns `{result, errors, failure}` directly and stops at the first match
 - `scanSync` returns `{results, errors, failure}` directly
 - `scanReduceSync` returns `{value, errors, failure}` directly
 - `pipeSync` composes synchronous functions left-to-right
@@ -610,6 +611,28 @@ const {results, errors, failure} = seriesSync([1, 2, 3], x => {
 // errors: [{item: 2, error: Error('bang'), index: 1}]
 // failure: false
 ```
+
+**Early-exit selection with `findSync`**:
+
+```javascript
+import { findSync } from 'pipelean'
+
+const users = [
+  {id: 1, active: false},
+  {id: 2, active: true},
+  {id: 3, active: true},
+]
+
+const {result, errors, failure} = findSync(users, {active: true})
+
+// result: {id: 2, active: true}
+// errors: []
+// failure: false
+```
+
+`findSync` supports the same predicate forms as `filterSync`, including object
+patterns via `where()`. It exits as soon as the first match is found. When no
+item matches, it returns `{result: undefined, errors: [], failure: false}`.
 
 ---
 

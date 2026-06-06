@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {getPlannedTotal, withTotal} from './shared.js'
 import {collect, failFast, where} from './functional.js'
 
@@ -114,6 +115,77 @@ export const filterSync = (...args) => {
   }
 
   const run = inputItems => seriesSync(inputItems, transform, opts)
+  return immediate ? run(items) : run
+}
+
+export const findSync = (...args) => {
+  const isPattern = x => x !== null &&
+    typeof x === 'object' &&
+    !Array.isArray(x)
+  const toPredicate = x => isPattern(x) ? where(x) : x
+  const immediate = typeof args[0] !== 'function' && !isPattern(args[0])
+  const [items, rawPredicate, opts = {}] = immediate
+    ? args
+    : [null, args[0], args[1]]
+  const predicate = toPredicate(rawPredicate)
+
+  // eslint-disable-next-line complexity
+  const run = inputItems => {
+    const {
+      strategy = collect, take, total, onError, onFailure,
+    } = opts
+    const errors = []
+    const strategyName = strategy.name ?? strategy
+    const plannedTotal = getPlannedTotal({items: inputItems, take, total})
+
+    const finish = result => {
+      const failure = strategyName === 'failLate' && errors.length > 0
+        ? {errors}
+        : false
+
+      if (failure && onFailure)
+        onFailure(failure)
+
+      return {result, errors, failure}
+    }
+
+    let index = 0
+
+    for (const item of inputItems) {
+      if (take !== undefined && index >= take)
+        break
+
+      try {
+        if (predicate(item, index))
+          return finish(item)
+      } catch (error) {
+        if (strategyName === 'throw')
+          throw error
+
+        const errorContext = {item, error, index}
+
+        if (onError)
+          onError(withTotal(errorContext, plannedTotal))
+
+        if (strategyName === 'failFast') {
+          if (onFailure)
+            onFailure(errorContext)
+          return {result: undefined, errors, failure: errorContext}
+        }
+
+        if (strategyName === 'skip') {
+          index++
+          continue
+        }
+
+        errors.push(errorContext)
+      }
+      index++
+    }
+
+    return finish(undefined)
+  }
+
   return immediate ? run(items) : run
 }
 
