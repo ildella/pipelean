@@ -308,14 +308,8 @@ const safeFetch = tryCatch(fetchJSON, { onError: logError })
 Enable the rules to catch these patterns at lint time:
 
 ```js
-import pipeleanPlugin from 'pipelean/eslint'
-export default [{
-  plugins: { pipelean: pipeleanPlugin },
-  rules: {
-    'pipelean/no-array-foreach': 'warn',
-    'pipelean/no-array-reduce': 'warn',
-    'pipelean/no-loop-without-yield': 'warn',
-    'pipelean/no-promise-combinators': 'warn',
-  },
+import pipeleanConfig from 'pipelean/eslint/config'
+
+export default [pipeleanConfig];
 }]
 ```

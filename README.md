@@ -54,14 +54,11 @@ Pipelean ships a small ESLint plugin that flags `.forEach()`, `.reduce()`, `.map
 
 ```js
 import pipeleanPlugin from 'pipelean/eslint'
+import pipeleanConfig from 'pipelean/eslint/config'
 
 export default [
-  {
-    plugins: { pipelean: pipeleanPlugin },
-    rules: {
-      'pipelean/no-array-foreach': 'warn',          // suggests series()
-      'pipelean/no-array-reduce': 'warn',            // suggests scan()
-      'pipelean/no-array-map-async': 'warn',         // suggests series()
+  pipeleanConfig
+]
       'pipelean/no-for-await-of': 'warn',            // suggests series()
       'pipelean/no-loop-without-yield': 'warn',      // suggests series()
       'pipelean/no-promise-combinators': 'warn',     // suggests series() / tryCatch()

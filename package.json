@@ -25,7 +25,8 @@
   },
   "exports": {
     ".": "./src/index.js",
-    "./eslint": "./src/eslint/index.js"
+    "./eslint": "./src/eslint/plugin.js",
+    "./eslint/config": "./src/eslint/config.js"
   },
   "files": [
     "src",
