@@ -25,7 +25,7 @@ export default {
           callback &&
           (callback.type === 'ArrowFunctionExpression' ||
             callback.type === 'FunctionExpression') &&
-          callback.async
+            callback.async
         ) {
           context.report({node, messageId: 'preferSeries'})
         }

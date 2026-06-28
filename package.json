@@ -1,6 +1,6 @@
 {
   "name": "pipelean",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "A pragmatic library for sequential async operations with first-class error handling.",
   "type": "module",
   "license": "MIT",
@@ -46,10 +46,10 @@
     "@eslint/compat": "2.1.0",
     "@eslint/js": "9.39.4",
     "@stylistic/eslint-plugin-js": "3.1.0",
-    "@vitest/eslint-plugin": "1.6.19",
+    "@vitest/eslint-plugin": "1.6.20",
     "eslint": "9.39.4",
-    "eslint-nostandard": "0.6.0",
+    "eslint-nostandard": "0.8.0",
     "globals": "15.15.0",
-    "vitest": "4.1.8"
+    "vitest": "4.1.9"
   }
 }
