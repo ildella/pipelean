@@ -50,17 +50,17 @@ Pipelean focuses on sequential workflows: compose operations, process collection
 
 ## ESLint Plugin
 
-Pipelean ships a small ESLint plugin that flags `.forEach()`, `.reduce()`, `.map(async ...)`, `for await...of`, and `Promise.*` static combinators, suggesting pipelean equivalents. It is a separate entry point — importing it does not pull in the runtime library.
+Pipelean ships a small ESLint plugin that flags `.forEach()`, `.reduce()`, `.map(async ...)`, non-generator loops, and `Promise.*` static combinators, suggesting pipelean equivalents. It is a separate entry point — importing it does not pull in the runtime library.
 
 ```js
-import pipeleanPlugin from 'pipelean/eslint'
 import pipeleanConfig from 'pipelean/eslint/config'
 
 export default [
-  pipeleanConfig
-]
-      'pipelean/no-for-await-of': 'warn',            // suggests series()
-      'pipelean/no-loop-without-yield': 'warn',      // suggests series()
+  pipeleanConfig,
+  // Optionally tighten individual rules:
+  {
+    rules: {
+      'pipelean/no-loop-without-yield': 'warn',      // loops allowed only in yielding generators
       'pipelean/no-promise-combinators': 'warn',     // suggests series() / tryCatch()
     },
   },
