@@ -15,3 +15,5 @@
 # standard
 node_modules/
 .eslintcache
+coverage
+.codegraph

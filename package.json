@@ -1,6 +1,6 @@
 {
   "name": "pipelean",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "A pragmatic library for sequential async operations with first-class error handling.",
   "type": "module",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "vitest"
   ],
   "engines": {
-    "node": "^22.0.0 || ^24.0.0"
+    "node": ">22.7"
   },
   "exports": {
     ".": "./src/index.js",
@@ -35,6 +35,8 @@
     "docs"
   ],
   "scripts": {
+    "audit": "yarn npm audit",
+    "audit.prod": "yarn npm audit --recursive --environment production --severity moderate",
     "check:lint": "eslint --report-unused-disable-directives .",
     "lint": "eslint . --cache --max-warnings 1",
     "lint.nocache": "eslint . --max-warnings 1",
@@ -47,7 +49,8 @@
     "@eslint/compat": "2.1.0",
     "@eslint/js": "9.39.5",
     "@stylistic/eslint-plugin-js": "3.1.0",
-    "@vitest/eslint-plugin": "1.6.24",
+    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/eslint-plugin": "1.6.26",
     "eslint": "9.39.5",
     "eslint-nostandard": "0.9.0",
     "globals": "15.15.0",
