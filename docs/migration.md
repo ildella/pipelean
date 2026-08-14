@@ -2,6 +2,109 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.8.4: Node engine requirement
+
+Pipelean now requires Node `>22.7` (package.json `engines`).
+
+## 0.8.3: removed `no-for-await-of` rule
+
+The `pipelean/no-for-await-of` rule was dropped. Pipelean's position is now that `for await...of` inside yielding generators is fine; the rules target non-generator loops (`no-loop-without-yield`) and unsafe array iteration instead. Remove any reference to `pipelean/no-for-await-of` from your config or it will fail to resolve.
+
+## 0.8.2: ESLint plugin ships a one-line config
+
+The plugin now exports a ready-made flat-config object at `pipelean/eslint/config`, replacing the manual `plugins`/`rules` wiring. Every rule still defaults to `warn`.
+
+**Before:**
+```js
+import pipeleanPlugin from 'pipelean/eslint'
+
+export default [{
+  plugins: {pipelean: pipeleanPlugin},
+  rules: {
+    'pipelean/no-array-foreach': 'warn',
+    'pipelean/no-array-reduce': 'warn',
+    'pipelean/no-loop-without-yield': 'warn',
+    'pipelean/no-promise-combinators': 'warn',
+  },
+}]
+```
+
+**After:**
+```js
+import pipeleanConfig from 'pipelean/eslint/config'
+
+export default [pipeleanConfig]
+```
+
+To tighten individual rules, spread a second object after the config:
+
+```js
+export default [
+  pipeleanConfig,
+  {rules: {'pipelean/no-loop-without-yield': 'error'}},
+]
+```
+
+## 0.8.1: new `assign()` helper
+
+`assign(property, parse)` builds a `flow()` step that conditionally sets a property on the accumulated state, skipping it (no-op) when `parse(state)` returns `undefined`. Additive:
+
+```js
+import { assign, flow } from 'pipelean'
+
+const extractYear = assign('year', state => {
+  const n = Number.parseInt(state.rawYear, 10)
+  return Number.isNaN(n) ? undefined : n
+})
+
+const {value} = await flow([extractYear])({rawYear: '1995'})
+// value = {rawYear: '1995', year: 1995}
+```
+
+## 0.8.0: new `flow()` function
+
+`flow()` runs a reusable pipeline of state-enrichment steps over one accumulated value, returning `{value, errors, failure}` with the same error strategies as `series()`/`scan()`. Additive — no migration needed, but replace hand-rolled accumulator patterns when you see them:
+
+```js
+// Before: hand-rolled accumulation
+const step1 = prepare(input)
+const step2 = {...step1, ...enrich(step1)}
+const step3 = {...step2, ...finalize(step2)}
+
+// After: flow() defines the pipeline once and reuses it
+import { flow } from 'pipelean'
+const process = flow([prepare, enrich, finalize])
+const {value} = await process(input)
+```
+
+`flowSync` is available too for synchronous pipelines.
+
+## 0.7.1: `scanReduce()` → `reduce()`
+
+`scanReduce` was renamed to `reduce` as the main API. `scanReduce` and `scanReduceSync` are kept as aliases pointing to the same functions, so existing code keeps working.
+
+**Before:**
+```js
+import { scanReduce } from 'pipelean'
+const {value: totalDuration} = await scanReduce(
+  tracks,
+  (accumulator, {duration}) => accumulator + duration,
+  0,
+)
+```
+
+**After:**
+```js
+import { reduce } from 'pipelean'
+const {value: totalDuration} = await reduce(
+  tracks,
+  (accumulator, {duration}) => accumulator + duration,
+  0,
+)
+```
+
+Same change for the sync variant: `scanReduceSync` → `reduceSync`. Behavior is identical — `reduce()` is `scan()` with `storePartialResults: false` baked in, returning only the final value.
+
 ## 0.7: `series()` callbacks receive context objects
 
 Pipelean 0.7 changes `series()` lifecycle callbacks from raw values to named context objects. This is a breaking change, but it makes app tasks easier to write because UI progress and error reporting get the item, index, result/error, and known total in one place.
@@ -310,6 +413,5 @@ Enable the rules to catch these patterns at lint time:
 ```js
 import pipeleanConfig from 'pipelean/eslint/config'
 
-export default [pipeleanConfig];
-}]
+export default [pipeleanConfig]
 ```
