@@ -942,9 +942,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-nostandard@npm:0.10.0":
-  version: 0.10.0
-  resolution: "eslint-nostandard@npm:0.10.0"
+"eslint-nostandard@npm:0.10.2":
+  version: 0.10.2
+  resolution: "eslint-nostandard@npm:0.10.2"
   peerDependencies:
     "@eslint/js": ^9.0.0 || ^10.0.0
     "@stylistic/eslint-plugin": ^5.0.0
@@ -953,7 +953,7 @@ __metadata:
     eslint-plugin-import-x: ^4.16.0
     eslint-plugin-playwright: ^2.10.0
     eslint-plugin-sonarjs: ^4.0.0
-    eslint-plugin-unicorn: ^60.0.0
+    eslint-plugin-unicorn: ">=60.0.0"
     globals: ^16.0.0  || ^17.0.0
   peerDependenciesMeta:
     eslint-plugin-functional:
@@ -966,7 +966,7 @@ __metadata:
       optional: true
     eslint-plugin-unicorn:
       optional: true
-  checksum: 10c0/a614abbdc961d8d71f43310f2c27e68c1ca304cb3fca4eb482399c10da86744160f289735db3b4c6017ab8388b79a6fe2d032102cac91eed73ced9f12ac96345
+  checksum: 10c0/3bc3988a8a136174e557e2aaf6e8a624d1afe85601340206aaa7b5bb77e2e3b13d8ab1af824a9e0a294e075e714a2ad1342cfc1d196fae0cb981ca583e97f29e
   languageName: node
   linkType: hard
 
@@ -1907,7 +1907,7 @@ __metadata:
     "@vitest/coverage-v8": "npm:4.1.10"
     "@vitest/eslint-plugin": "npm:1.6.27"
     eslint: "npm:10.8.1"
-    eslint-nostandard: "npm:0.10.0"
+    eslint-nostandard: "npm:0.10.2"
     globals: "npm:17.11.0"
     vitest: "npm:4.1.10"
   languageName: unknown
