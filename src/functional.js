@@ -86,7 +86,6 @@ export const series = (...args) => {
     }
 
     let index = 0
-    let failure = false
 
     for await (const item of inputItems) {
       if (take !== undefined && index >= take)
@@ -137,7 +136,7 @@ export const series = (...args) => {
       index++
     }
 
-    failure = strategyName === 'failLate' && errors.length > 0
+    const failure = strategyName === 'failLate' && errors.length > 0
       ? {errors}
       : false
 

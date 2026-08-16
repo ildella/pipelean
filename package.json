@@ -47,13 +47,14 @@
   "packageManager": "yarn@4.18.0+sha512.fcb8716fe7cd0eece141ffc18b92193a9df9204c1ba83189c288835223fc0bbe64af473bab0d5e9927a7daeb5caf2bb07eb2787cc9338ca040ea125f2a1f2f7e",
   "devDependencies": {
     "@eslint/compat": "2.1.0",
-    "@eslint/js": "9.39.5",
-    "@stylistic/eslint-plugin-js": "3.1.0",
+    "@eslint/js": "10.0.1",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "@stylistic/eslint-plugin-js": "4.4.1",
     "@vitest/coverage-v8": "4.1.10",
     "@vitest/eslint-plugin": "1.6.27",
-    "eslint": "9.39.5",
-    "eslint-nostandard": "0.9.2",
-    "globals": "15.15.0",
+    "eslint": "10.8.1",
+    "eslint-nostandard": "0.10.0",
+    "globals": "17.11.0",
     "vitest": "4.1.10"
   }
 }
