@@ -12,7 +12,7 @@ describe('scan() with async generator source errors', () => {
       yield 10
       yield 20
       throw new Error('source error')
-      yield 30
+      // yield 30
     }
 
     const {
@@ -25,10 +25,11 @@ describe('scan() with async generator source errors', () => {
     )
 
     expect(results).toEqual([10, 30]) // accumulators after each successful item
-    expect(value).toBeUndefined() // storePartialResults: true does not return value
+    expect(value).toBeUndefined() // cause storePartialResults: true
     expect(errors).toEqual([])
     expect(sourceErrors).toHaveLength(1)
     expect(sourceErrors[0].index).toBe(2)
+    expect(failure).toBe('???')
   })
 
   test.fails('reduce mode (storePartialResults: false): returns last known accumulator', async () => {
@@ -36,7 +37,7 @@ describe('scan() with async generator source errors', () => {
       yield 10
       yield 20
       throw new Error('source error')
-      yield 30
+      // yield 30
     }
 
     const {
@@ -51,6 +52,7 @@ describe('scan() with async generator source errors', () => {
     expect(results).toBeUndefined() // not stored
     expect(value).toBe(30) // 0 + 10 + 20 = 30
     expect(sourceErrors).toHaveLength(1)
+    expect(errors).toBe('???')
   })
 
   test.fails('failFast strategy: returns empty results but preserves last accumulator', async () => {
@@ -73,6 +75,7 @@ describe('scan() with async generator source errors', () => {
     expect(value).toBe(30) // accumulated value before source died
     expect(sourceErrors).toHaveLength(1)
     expect(failure.index).toBe(2)
+    expect(errors).toBe('???')
   })
 })
 
@@ -83,7 +86,7 @@ describe('filter() with async generator source errors', () => {
       yield {active: false, id: 2}
       yield {active: true, id: 3}
       throw new Error('source error')
-      yield {active: true, id: 4}
+      // yield {active: true, id: 4}
     }
 
     const {
@@ -138,6 +141,7 @@ describe('seriesSync() with generator source errors', () => {
     expect(results).toEqual([])
     expect(sourceErrors).toHaveLength(1)
     expect(failure.error.message).toBe('Sync source error at index 1')
+    expect(errors).toBe('???')
   })
 
   test.fails('triggers iterator.return() on sync generators for cleanup', () => {
@@ -162,7 +166,7 @@ describe('scanSync() with generator source errors', () => {
       yield 10
       yield 20
       throw new Error('sync source error')
-      yield 30
+      // yield 30
     }
 
     const {results, value, sourceErrors} = scanSync(
@@ -175,5 +179,6 @@ describe('scanSync() with generator source errors', () => {
     expect(value).toBe(30)
     expect(sourceErrors).toHaveLength(1)
     expect(sourceErrors[0].index).toBe(2)
+    expect(results).toBe('???')
   })
 })

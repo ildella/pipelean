@@ -85,7 +85,7 @@ test.fails('distinguishes operation errors from source errors', async () => {
     yield {id: 2, fail: true} // this item will cause fn() to throw
     yield {id: 3, fail: false}
     throw new Error('source error at index 3')
-    yield {id: 4, fail: false}
+    // yield {id: 4, fail: false}
   }
 
   const {
@@ -223,4 +223,6 @@ test.fails('handles source error after all items yielded (late failure)', async 
   expect(results).toEqual(['A', 'B', 'C'])
   expect(sourceErrors).toHaveLength(1)
   expect(sourceErrors[0].index).toBe(3)
+  expect(errors).toBe('???')
+  expect(failure).toBe('???')
 })

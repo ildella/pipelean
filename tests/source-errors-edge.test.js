@@ -1,5 +1,7 @@
 import {
-  series, scan, filter, reduce, failFast, collect, failLate, skip, rethrow,
+  series,
+  collect,
+  rethrow,
 } from '../src/functional.js'
 import {fragileGenerator} from './source-errors-helpers'
 
@@ -32,6 +34,7 @@ test.fails('handles generator that throws during cleanup (iterator.return() itse
       yield 2
       throw new Error('source error')
     } finally {
+      // eslint-disable-next-line no-unsafe-finally
       throw new Error('cleanup error') // finally block throws!
     }
   }
