@@ -3,7 +3,9 @@ import {seriesSync, collect} from '$src/index'
 
 test('all items succeed returns results with no errors', () => {
   const result = seriesSync([1, 2, 3], x => x * 2)
-  expect(result).toEqual({results: [2, 4, 6], errors: [], failure: false})
+  expect(result).toEqual({
+    results: [2, 4, 6], errors: [], sourceErrors: [], failure: false,
+  })
 })
 
 test('failFast stops on first error with no partial results', () => {
@@ -41,7 +43,9 @@ test('passes index as second arg to fn', () => {
 
 test('empty array returns empty result shape', () => {
   const result = seriesSync([], x => x)
-  expect(result).toEqual({results: [], errors: [], failure: false})
+  expect(result).toEqual({
+    results: [], errors: [], sourceErrors: [], failure: false,
+  })
 })
 
 test('curried form returns a function', () => {
@@ -52,7 +56,9 @@ test('curried form returns a function', () => {
 test('curried form executes when called with items', () => {
   const double = seriesSync(x => x * 2)
   const result = double([1, 2, 3])
-  expect(result).toEqual({results: [2, 4, 6], errors: [], failure: false})
+  expect(result).toEqual({
+    results: [2, 4, 6], errors: [], sourceErrors: [], failure: false,
+  })
 })
 
 test('calls onProgress after each successful item', () => {

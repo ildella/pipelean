@@ -57,6 +57,10 @@ All iteration functions (`series`, `filter`, `scan`, `reduce`) support four erro
 - Sets `failure: false`
 - Does NOT call `onFailure`
 
+### Source errors
+
+Errors thrown by the **iteration itself** (e.g. an async generator dying mid-stream) are treated separately from operation errors: they never reach the error strategies' `onError`, and instead are reported through `onSourceError({error, index})` and the additive `sourceErrors` result field — so partial progress survives a dead source under every strategy except `rethrow`. See the [Source errors section in the reference](reference.md#source-errors) for details.
+
 ---
 
 ## Features
