@@ -17,6 +17,7 @@ test('accept a pipe with a single mapping function', async () => {
   expect(result).toEqual({
     results: [2, 4, 6],
     errors: [],
+    sourceErrors: [],
     failure: false,
   })
 })
@@ -31,6 +32,7 @@ test('accept a pipe with multiple mapping functions', async () => {
   expect(result).toEqual({
     results: [3, 5, 7],
     errors: [],
+    sourceErrors: [],
     failure: false,
   })
 })
@@ -45,6 +47,7 @@ test('curried functions inside the pipe', async () => {
   expect(result).toEqual({
     results: [20, 30, 40], // (1+1)*10, etc.
     errors: [],
+    sourceErrors: [],
     failure: false,
   })
 })
@@ -68,6 +71,7 @@ test(
     expect(result).toEqual({
       results: [3, 5, 7, 9, 11, 13],
       errors: [],
+      sourceErrors: [],
       failure: false,
     })
   },
@@ -91,6 +95,7 @@ test('mixed mapping and filtering logic within a pipe', async () => {
   expect(result).toEqual({
     results: [5, 9, 13], // inputs: 2, 4, 6
     errors: [],
+    sourceErrors: [],
     failure: false,
   })
 })

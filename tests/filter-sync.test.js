@@ -3,12 +3,16 @@ import {filterSync} from '$src/index'
 
 test('predicate truthy keeps item in results', () => {
   const result = filterSync([1, 2, 3, 4], x => x > 2)
-  expect(result).toEqual({results: [3, 4], errors: [], failure: false})
+  expect(result).toEqual({
+    results: [3, 4], errors: [], sourceErrors: [], failure: false,
+  })
 })
 
 test('predicate falsy excludes item without error', () => {
   const result = filterSync([1, 2, 3], () => false)
-  expect(result).toEqual({results: [], errors: [], failure: false})
+  expect(result).toEqual({
+    results: [], errors: [], sourceErrors: [], failure: false,
+  })
 })
 
 test('predicate throws with failFast stops and populates failure', () => {
@@ -46,12 +50,16 @@ test('curried form returns a function', () => {
 test('curried form executes when called with items', () => {
   const evens = filterSync(x => x % 2 === 0)
   const result = evens([1, 2, 3, 4])
-  expect(result).toEqual({results: [2, 4], errors: [], failure: false})
+  expect(result).toEqual({
+    results: [2, 4], errors: [], sourceErrors: [], failure: false,
+  })
 })
 
 test('empty array returns empty result shape', () => {
   const result = filterSync([], () => true)
-  expect(result).toEqual({results: [], errors: [], failure: false})
+  expect(result).toEqual({
+    results: [], errors: [], sourceErrors: [], failure: false,
+  })
 })
 
 test('returns value synchronously not a promise', () => {

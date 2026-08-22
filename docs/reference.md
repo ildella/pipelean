@@ -247,12 +247,13 @@ Curried: `(fn, opts?) => (items) => Promise<Outcome>`
   - `onProgress({item, result, index, total})`: Called after each successful item. NOT called for errors or `undefined` drops.
   - `onError({item, error, index, total})`: Called for each handled item error. Does not affect control flow.
   - `onFailure(failure)`: Called when failure is truthy. Receives `{item, error, index}` for `failFast`, `{errors}` for `failLate`.
+  - `onSourceError({error, index})`: Called when the iteration itself throws (a source error). Never called under `rethrow`; mutually exclusive with `onError`.
   - `take`: Limit items processed.
   - `total`: Explicit planned input count for progress/error callbacks. If omitted, `series` uses a cheap known input size when available. If `take` is set, callback `total` is limited to `Math.min(take, knownTotal)`. If no total is known, the `total` key is omitted.
   - `pause`: Milliseconds between successful items.
   - `pauseOnErrors`: Whether to also pause after errors (default: `false`).
 
-**Return**: `{results, errors, failure}` where `failure` is `false` on success. Collected `errors` are `{item, error, index}`.
+**Return**: `{results, errors, sourceErrors, failure}` where `failure` is `false` on success. Collected `errors` are `{item, error, index}`. `sourceErrors` is an array of source-error contexts, empty when the source completed cleanly (see [Source errors](#source-errors)).
 
 **Usage Example**:
 ```javascript
@@ -286,6 +287,46 @@ const { results } = await series(items, pipe(
 ))
 ```
 
+#### Source errors
+
+A **source error** is an error thrown by the iteration itself — the `for await` step (e.g. an async generator dying mid-stream because a DB connection was lost). This is distinct from an **operation error**, which is your `fn` throwing on an item.
+
+A dead source is terminal: no more items can arrive, so iteration ends under every strategy. The error never reaches `onError`.
+
+Every return path gains one additive field:
+
+- `sourceErrors`: array of `{error, index}` contexts — no `item` key, because a source error has no item. `index` is the iteration index of the failed `.next()` call (a generator that yields 2 items then throws produces `index: 2`). Empty array when the source completed cleanly.
+
+New option:
+
+- `onSourceError({error, index})`: telemetry callback with the same contract as `onError`. Never called under `rethrow`. `onError` and `onSourceError` are mutually exclusive per error.
+
+Per-strategy behavior when the source dies:
+
+| Strategy | Behavior |
+| --- | --- |
+| `collect` | Results preserved, context recorded in `sourceErrors`, `failure: false` |
+| `failFast` | `failure` = the source context, results cleared, accumulator (`value` in reduce mode) preserved |
+| `failLate` | Results preserved, source contexts merged into end-of-run aggregation: `failure = {errors: [...errors, ...sourceErrors]}` |
+| `skip` | Source errors ignored entirely: `sourceErrors: []`, results preserved, `failure: false` |
+| `rethrow` | Throws immediately; no callbacks called |
+
+```javascript
+async function* pages(db) {
+  while (true)
+    yield await db.nextPage() // throws when the connection drops
+}
+
+const result = await series(pages(db), processPage, {
+  strategy: collect,
+  onSourceError: ({error, index}) => log.warn('source died', {error, index}),
+})
+// result.results holds every page processed before the drop
+// result.sourceErrors = [{error, index}]
+```
+
+Cleanup follows native generator semantics: the generator's own `finally` runs during propagation, early exit via `take` still closes the iterator through `iterator.return()`, and if a `finally` itself throws, that error supersedes the original source error.
+
 ---
 
 ### scan
@@ -302,8 +343,11 @@ const { results } = await series(items, pipe(
 **Return Type**: A Promise that resolves to an object containing:
 - `results`: Array of intermediate results (or `[]` on failFast failure)
 - `errors`: Array of errors encountered (empty for failFast, skip, throw)
-- `failure`: `false` on success; `{item, error, index}` for failFast; `{errors}` for failLate
-- `value`: Final accumulated value when `storePartialResults: false` (only on success)
+- `sourceErrors`: Array of `{error, index}` contexts for errors thrown by the iteration itself; empty when the source completed cleanly
+- `failure`: `false` on success; `{item, error, index}` for failFast; `{errors}` for failLate (source errors are merged into the aggregated errors array)
+- `value`: Final accumulated value when `storePartialResults: false`. Preserved under every strategy except `rethrow`, even when the source dies mid-stream
+
+**Source errors**: when the iterable itself throws mid-stream (e.g. an async generator dying), the accumulator and partial results collected so far are preserved per strategy and the context is reported through `onSourceError` instead of `onError`. See [Source errors](#source-errors) under `series` for the full per-strategy behavior.
 
 **Key Characteristics**:
 - **Stateful**: Each transformation depends on the previous result
@@ -343,8 +387,9 @@ const { results, errors } = await scan(
   - `onFailure`: Called when failure is truthy.
 
 **Return Type**: A Promise that resolves to an object containing:
-- `value`: The final accumulated value (on success). `undefined` on failFast failure.
+- `value`: The final accumulated value. Preserved under every strategy except `rethrow`, even when the source dies mid-stream
 - `errors`: Array of errors encountered (empty for failFast, skip, throw)
+- `sourceErrors`: Array of `{error, index}` contexts for errors thrown by the iteration itself; empty when the source completed cleanly
 - `failure`: `false` on success; `{item, error, index}` for failFast; `{errors}` for failLate
 
 **Key Characteristics**:
@@ -699,14 +744,16 @@ want Pipelean's structured error collection.
 
 **Available sync variants**:
 
-- `seriesSync` returns `{results, errors, failure}` directly
-- `filterSync` returns `{results, errors, failure}` directly
+- `seriesSync` returns `{results, errors, sourceErrors, failure}` directly
+- `filterSync` returns `{results, errors, sourceErrors, failure}` directly
 - `findSync` returns `{result, errors, failure}` directly and stops at the first match
-- `scanSync` returns `{results, errors, failure}` directly
-- `reduceSync` returns `{value, errors, failure}` directly
+- `scanSync` returns `{results, errors, sourceErrors, failure}` directly
+- `reduceSync` returns `{value, errors, sourceErrors, failure}` directly
 - `pipeSync` composes synchronous functions left-to-right
 - `flowSync` returns `{value, errors, failure}` directly and runs a state-enrichment pipeline synchronously
 - `tryCatchSync` wraps a synchronous function with lifecycle hooks
+
+The sync variants handle **source errors** with the same semantics as their async twins: `seriesSync`, `filterSync`, `scanSync`, and `reduceSync` accept `onSourceError({error, index})` and report errors thrown by the iteration itself in the `sourceErrors` field. See [Source errors](#source-errors) under `series`.
 
 > `scanReduceSync` is kept as an alias of `reduceSync` for backward compatibility.
 
