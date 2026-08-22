@@ -259,6 +259,7 @@ test('bad cleanup: finally throwing supersedes the source error', () => {
       yield 2
       throw original
     } finally {
+      // eslint-disable-next-line no-unsafe-finally
       throw cleanup
     }
   }
