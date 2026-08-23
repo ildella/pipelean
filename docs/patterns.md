@@ -71,7 +71,7 @@ const result = await series(albumsToSync, album => importAlbum({
   onError: ({item, error}) => {
     reportAlbumImportError({
       sourceId: item.sourceId,
-      title: album.title,
+      title: item.title,
       name: error.name,
       content: error.message,
     })
@@ -81,7 +81,57 @@ const result = await series(albumsToSync, album => importAlbum({
 
 If `total` is unknown, Pipelean omits the key. Pass `total` explicitly when the planned count comes from a database query or another app-level source.
 
-### Pattern 6: Album Enrichment with `flow()`
+### Pattern 6: Async generator + live progress + rate limit
+
+`series` consumes anything `for await` can walk — including paging generators. Progress is live and serial; `pause` spaces successful items.
+
+```javascript
+import {series, collect} from 'pipelean'
+
+async function* pages(db) {
+  let cursor
+  do {
+    const page = await db.nextPage(cursor)
+    cursor = page.cursor
+    yield page
+  } while (cursor)
+}
+
+const {results, errors, sourceErrors} = await series(
+  pages(db),
+  page => importPage(page),
+  {
+    strategy: collect,
+    pause: 200,
+    onProgress: ({item, result, index, total}) => {
+      // total is omitted — a generator has no cheap length
+      setStatus(`imported ${index + 1}`)
+    },
+    onError: ({item, error}) => reportPage(item, error),
+    onSourceError: ({error, index}) => {
+      log.warn('pager died', {error, index})
+    },
+  },
+)
+// results: every page imported before a source death
+// sourceErrors: [{error, index}] if the generator threw
+```
+
+### Pattern 7: Dead source — keep what you have
+
+When the iterable itself throws (connection drop, generator `throw`), that is a **source error**, not an item error. It never reaches `onError`. Under `collect`, partial `results` survive.
+
+```javascript
+const result = await series(pages(db), processPage, {
+  strategy: collect,
+  onSourceError: ({error, index}) => log.warn('source died', {error, index}),
+})
+// result.results — every item processed before the drop
+// result.sourceErrors — [{error, index}]
+// result.failure — false under collect
+```
+
+### Pattern 8: Album Enrichment with `flow()`
 
 Use `flow()` when an app task enriches **one** input through multiple stateful steps (e.g., derive `title`, `year`, `artists`, `slug` from a raw payload). Define the pipeline once, then run it against any number of inputs.
 

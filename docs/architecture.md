@@ -21,7 +21,7 @@ Our Approach: Eager Execution.
 
 When you run series or scan, the work happens immediately and you get a structured report `{ results, errors, failure }` back. No surprises.
 
-This is a focus, not a rejection of lazy iterators. Pipelean *consumes* async iterables (arrays, streams, generators) through `series`/`scan`/`reduce`/`filter`. When you need to *build* a lazy producer — for example an async generator that streams progress events — pipelean steps aside: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` lint rule encodes exactly this boundary: the only loops pipelean allows are the ones inside a generator that yields.
+This is a focus, not a rejection of lazy iterators. Pipelean *consumes* async iterables (arrays, generators, anything `for await` can consume) through `series`/`scan`/`reduce`/`filter`. When you need to *build* a lazy producer — for example an async generator that yields pages — pipelean steps aside: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` lint rule encodes exactly this boundary: the only loops pipelean allows are the ones inside a generator that yields.
 
 ## Terminology
 
@@ -38,4 +38,4 @@ The vocabulary we have established for the pipelean project:
     - *Selection* (Filtering): An operation that decides whether to keep or drop an item. (A→A or A→∅). In our merged model, this is signaled by returning undefined.
     - *Patch* (Enrichment): An operation in `flow()` that returns an object shallow-merged into the accumulated state. `{...state, ...patch}`.
   * **Drop Signal**: Returning `undefined` from an operation (mapper in `series`, or any step in `pipe`) signals that the item should be dropped from results. This is how `filter` works internally and how selection-in-pipes works. `undefined` is NOT treated as a valid return value — it is the sentinel for "skip this item." In `flow()`, an operation that has nothing to add must return `{}`, not `undefined`.
-  * **Outcome**: The structural result returned by iterators: {results, errors, failure}. `flow()` returns `{value, errors, failure}` — `value` is the final accumulated state, not a results array.
+  * **Outcome**: The structural result returned by iterators: `{results, errors, sourceErrors, failure}`. `flow()` returns `{value, errors, failure}` — `value` is the final accumulated state, not a results array.

@@ -296,3 +296,59 @@ test('undefined result drops the item from results', async () => {
   expect(result.errors).toEqual([])
   expect(result.failure).toBe(false)
 })
+
+test('consumes async generator with live progress', async () => {
+  async function * pages () {
+    yield {id: 1}
+    yield {id: 2}
+    yield {id: 3}
+  }
+
+  const progress = []
+  const result = await series(pages(), page => page.id * 10, {
+    onProgress: payload => progress.push(payload),
+  })
+
+  expect(result.results).toEqual([10, 20, 30])
+  expect(result.sourceErrors).toEqual([])
+  expect(progress).toEqual([
+    {item: {id: 1}, result: 10, index: 0},
+    {item: {id: 2}, result: 20, index: 1},
+    {item: {id: 3}, result: 30, index: 2},
+  ])
+  expect(Object.hasOwn(progress[0], 'total')).toBe(false)
+})
+
+test('pause rate-limits successful items', async () => {
+  const start = Date.now()
+  const result = await series([1, 2, 3], x => x, {pause: 10})
+  const elapsed = Date.now() - start
+
+  expect(result.results).toEqual([1, 2, 3])
+  expect(elapsed).toBeGreaterThanOrEqual(20)
+})
+
+test('awaits onProgress before next item', async () => {
+  const order = []
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+  await series([1, 2], item => {
+    order.push(`fn:${item}`)
+    return item
+  }, {
+    onProgress: async ({item}) => {
+      order.push(`progress-start:${item}`)
+      await wait(5)
+      order.push(`progress-end:${item}`)
+    },
+  })
+
+  expect(order).toEqual([
+    'fn:1',
+    'progress-start:1',
+    'progress-end:1',
+    'fn:2',
+    'progress-start:2',
+    'progress-end:2',
+  ])
+})

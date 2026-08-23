@@ -66,3 +66,21 @@ test('empty array returns empty result shape', async () => {
     results: [], errors: [], sourceErrors: [], failure: false,
   })
 })
+
+test('inherits onProgress and take from series', async () => {
+  const progress = []
+  const result = await filter([1, 2, 3, 4, 5], x => x % 2 === 0, {
+    take: 4,
+    onProgress: payload => progress.push(payload),
+  })
+
+  expect(result.results).toEqual([2, 4])
+  expect(progress).toEqual([
+    {
+      item: 2, result: 2, index: 1, total: 4,
+    },
+    {
+      item: 4, result: 4, index: 3, total: 4,
+    },
+  ])
+})

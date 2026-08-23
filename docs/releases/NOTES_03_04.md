@@ -100,4 +100,4 @@ const result = await scan(items, scanner, initialValue, options);
 
 ---
 
-For detailed API documentation, see [docs/functional.md](docs/functional.md).
+For detailed API documentation, see [docs/reference.md](../reference.md).

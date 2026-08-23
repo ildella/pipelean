@@ -30,12 +30,12 @@ array.filter(predicate).map(transform)
 
 Pipelean gives you:
 
-- `series` & `scan` for horizontal flows (independent or stateful steps)
+- `series` for sequential work over arrays **and async iterables** — live `onProgress`, `pause` rate limits, `take`, first-class error strategies
+- `scan` / `reduce` for stateful accumulation across many items
 - `flow` for stateful accumulation across one input — each operation enriches the same state
 - `pipe` for vertical composition
 - `tryCatch` and `retry` middleware you can reuse across your app
-- Built-in error strategies with sensible defaults for each operation
-- Structured results and progress hooks — no silent crashes
+- Structured results `{results, errors, sourceErrors, failure}` — no silent crashes
 - `*Sync` variants for synchronous code — same error collection, no promises
 
 ## The alternatives
@@ -69,7 +69,7 @@ export default [
 
 ## AI & Agentic Development
 
-Pipelean is "Agent-Ready." It ships with built-in **Skills** and an **Agent Persona** to help AI assistants (like Claude, Gemini CLI, or Cursor) write better code using this library.
+Pipelean is "Agent-Ready." It ships with built-in **Skills** to help AI assistants (like Claude, Gemini CLI, or Cursor) write better code using this library.
 
 ### 1. Install Skills
 
@@ -100,11 +100,7 @@ yarn skills-npm
 ## Example
 
 ```js
-import { pipe, series } from 'pipelean'
-
-const downloadSomething = async () => {...}
-const transformSomething = () => {...}
-const writeToDatabase = async () => {...}
+import {pipe, series, collect} from 'pipelean'
 
 const pipeline = pipe(
   downloadSomething,
@@ -112,10 +108,20 @@ const pipeline = pipe(
   writeToDatabase,
 )
 
-const {results, errors} = await series(items, pipeline, {
-  strategy: failFast,
+async function* pages() {
+  yield* items
+}
+
+const {results, errors, sourceErrors} = await series(pages(), pipeline, {
+  strategy: collect,
+  pause: 200,
+  onProgress: ({item, result, index, total}) => {
+    updateBar(index + 1, total)
+  },
 })
 ```
+
+`onProgress` fires live after each kept item and is awaited before the next one. `pause` rate-limits. `total` is omitted when the source has no cheap length. See [docs/patterns.md](docs/patterns.md) for paging, unknown length, and dead-source recipes.
 
 ## Stateful accumulation: `flow()`
 

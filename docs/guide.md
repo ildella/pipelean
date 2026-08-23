@@ -29,14 +29,14 @@ Pipelean provides core tools grouped by **data flow direction** (horizontal vs v
 
 ## Error Strategies
 
-All iteration functions (`series`, `filter`, `scan`, `reduce`) support four error strategies:
+All iteration functions (`series`, `filter`, `scan`, `reduce`) support five error strategies:
 
 **failFast** (aliases: `fail`, `stopOnError`)
 - Sets `failure: {item, error, index}` on first error
 - Calls `onError({item, error, index, total})`, then `onFailure({item, error, index})` immediately
 - Stops iteration; results array is empty on failure
 
-**throw**
+**rethrow** (strategy name is `'throw'`)
 - Throws the error on first failure
 - Does NOT return a structured result on failure
 - Does NOT call `onError` or `onFailure`
@@ -71,7 +71,8 @@ Errors thrown by the **iteration itself** (e.g. an async generator dying mid-str
   - Built-in and first-class (see [Error Strategies](#error-strategies) above)
 
 * **Universal Input**
-  - Works on Arrays, Streams, Generators, and any Async Iterable.
+  - Works on arrays, generators, and any async iterable (`for await`).
+  - Not a Node/`ReadableStream` adapter — pass something `for await` can consume.
 
 * **Universal Mapper**
   - Handles both Synchronous and Asynchronous mapper functions automatically.
@@ -79,20 +80,23 @@ Errors thrown by the **iteration itself** (e.g. an async generator dying mid-str
   - `findSync` accepts the same predicate forms and returns the first matching item without scanning the rest of the iterable.
 
 * **Structured Results**
-  - Always returns a predictable object: `{ results, errors, failure }`.
+  - Iterators return `{ results, errors, sourceErrors, failure }`.
   - Errors are treated as data, removing the need for consumer-side `try/catch` blocks.
 
-* **Contextual Callbacks**
-  - `onProgress({item, result, index, total})` runs after each successful item.
+* **Shared callbacks**
   - `onError({item, error, index, total})` runs for handled item errors.
-  - `total` is included only when Pipelean can know it cheaply, or when the caller passes `total`.
+  - `onFailure` runs when `failure` is truthy (`failFast` / `failLate`).
+  - `onSourceError({error, index})` runs when the iterable itself throws.
+
+* **`series` / `filter` only**
+  - `onProgress({item, result, index, total})` after each kept success (awaited, live).
+  - `pause` / `pauseOnErrors` for rate limiting.
+  - `take` to process a prefix (including infinite generators).
+  - `total` for progress math; omitted when the size is unknown.
+  - `scan` and `reduce` do **not** have `onProgress`, `pause`, or `take`.
 
 * **Order Guarantee**
   - Because execution is sequential, output order strictly matches input order (no race conditions).
-
-*  **Termination Control (`take`)**
-  - Allows processing a subset of data (e.g., "process only the first N items").
-  - Essential for working with infinite generators or streams.
 
 #### Composition: pipe
 
@@ -203,9 +207,9 @@ Pipelean also provides lightweight wrappers that add behavior to **individual fu
 
 - **`retry(fn, options?)`**
   Specialized for automatic retries
-  - Configurable: times, delay
-  - Retries only on specified errors (or all by default)
-  - Composes cleanly in `pipe` chains (e.g. retry network calls but not validation)
+  - Configurable: `attempts` (default 3), `delay` in ms (default 0)
+  - Retries on every thrown error until attempts are exhausted
+  - Composes cleanly in `pipe` chains (e.g. retry network calls)
 
 ---
 

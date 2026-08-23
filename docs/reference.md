@@ -28,6 +28,7 @@
 
 - [series](#series) - Stateless Sequential Execution
 - [scan](#scan) - Stateful Sequential Transformation
+- [reduce](#reduce) - Pure Reduction
 - [filter](#filter) - Stateless Selection
 
 ### Composition
@@ -37,6 +38,8 @@
 
 ### Misc
 
+- [assign](#assign) - Conditional property assignment for `flow`
+- [where](#where) - Object-pattern predicate
 - [retry](#retry) - Configurable Retry Logic
 - [tryCatch](#trycatch) - Single Function Lifecycle Hooks
 
@@ -333,12 +336,19 @@ Cleanup follows native generator semantics: the generator's own `finally` runs d
 
 **Purpose**: Stateful sequential transformation - transforms each item and accumulates results.
 
-**Type**: `(iterable, scanner, initialValue) => scanFunction`
+**Type**: `(iterable, scanner, initialValue, opts?) => Promise<Outcome>`
 
 **Parameters**:
 - `iterable`: An async iterable (array, generator, or any object implementing the iteration protocol)
 - `scanner`: A function with signature `(accumulator, item, index) => newAccumulator`
 - `initialValue`: The starting value for the accumulator
+- `opts` (optional):
+  - `strategy`: Error strategy (default: `failFast`). `failFast`, `collect`, `failLate`, `skip`, `rethrow`.
+  - `onError`: Called for each handled item error. Does not affect control flow.
+  - `onFailure`: Called when failure is truthy.
+  - `onSourceError`: Called when the iterable itself throws.
+  - `storePartialResults`: `true` (default) returns `{results, …}`; `false` returns `{value, …}` (see `reduce`).
+  - `scan` does **not** support `onProgress`, `pause`, or `take`.
 
 **Return Type**: A Promise that resolves to an object containing:
 - `results`: Array of intermediate results (or `[]` on failFast failure)
@@ -382,9 +392,11 @@ const { results, errors } = await scan(
 - `scanner`: A function with signature `(accumulator, item, index) => newAccumulator`
 - `initialValue`: The starting value for the accumulator
 - `opts` (optional):
-  - `strategy`: Error strategy (default: `failFast`). `failFast`, `failLate`, `skip`, `rethrow`.
+  - `strategy`: Error strategy (default: `failFast`). `failFast`, `collect`, `failLate`, `skip`, `rethrow`.
   - `onError`: Called for each handled item error. Does not affect control flow.
   - `onFailure`: Called when failure is truthy.
+  - `onSourceError`: Called when the iterable itself throws.
+  - `reduce` does **not** support `onProgress`, `pause`, or `take`.
 
 **Return Type**: A Promise that resolves to an object containing:
 - `value`: The final accumulated value. Preserved under every strategy except `rethrow`, even when the source dies mid-stream
@@ -565,14 +577,17 @@ const processAlbum = flow([
 const {value, errors, failure} = await processAlbum(input)
 // value = {title, year, artists, rawTitle, rawYear, ...input}
 
-// Strategy choice: stop on first failure
-const result = await processAlbum(input, {strategy: failFast})
+// Strategy and callbacks are bound when the pipeline is defined
+const processOrStop = flow(
+  [prepareAlbum, extractYear, extractArtists],
+  {
+    strategy: failFast,
+    onError: ({operation, error, index, total}) =>
+      logger.error({operation, error, index, total}),
+  },
+)
 
-// Telemetry: normalized error context
-await processAlbum(input, {
-  onError: ({operation, error, index, total}) =>
-    logger.error({operation, error, index, total}),
-})
+const result = await processOrStop(input)
 
 // Reuse the same pipeline with different inputs
 const album1 = await processAlbum(rawAlbum1)
@@ -671,18 +686,16 @@ const adults = await filter(users, {active: true})
 
 **Usage Example**:
 ```javascript
-import { retry } from './functional.js'
+import {retry} from 'pipelean'
 
-// Retry with default 3 attempts and 500ms delay
-const result = await retry(
-  async flakyOperation() => {
-    return Math.random() > 0.5 // Simulate 50% failure rate
-  },
-  {
-    attempts: 5,
-    delay: 1000
-  }
-)
+const flakyOperation = async () => {
+  if (Math.random() > 0.5)
+    throw new Error('transient')
+  return 'ok'
+}
+
+const robust = retry(flakyOperation, {attempts: 5, delay: 1000})
+const result = await robust()
 ```
 
 ---

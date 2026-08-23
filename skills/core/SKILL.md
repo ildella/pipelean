@@ -3,47 +3,87 @@ name: "Pipelean Core"
 description: "Pipelean core functionalities for iteration, composition and error management for pure FP in pure Javascript. Use this skill when you need to perform sequential async operations, control flow, error handling, or batch processing using the `pipelean` library"
 ---
 
-## Available Functions
+Shipped with the npm package (`docs/`, `skills/`). Tests are **not** published — do not look for `tests/` in `node_modules`. Full contracts live in [docs/reference.md](../../docs/reference.md) (or [online](https://github.com/ildella/pipelean/blob/master/docs/reference.md)). Recipes: [docs/patterns.md](../../docs/patterns.md).
 
-1. **`series(items, fn, options)`**: Stateless sequential execution.
-   - Runs `fn` on each item one by one.
-   - `options`: `{ strategy: failFast | failLate | collect | skip, pause: ms, pauseOnErrors: boolean }`
-   - Returns: `{ results, errors, failure }`
-2. **`scan(items, scannerFn, initialValue)`**: Stateful sequential transformation.
-   - `scannerFn(acc, item, index)`
-   - Returns: `{ results, errors, failure }`
-3. **`reduce(items, scannerFn, initialValue)`**: Pure reduction — like `scan` but returns only the final accumulated value.
-   - `scannerFn(acc, item, index)`
-   - Returns: `{ value, errors, failure }`
-   - Use for sums, counts, and simple accumulation where intermediate values aren't needed.
-4. **`filter(items, predicate, options)`** (immediate) or **`filter(predicate, options)`** (curried): Stateless selection.
-   - Predicate returns truthy to keep, falsy to drop.
-   - Returns original items where predicate matched in `results`.
-5. **`pipe(...fns)`**: Vertical composition.
-   - Chains functions left-to-right.
-   - If any step returns `undefined`, remaining steps are skipped (short-circuit).
-6. **`flow(operations, options?)`**: Stateful accumulation across one input.
-   - Define the operation pipeline once. The returned function runs it against different inputs.
-   - Each operation `op(state)` returns an **object patch** that gets shallow-merged into the state.
-   - `options`: `{ strategy: failFast | failLate | collect | skip, onError, onFailure }`
-   - Returns: `{ value, errors, failure }`
-   - Operations can be sync or async. `flowSync` is the synchronous counterpart.
-7. **`retry(fn, { attempts, delay })`**: Configurable retry logic.
-8. **`tryCatch(fn, { onStart, onSuccess, onError, onFinally })`**: Single function lifecycle hooks.
-9. **`where(pattern)`**: Creates a predicate for strict equality object matching. Used with `filter`.
+## series — the default iterator
 
-## Error Strategies
-- **`failFast`**: Stops immediately on first error. `failure: {item, error}`.
-- **`collect`**: Continues processing, collects all errors. `failure: false`. (Default for `series` and `flow`)
-- **`failLate`**: Collects all errors, sets `failure: true` at the end if any occurred.
-- **`skip`**: Ignores errors entirely.
+```
+series(items, fn, opts?)            // immediate
+series(fn, opts?) => (items) => …   // curried
+```
 
-## flow() vs pipe()
-- `flow()` is for **stateful accumulation**: each step sees the full accumulated state and returns a patch. The pipeline is defined once and reused with different inputs. The result is `{value, errors, failure}`.
-- `pipe()` is for **value-in / value-out** composition: each step receives the previous step's return value. Returns a Promise (or value, for `pipeSync`).
+Consumes **arrays and async iterables** (`for await` — generators, paging sources). Sequential. Sync or async `fn(item, index)`. Return `undefined` to drop the item.
 
 ```js
-import { flow } from 'pipelean'
+import {series, collect} from 'pipelean'
+
+async function* pages() {
+  yield {id: 1}
+  yield {id: 2}
+}
+
+const {results, errors, sourceErrors, failure} = await series(
+  pages(),
+  page => importPage(page),
+  {
+    strategy: collect,
+    pause: 200,
+    onProgress: ({item, result, index, total}) => {
+      // live, awaited, per kept item — total omitted when unknown
+      updateBar(index + 1, total)
+    },
+    onError: ({item, error}) => report(item, error),
+    onSourceError: ({error, index}) => log.warn('source died', {error, index}),
+  },
+)
+```
+
+**Options**
+
+| Option | Role |
+|---|---|
+| `strategy` | `collect` (default), `failFast`, `failLate`, `skip`, `rethrow` |
+| `onProgress({item, result, index, total?})` | After each **kept** success. Awaited. Not called for errors or `undefined` drops. |
+| `onError({item, error, index, total?})` | Telemetry for handled item errors. Does not change control flow. |
+| `onFailure(failure)` | When `failure` is truthy. |
+| `onSourceError({error, index})` | Iterable itself threw (dead generator). Never under `rethrow`. |
+| `pause` | ms after each success (and after `skip`) — rate limit. |
+| `pauseOnErrors` | Also pause after collected errors (default `false`). |
+| `take` | Process only the first N items. |
+| `total` | Planned count for callbacks. Else cheap `items.length`. With `take`: `Math.min(take, known)`. Omitted when unknown. |
+
+**Return**: `{results, errors, sourceErrors, failure}`
+
+`filter` inherits every `series` option (it *is* `series` with a keep/drop transform). `scan` / `reduce` do **not** have `onProgress`, `pause`, or `take`.
+
+## Other functions
+
+2. **`scan(iterable, scanner, initialValue, opts?)`**: Stateful sequential transform. `scanner(acc, item, index)`. Default strategy `failFast`. Returns `{results, errors, sourceErrors, failure}`.
+3. **`reduce(iterable, scanner, initialValue, opts?)`**: Like `scan` but `{value, errors, sourceErrors, failure}` — final accumulator only.
+4. **`filter(items, predicate, opts?)`** or **`filter(predicate, opts?)`**: Keep original items where predicate is truthy. Patterns via `where()`. Same opts as `series`.
+5. **`pipe(...fns)`**: Left-to-right composition. `undefined` short-circuits remaining steps (drop signal).
+6. **`flow(operations, opts?)`**: Stateful accumulation across **one** input. Options are bound at `flow(ops, opts)`, not at call time. Each `op(state)` returns an object patch. Returns `(initialState) => Promise<{value, errors, failure}>`. Use `flowSync` when everything is sync.
+7. **`retry(fn, {attempts, delay})`**: Retry on every throw. Defaults `{attempts: 3, delay: 0}`.
+8. **`tryCatch(fn, {onStart, onSuccess, onError, onFinally})`**: Single-function lifecycle. Returns `null` on error.
+9. **`where(pattern)`**: Strict-equality object predicate. Used with `filter` / `findSync`.
+10. **`assign(property, parse)`**: `flow` step. Sets `{[property]: value}` unless `parse(state)` is `undefined` (returns `{}`).
+11. **`*Sync`**: `seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`, `flowSync`, `tryCatchSync`. Same strategies and shapes, no Promises. No `pause` (needs async delay). No async iterables. `findSync` is sync-only early-exit: `{result, errors, failure}`.
+
+## Error strategies
+
+- **`failFast`** (`fail`, `stopOnError`): stop now. `failure: {item, error, index}` (or source context `{error, index}`). Results cleared.
+- **`collect`**: continue, keep errors. `failure: false`. Default for `series`, `filter`, `flow`.
+- **`failLate`**: continue, then `failure: {errors}` if anything failed (item + source errors merged).
+- **`skip`**: ignore errors (`errors` stays empty). `onError` still fires. `failure: false`.
+- **`rethrow`**: throw the original error. No structured result. No `onError` / `onFailure` / `onSourceError`.
+
+## flow() vs pipe()
+
+- `flow()`: stateful accumulation. Each step sees the full state and returns a patch. Pipeline defined once, reused. `{value, errors, failure}`.
+- `pipe()`: value-in / value-out. Returns a Promise (or value, for `pipeSync`).
+
+```js
+import {flow} from 'pipelean'
 
 const processAlbum = flow([
   state => ({title: state.rawTitle.trim()}),
@@ -54,9 +94,6 @@ const processAlbum = flow([
 const {value, errors, failure} = await processAlbum(input)
 ```
 
-`flow()` normalizes error shapes:
-- `errors[i]` is `{operation, error, index}` where `operation` is the function's `name` or `operation-${index}` for anonymous functions.
-- `failure` is `{operation, error, index}` for `failFast` and `{errors}` for `failLate`.
-- `onError` and `onFailure` callbacks receive the same normalized shapes.
+`flow()` error shapes: `{operation, error, index}` (`operation` is `fn.name` or `operation-${index}`). `failLate` failure is `{errors}`.
 
-**Documentation**: Read full examples in [docs/reference.md](../../docs/reference.md) (or [online](https://github.com/ildella/pipelean/blob/master/docs/reference.md)).
+**Documentation**: [docs/reference.md](../../docs/reference.md) · [docs/patterns.md](../../docs/patterns.md) · [docs/guide.md](../../docs/guide.md)

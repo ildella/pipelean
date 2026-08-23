@@ -5,24 +5,25 @@ The power of this library comes from combining these primitives.
 #### Example: A robust download pipeline
 
 ```js
+import {pipe, retry, series, collect} from 'pipelean'
+
 const pipeline = pipe(
-  retry(downloadTrack, 3), // Resiliency: Retry 3 times
-  processTrack,            // Pure logic
-  retry(updateDb, 3),      // Resiliency: Retry DB 2 times
-  notifyUI                 // Side effect
+  retry(downloadTrack, {attempts: 3}),
+  processTrack,
+  retry(updateDb, {attempts: 3}),
+  notifyUI,
 )
 
-const { results, errors } = await series(tracks, pipeline, {
-  strategy: 'collect',    // Don't stop if one track fails
-  onProgress: updateBar   // Report global progress
+const {results, errors} = await series(tracks, pipeline, {
+  strategy: collect,
+  onProgress: ({index, total}) => updateBar(index + 1, total),
 })
 ```
 
 #### Example: scan (Stateful Dependency)
 
-Scenario: You are adding tracks to a playlist on a media renderer (like Sonos or UPnP). The API requires you to specify the ID of the previous track to insert the new one after it. This creates a dependency chain: Track B cannot be added until Track A is finished and returns its ID. 
-javascript
- 
+Scenario: You are adding tracks to a playlist on a media renderer (like Sonos or UPnP). The API requires you to specify the ID of the previous track to insert the new one after it. This creates a dependency chain: Track B cannot be added until Track A is finished and returns its ID.
+
 ```js
 import { scan } from 'pipelean'
 
