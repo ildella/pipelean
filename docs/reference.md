@@ -478,7 +478,7 @@ Sync: `(items, predicate?) => iterable`
 
 **Parameters**:
 - `items`: An array or (async) iterable — generators and paging sources included
-- `predicate(item, index)`: Checked **before** each item is yielded. Truthy → stop. Defaults to `() => false` (identity wrapper). Sync only.
+- `predicate(item, index)`: Checked **before** each item is yielded. Truthy → stop. Defaults to `() => false` (never stops). Sync only.
 
 **Key Characteristics**:
 - **Check before yield**: the triggering item is pulled from the source but never offered downstream — "cancel before work"
