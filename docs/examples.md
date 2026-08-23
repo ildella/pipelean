@@ -73,6 +73,30 @@ const {value: totalDuration} = await reduce(
 // totalDuration = 22 — no .at(-1), no fallback
 ```
 
+#### Example: stopWhen (Cancellable Pipeline)
+
+Scenario: You are enriching albums against the MusicBrainz API. The job takes minutes, users hit Cancel, and every request must respect a rate limit. Cancellation, pacing, error strategy and progress each live in exactly one place:
+
+```js
+import { series, stopWhen } from 'pipelean'
+
+const enrichLibrary = async (albums, { shouldStop = () => false, onProgress }) => {
+  await series(enrichOne, {
+    total: albums.length,
+    pause: ENRICH_DELAY_MS,     // rate limit lives in series
+    pauseOnErrors: true,
+    onProgress: onItem,         // progress lives in series
+  })(stopWhen(albums, shouldStop)) // cancellation lives in the source
+}
+
+const { results } = await enrichLibrary(albums, {
+  shouldStop: () => cancelRequested,
+  onProgress: ({ index, total }) => updateBar(index + 1, total),
+})
+```
+
+Before `stopWhen`, this needed an async generator with inline `shouldStop()` checks and the rate-limit delay tangled into its `finally` block — which is how double-yield bugs are born. Now each concern has one home.
+
 #### Example: tryCatch as an App-Layer Primitive
 
 Scenario: You want a reusable "Error Boundary" for your application that automatically logs errors to a monitoring service (like Sentry) and pushes a notification to your UI state (e.g., a Svelte store), ensuring the app never crashes silently. 

@@ -16,6 +16,7 @@ Pipelean provides core tools grouped by **data flow direction** (horizontal vs v
 6. pipe (Vertical / Composition)
 7. flow (Vertical / Stateful accumulation — one input, many enrichments, final accumulated value)
 8. assign (Utility for creating conditional property assignments for flow)
+9. stopWhen (Source adapter — predicate-based early exit for any iterable)
 
 > **Sync variants** — The iteration functions above also have synchronous
 > counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`, and
@@ -94,6 +95,11 @@ Errors thrown by the **iteration itself** (e.g. an async generator dying mid-str
   - `take` to process a prefix (including infinite generators).
   - `total` for progress math; omitted when the size is unknown.
   - `scan` and `reduce` do **not** have `onProgress`, `pause`, or `take`.
+
+* **Source adapters**
+  - `stopWhen(items, predicate)` stops pulling as soon as the predicate is truthy — checked *before* the item is offered downstream.
+  - Composes with every consumer (`series`, `scan`, `reduce`, `filter`, raw `for await`) with no option changes: `series(fn, opts)(stopWhen(items, shouldStop))`.
+  - Cancel is a clean shorter run (`failure: false`), never a source error.
 
 * **Order Guarantee**
   - Because execution is sequential, output order strictly matches input order (no race conditions).

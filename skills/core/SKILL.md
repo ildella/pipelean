@@ -67,7 +67,8 @@ const {results, errors, sourceErrors, failure} = await series(
 8. **`tryCatch(fn, {onStart, onSuccess, onError, onFinally})`**: Single-function lifecycle. Returns `null` on error.
 9. **`where(pattern)`**: Strict-equality object predicate. Used with `filter` / `findSync`.
 10. **`assign(property, parse)`**: `flow` step. Sets `{[property]: value}` unless `parse(state)` is `undefined` (returns `{}`).
-11. **`*Sync`**: `seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`, `flowSync`, `tryCatchSync`. Same strategies and shapes, no Promises. No `pause` (needs async delay). No async iterables. `findSync` is sync-only early-exit: `{result, errors, failure}`.
+11. **`stopWhen(items, predicate?)`** / **`stopWhenSync`**: Source adapter — stops pulling once the predicate `(item, index)` is truthy, checked before the item is yielded. Cancel flags, limits (`() => count >= limit`), content stops. Clean completion (`failure: false`, no sourceErrors), source cleanup still runs, predicate throws are source errors. Composes with every consumer: `series(fn, opts)(stopWhen(items, shouldStop))`. Not intra-item abort.
+12. **`*Sync`**: `seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`, `flowSync`, `tryCatchSync`. Same strategies and shapes, no Promises. No `pause` (needs async delay). No async iterables. `findSync` is sync-only early-exit: `{result, errors, failure}`.
 
 ## Error strategies
 

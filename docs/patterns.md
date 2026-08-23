@@ -156,3 +156,33 @@ for (const rawAlbum of rawAlbums) {
 ```
 
 Operations are reusable building blocks. The same `processAlbum` can be called from a CLI import script, a REST endpoint, or a background job — and the error shapes are normalized (`operation` is the function's `name` or `operation-${index}`), so error reports are consistent across entry points.
+
+### Pattern 9: Cancel / limit a run with `stopWhen()`
+
+Use `stopWhen()` when a run should stop pulling items once a condition is met: a user-requested cancel, a batch limit, or a content-based stop. The predicate is checked **before** each item is offered downstream, so the triggering item is never processed. It composes with every pipelean consumer — wrap the source, keep your options untouched:
+
+```javascript
+import { series, stopWhen } from 'pipelean'
+
+const { results } = await series(enrichOne, {
+  total: albums.length,        // forwarded from the array — optional with stopWhen
+  pause: ENRICH_DELAY_MS,
+  pauseOnErrors: true,
+  onProgress: onItem,
+})(stopWhen(albums, shouldStop))
+```
+
+The predicate receives `(item, index)` and may close over external state instead of looking at the item at all — that covers cancel flags and limits with one combinator:
+
+```javascript
+stopWhen(albums, shouldStop)                    // cancel flag
+stopWhen(folders, () => count >= limit)         // batch limit
+stopWhen(pages, page => page.isLast)            // content-based stop
+```
+
+Stopping is a clean completion for the consumer: `failure` stays `false`, `sourceErrors` stays empty — cancel is a shorter run, not an error. Once stopped, the underlying source is abandoned mid-stream and its cleanup (`finally`, `iterator.return()`) still runs.
+
+Two things `stopWhen` does **not** do:
+
+- it does not abort work already started on an item — intra-item cancellation stays in your operation (e.g. `AbortController`);
+- it is not a `series` option on purpose: wrapping the source also serves raw `for await` loops and `reduce`/`scan` pipelines, where a consumer option would not reach.

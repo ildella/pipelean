@@ -21,7 +21,7 @@ Our Approach: Eager Execution.
 
 When you run series or scan, the work happens immediately and you get a structured report `{ results, errors, failure }` back. No surprises.
 
-This is a focus, not a rejection of lazy iterators. Pipelean *consumes* async iterables (arrays, generators, anything `for await` can consume) through `series`/`scan`/`reduce`/`filter`. When you need to *build* a lazy producer — for example an async generator that yields pages — pipelean steps aside: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` lint rule encodes exactly this boundary: the only loops pipelean allows are the ones inside a generator that yields.
+This is a focus, not a rejection of lazy iterators. Pipelean *consumes* async iterables (arrays, generators, anything `for await` can consume) through `series`/`scan`/`reduce`/`filter`. When you need to *build* a lazy producer — for example an async generator that yields pages — pipelean steps aside: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` lint rule encodes exactly this boundary: the only loops pipelean allows are the ones inside a generator that yields. `stopWhen` follows the same rule: it is a tiny yielding adapter (a producer, not an iterator), shipped because every consumer needed the same five lines of stop logic.
 
 ## Terminology
 
