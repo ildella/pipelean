@@ -19,7 +19,7 @@ Pipelean provides core tools grouped by **data flow direction** (horizontal vs v
 9. stopWhen (Source adapter — predicate-based early exit for any iterable)
 
 > **Sync variants** — The iteration functions above also have synchronous
-> counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`, and
+> counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`, `stopWhenSync`, and
 > `reduceSync`. `pipeSync`, `flowSync`, and `tryCatchSync` are available too.
 > They use the same error strategies and structured return shapes, but return
 > directly instead of a Promise. `findSync` is sync-only for now, returns

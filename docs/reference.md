@@ -491,7 +491,7 @@ Sync: `(items, predicate?) => iterable`
 
 **Usage Example**:
 ```javascript
-import { series } from 'pipelean'
+import { series, stopWhen } from 'pipelean'
 
 const {results} = await series(enrichOne, {
   total: albums.length,

@@ -80,14 +80,13 @@ Scenario: You are enriching albums against the MusicBrainz API. The job takes mi
 ```js
 import { series, stopWhen } from 'pipelean'
 
-const enrichLibrary = async (albums, { shouldStop = () => false, onProgress }) => {
-  await series(enrichOne, {
+const enrichLibrary = async (albums, { shouldStop = () => false, onProgress }) =>
+  series(enrichOne, {
     total: albums.length,
     pause: ENRICH_DELAY_MS,     // rate limit lives in series
     pauseOnErrors: true,
-    onProgress: onItem,         // progress lives in series
+    onProgress,                 // progress lives in series
   })(stopWhen(albums, shouldStop)) // cancellation lives in the source
-}
 
 const { results } = await enrichLibrary(albums, {
   shouldStop: () => cancelRequested,
