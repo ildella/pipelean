@@ -378,6 +378,108 @@ export const flow = (operations, opts = {}) => {
   }
 }
 
+const runBranch = (fn, key, index) =>
+  // Start from a resolved promise so a synchronous throw becomes a rejection.
+  Promise.resolve().then(() => fn(key, index))
+
+/**
+ * Fork/join over a record of named async tasks.
+ *
+ * Every task starts immediately and `join` waits for all of them to settle —
+ * there is no cancellation, no scheduler, and completion order never affects
+ * the shape of the result. Errors are data, per branch, using the same error
+ * strategies as `flow`:
+ *
+ * - `collect` (default) keeps the successful branches in `value` and the
+ *   failed ones in `errors` as `{operation, error, index}`; `failure` is false.
+ * - `failLate` behaves like `collect` but sets `failure: {errors}`.
+ * - `failFast` is an alias of `failLate`: branches already started and cannot
+ *   be stopped without an AbortSignal.
+ * - `skip` keeps `errors` empty while still calling `onError`.
+ * - `rethrow` throws the original error of the first failed branch, by
+ *   declaration order, once every branch has settled.
+ *
+ * A branch resolving `undefined` is a success with value `undefined`: the
+ * "undefined drops the item" convention belongs to iteration, not to a fork.
+ *
+ * Rejects with a `TypeError` for a non-record input — including a thenable
+ * such as an un-awaited `Promise` — before any branch starts.
+ *
+ * @param {Record<string, (key: string, index: number) => any>} tasks
+ * @param {{strategy?: StrategyFn, onError?, onFailure?}} opts
+ * @returns {Promise<{value: object, errors: Array, failure: false|object}>}
+ */
+// eslint-disable-next-line complexity, max-statements
+export const join = async (tasks, opts = {}) => {
+  if (tasks === null || typeof tasks !== 'object' || Array.isArray(tasks))
+    throw new TypeError('join() requires a record of named async functions')
+
+  const entries = Object.entries(tasks)
+  if (entries.length === 0 && typeof tasks.then === 'function')
+    throw new TypeError(
+      'join() received a thenable, not a record of tasks ' +
+      '(did you forget to await it?)',
+    )
+
+  for (const [key, fn] of entries) {
+    if (typeof fn !== 'function')
+      throw new TypeError(`join() requires task "${key}" to be a function`)
+  }
+
+  const {strategy = collect, onError, onFailure} = opts
+  const strategyName = strategy.name ?? strategy
+  // failFast cannot stop branches that already started; treat it as failLate.
+  const isFailLate = strategyName === 'failLate' || strategyName === 'failFast'
+
+  const value = {}
+  const errors = []
+
+  const settled = await Promise.allSettled(
+    entries.map(([key, fn], index) => runBranch(fn, key, index)),
+  )
+
+  for (let index = 0; index < settled.length; index++) {
+    const key = entries[index][0]
+    const outcome = settled[index]
+
+    if (outcome.status === 'fulfilled') {
+      value[key] = outcome.value
+      continue
+    }
+
+    // rethrow: defer to a single throw once every branch has settled.
+    if (strategyName === 'throw')
+      continue
+
+    const context = {operation: key, error: outcome.reason, index}
+
+    if (onError) {
+      // eslint-disable-next-line no-await-in-loop
+      await onError(context)
+    }
+
+    if (strategyName !== 'skip')
+      errors.push(context)
+  }
+
+  if (strategyName === 'throw') {
+    const firstFailed = settled.find(outcome => outcome.status === 'rejected')
+    if (firstFailed)
+      throw firstFailed.reason
+    return {value, errors, failure: false}
+  }
+
+  const failure = isFailLate && errors.length > 0 ? {errors} : false
+
+  // join awaits its failure callback so an async onFailure that rejects cannot
+  // fire after the result has resolved (an unhandled rejection). The iteration
+  // combinators call onFailure synchronously; join is stricter on purpose.
+  if (failure && onFailure)
+    await onFailure(failure)
+
+  return {value, errors, failure}
+}
+
 export {normalizeOperationError}
 
 export const pipe = (...fns) => input =>

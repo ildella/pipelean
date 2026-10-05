@@ -1,6 +1,6 @@
 ---
 name: "Pipelean Core"
-description: "Pipelean core functionalities for iteration, composition and error management for pure FP in pure Javascript. Use this skill when you need to perform sequential async operations, control flow, error handling, or batch processing using the `pipelean` library"
+description: "Pipelean core functionalities for iteration, composition and error management for pure FP in pure Javascript. Use this skill when you need to perform sequential async operations, concurrent fork/join over named tasks, control flow, error handling, or batch processing using the `pipelean` library"
 ---
 
 Shipped with the npm package (`docs/`, `skills/`). Tests are **not** published — do not look for `tests/` in `node_modules`. Full contracts live in [docs/reference.md](../../docs/reference.md) (or [online](https://github.com/ildella/pipelean/blob/master/docs/reference.md)). Recipes: [docs/patterns.md](../../docs/patterns.md).
@@ -63,15 +63,16 @@ const {results, errors, sourceErrors, failure} = await series(
 4. **`filter(items, predicate, opts?)`** or **`filter(predicate, opts?)`**: Keep original items where predicate is truthy. Patterns via `where()`. Same opts as `series`.
 5. **`pipe(...fns)`**: Left-to-right composition. `undefined` short-circuits remaining steps (drop signal).
 6. **`flow(operations, opts?)`**: Stateful accumulation across **one** input. Options are bound at `flow(ops, opts)`, not at call time. Each `op(state)` returns an object patch. Returns `(initialState) => Promise<{value, errors, failure}>`. Use `flowSync` when everything is sync.
-7. **`retry(fn, {attempts, delay})`**: Retry on every throw. Defaults `{attempts: 3, delay: 0}`.
-8. **`tryCatch(fn, {onStart, onSuccess, onError, onFinally})`**: Single-function lifecycle. Returns `null` on error.
-9. **`where(pattern)`**: Strict-equality object predicate. Used with `filter` / `findSync`.
-10. **`assign(property, parse)`**: `flow` step. Sets `{[property]: value}` unless `parse(state)` is `undefined` (returns `{}`).
-11. **`*Sync`**: `seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`, `flowSync`, `tryCatchSync`. Same strategies and shapes, no Promises. No `pause` (needs async delay). No async iterables. `findSync` is sync-only early-exit: `{result, errors, failure}`.
+7. **`join(tasks, opts?)`**: Fork/join over a record of **named** async tasks (not a collection). Every branch starts immediately; waits for all to settle. Returns `Promise<{value, errors, failure}>` where `value` maps successful branch names to their values and `errors` holds `{operation, error, index}` for failures (declaration order). `task(key, index)`, sync or async. Options: `strategy` (default `collect`), `onError`, `onFailure`. `failFast` behaves as `failLate` (branches cannot be stopped without an `AbortSignal`). For a concurrent map over a homogeneous collection use p-map, not `join`.
+8. **`retry(fn, {attempts, delay})`**: Retry on every throw. Defaults `{attempts: 3, delay: 0}`.
+9. **`tryCatch(fn, {onStart, onSuccess, onError, onFinally})`**: Single-function lifecycle. Returns `null` on error.
+10. **`where(pattern)`**: Strict-equality object predicate. Used with `filter` / `findSync`.
+11. **`assign(property, parse)`**: `flow` step. Sets `{[property]: value}` unless `parse(state)` is `undefined` (returns `{}`).
+12. **`*Sync`**: `seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`, `flowSync`, `tryCatchSync`. Same strategies and shapes, no Promises. No `pause` (needs async delay). No async iterables. `findSync` is sync-only early-exit: `{result, errors, failure}`.
 
 ## Error strategies
 
-- **`failFast`** (`fail`, `stopOnError`): stop now. `failure: {item, error, index}` (or source context `{error, index}`). Results cleared.
+- **`failFast`** (`fail`, `stopOnError`): stop now. `failure: {item, error, index}` (or source context `{error, index}`). Results cleared. In `join()` it is an alias of `failLate` — branches already started cannot be stopped.
 - **`collect`**: continue, keep errors. `failure: false`. Default for `series`, `filter`, `flow`.
 - **`failLate`**: continue, then `failure: {errors}` if anything failed (item + source errors merged).
 - **`skip`**: ignore errors (`errors` stays empty). `onError` still fires. `failure: false`.

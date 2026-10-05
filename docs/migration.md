@@ -355,7 +355,7 @@ import { series, collect } from 'pipelean'
 const { results, errors } = await series(items, fn, { strategy: collect })
 ```
 
-## Promise.allSettled() → series with collect
+## Promise.allSettled() → series with collect, or join for named tasks
 
 **Before:**
 ```js
@@ -363,12 +363,24 @@ const results = await Promise.allSettled(items.map(fn))
 // Must manually unpack {status, value, reason} per item
 ```
 
-**After:**
+**After (positional collection — sequential):**
 ```js
 import { series, collect } from 'pipelean'
 const { results, errors } = await series(items, fn, { strategy: collect })
 // Structured result: results and errors already separated
 ```
+
+**After (named, heterogeneous tasks — run concurrently):**
+```js
+import { join } from 'pipelean'
+const { value, errors } = await join({
+  api: () => ping('api.example.com'),
+  cdn: () => ping('cdn.example.com'),
+})
+// value keeps the successes by name; errors names each failed branch
+```
+
+Unlike `series` (sequential), `join` runs its branches at the same time — closer to the *intent* of `Promise.allSettled`, but with a structured `{value, errors, failure}` result instead of manual `{status, value, reason}` unpacking.
 
 ## Manual retry logic → retry
 

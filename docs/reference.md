@@ -6,7 +6,7 @@
 
 **Key Principles**
 
-- **Pragmatic**: Plain JavaScript, eager execution, sequential processing.
+- **Pragmatic**: Plain JavaScript, eager execution, sequential processing — plus `join()` for concurrent fork/join over named tasks.
 - **First class error handling**: Multiple error strategies for different use cases
 
 ---
@@ -35,6 +35,7 @@
 
 - [pipe](#pipe) - Vertical Composition
 - [flow](#flow) - Stateful Accumulation Across One Input
+- [join](#join) - Fork/join over Named Concurrent Tasks
 
 ### Misc
 
@@ -603,6 +604,78 @@ const album2 = await processAlbum(rawAlbum2)
 - `onError({operation, error, index, total})` — `operation` is the function's `name` if set, otherwise `operation-${index}`. `total` is the operations array length.
 - `onFailure({operation, error, index})` for `failFast`.
 - `onFailure({errors})` for `failLate`, where each entry is `{operation, error, index}`.
+
+---
+
+### join
+
+**Purpose**: Fork/join over a record of **named** async tasks. Every branch starts immediately and `join` waits for all of them to settle, returning one structured result. Errors are data, per branch, using the same strategies as `flow`. This is not a concurrency runtime: no cancellation, no scheduler, no ordering guarantee.
+
+**Type**: `(tasks, options?) => Promise<{value, errors, failure}>`
+
+**Parameters**:
+- `tasks`: A non-null, non-array object mapping a branch **name** to a function `task(key, index)`. Each function can be sync or async. The name is the stable key for that branch in the result.
+- `options` (optional):
+  - `strategy`: Error strategy (default: `collect`). `collect`, `failLate`, `skip`, `rethrow`, and `failFast`.
+  - `onError({operation, error, index})`: Called for each handled branch error. `operation` is the branch name.
+  - `onFailure(failure)`: Called (and awaited) when `failure` is truthy. Receives `{errors}` for `failLate` / `failFast`.
+
+**Return**: `Promise<{value, errors, failure}>`:
+- `value`: Object mapping the **successful** branch names to their resolved values, in declaration order. A branch resolving `undefined` is still a success (`value[key] === undefined`).
+- `errors`: Array of `{operation, error, index}`, ordered by declaration (not completion). Empty for `skip` (and for `rethrow`, which throws instead).
+- `failure`: `false` for `collect` and `skip`; `{errors}` for `failLate` and `failFast`. For `rethrow`, the original error of the first failed branch is thrown instead of returning a result.
+
+**Throws (before any branch starts)**: `TypeError` if `tasks` is not a non-null, non-array object, if any value is not a function, or if it is a thenable (e.g. an un-awaited `Promise`).
+
+**Strategies**:
+- `collect` (default): keep successes in `value`, failures in `errors`, `failure: false`.
+- `failLate`: like `collect`, then `failure: {errors}` if anything failed.
+- `failFast` (alias `fail`, `stopOnError`): behaves as `failLate`. Branches already started and cannot be stopped without an `AbortSignal`.
+- `skip`: `errors` stays empty, but `onError` still fires.
+- `rethrow`: throw the original error of the first failed branch, by declaration order, once every branch has settled.
+
+**Key Characteristics**:
+- **Named, heterogeneous branches**: A record, not a collection. Each branch has a stable key, even when it fails: the failure is reported under `errors` with that `operation`.
+- **All branches settle**: `join` starts from a resolved promise, so a synchronous throw becomes a rejection; `allSettled` always captures it and nothing is left unhandled.
+- **Completion order is irrelevant**: `value` keys follow declaration order, and so does `errors`.
+- **No drop signal**: `undefined` is a legitimate branch value, unlike in `series` / `pipe`.
+- **Empty record** is valid: resolves to `{value: {}, errors: [], failure: false}`.
+- **Not a concurrent map**: for a homogeneous collection use p-map.
+
+**Usage Example**:
+```javascript
+import { join, failLate } from 'pipelean'
+
+const ping = host => fetch(`https://${host}/health`).then(r => r.status)
+const whoami = () => fetch('/whoami').then(r => r.json())
+
+const { value, errors, failure } = await join({
+  api: () => ping('api.example.com'),
+  cdn: () => ping('cdn.example.com'),
+  session: () => whoami(),
+})
+
+// value  = { api: 200, cdn: 200, session: {...} }
+// errors = [] ; failure = false
+
+// A failed branch stays named and leaves the rest intact
+const down = await join({
+  api: () => ping('api.example.com'),
+  cdn: () => { throw new Error('unreachable') },
+})
+// down.value  = { api: 200 }
+// down.errors = [{ operation: 'cdn', error: Error('unreachable'), index: 1 }]
+
+// Treat any branch failure as a failure of the join
+const strict = await join(
+  { api: () => ping('api.example.com') },
+  { strategy: failLate },
+)
+```
+
+**When to use `join()` vs `series()`**:
+- `join()`: A handful of named, heterogeneous tasks that run at the same time. One structured outcome, errors per branch.
+- `series()`: Many homogeneous items processed one at a time. Horizontal, ordered, with `pause` / `take` / `onProgress`.
 
 ---
 

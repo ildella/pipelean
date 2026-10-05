@@ -190,6 +190,31 @@ const {value, errors, failure} = await processAlbum(input)
 // failure is false — we made it to the end
 ```
 
+#### Example: join (fork/join over named concurrent tasks)
+
+Scenario: You need to ping several endpoints at the same time and get one structured report. Each task has a **name**, runs concurrently with the others, and its failure is reported as data under that name — the rest of the report is unaffected.
+
+```js
+import { join } from 'pipelean'
+
+const ping = host => fetch(`https://${host}/health`).then(r => r.status)
+
+const {value, errors, failure} = await join({
+  api: () => ping('api.example.com'),
+  cdn: () => ping('cdn.example.com'),
+  webhooks: () => ping('hooks.example.com'),
+})
+
+// all reachable: value = {api: 200, cdn: 200, webhooks: 200}, errors = [], failure = false
+
+// if cdn is down:
+// value   = {api: 200, webhooks: 200}
+// errors  = [{operation: 'cdn', error: Error('unreachable'), index: 1}]
+// failure = false        (default `collect`)
+```
+
+Use `strategy: failLate` when any branch failure should make the whole join a failure. Use p-map instead when you need a *concurrent map* over a homogeneous collection — `join()` is for a named set of different tasks.
+
 #### Example: flowSync for synchronous enrichment
 
 Scenario: All your enrichment steps are pure synchronous functions (no I/O, no async dependencies). Use `flowSync` to avoid the `Promise` overhead and the `await` at the call site.
