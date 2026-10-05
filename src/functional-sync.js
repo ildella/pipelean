@@ -1,11 +1,11 @@
 /* eslint-disable max-lines */
 
 import {getPlannedTotal, withTotal} from './shared.js'
+import {parseSearchArgs} from './search.js'
+import {collect, failFast} from './functional.js'
 import {
-  collect, failFast, normalizeOperationError, where,
-} from './functional.js'
-import {
-  aggregateFailure, handleItemError, handleSourceError, seriesShape,
+  aggregateFailure, handleItemError, handleSourceError, normalizeFailure,
+  normalizeOperationError, seriesShape,
 } from './strategy.js'
 
 const runSyncStrategy = ({
@@ -146,15 +146,9 @@ export const seriesSync = (...args) => {
 }
 
 export const filterSync = (...args) => {
-  const isPattern = x => x !== null &&
-    typeof x === 'object' &&
-    !Array.isArray(x)
-  const toPredicate = x => isPattern(x) ? where(x) : x
-  const immediate = typeof args[0] !== 'function' && !isPattern(args[0])
-  const [items, rawPredicate, opts] = immediate
-    ? args
-    : [null, args[0], args[1]]
-  const predicate = toPredicate(rawPredicate)
+  const {
+    immediate, items, predicate, opts,
+  } = parseSearchArgs(args)
 
   const transform = (item, index) => {
     const keep = predicate(item, index)
@@ -166,15 +160,9 @@ export const filterSync = (...args) => {
 }
 
 export const findSync = (...args) => {
-  const isPattern = x => x !== null &&
-    typeof x === 'object' &&
-    !Array.isArray(x)
-  const toPredicate = x => isPattern(x) ? where(x) : x
-  const immediate = typeof args[0] !== 'function' && !isPattern(args[0])
-  const [items, rawPredicate, opts = {}] = immediate
-    ? args
-    : [null, args[0], args[1]]
-  const predicate = toPredicate(rawPredicate)
+  const {
+    immediate, items, predicate, opts,
+  } = parseSearchArgs(args, {})
 
   // eslint-disable-next-line complexity
   const run = inputItems => {
@@ -301,14 +289,6 @@ export const reduceSync = (iterable, scanner, initialValue, opts) => {
 }
 
 export const scanReduceSync = reduceSync
-
-const normalizeFailure = failure => {
-  if (failure === false)
-    return false
-  if (failure.errors)
-    return {errors: failure.errors.map(normalizeOperationError)}
-  return normalizeOperationError(failure)
-}
 
 export const flowSync = (operations, opts = {}) => {
   if (!Array.isArray(operations))

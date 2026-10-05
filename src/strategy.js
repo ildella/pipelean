@@ -72,3 +72,22 @@ export const handleItemError = (errorContext, {
   errors.push(errorContext)
   return null
 }
+
+export const normalizeOperationError = ({
+  item: operation, error, index, total,
+}) => {
+  const base = {
+    operation: operation.name || `operation-${index}`,
+    error,
+    index,
+  }
+  return total !== undefined ? {...base, total} : base
+}
+
+export const normalizeFailure = failure => {
+  if (failure === false)
+    return false
+  if (failure.errors)
+    return {errors: failure.errors.map(normalizeOperationError)}
+  return normalizeOperationError(failure)
+}

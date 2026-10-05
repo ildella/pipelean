@@ -1,9 +1,13 @@
 /* eslint-disable max-lines */
 
 import {getPlannedTotal, withTotal} from './shared.js'
+import {parseSearchArgs} from './search.js'
 import {
-  aggregateFailure, handleItemError, handleSourceError, seriesShape,
+  aggregateFailure, handleItemError, handleSourceError, normalizeFailure,
+  normalizeOperationError, seriesShape,
 } from './strategy.js'
+
+export {where} from './search.js'
 
 export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
@@ -57,9 +61,6 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
     }
     throw lastError
   }
-
-export const where = pattern => item =>
-  Object.entries(pattern).every(([key, value]) => item[key] === value)
 
 export const assign = (property, parse) => state => {
   const value = parse(state)
@@ -202,15 +203,9 @@ export const series = (...args) => {
 }
 
 export const filter = (...args) => {
-  const isPattern = x => x !== null &&
-    typeof x === 'object' &&
-    !Array.isArray(x)
-  const toPredicate = x => isPattern(x) ? where(x) : x
-  const immediate = typeof args[0] !== 'function' && !isPattern(args[0])
-  const [items, rawPredicate, opts] = immediate
-    ? args
-    : [null, args[0], args[1]]
-  const predicate = toPredicate(rawPredicate)
+  const {
+    immediate, items, predicate, opts,
+  } = parseSearchArgs(args)
 
   const transform = async (item, index) => {
     const keep = await predicate(item, index)
@@ -304,25 +299,6 @@ export const reduce = (iterable, scanner, initialValue, opts = {}) =>
   scan(iterable, scanner, initialValue, {...opts, storePartialResults: false})
 
 export const scanReduce = reduce
-
-const normalizeOperationError = ({
-  item: operation, error, index, total,
-}) => {
-  const base = {
-    operation: operation.name || `operation-${index}`,
-    error,
-    index,
-  }
-  return total !== undefined ? {...base, total} : base
-}
-
-const normalizeFailure = failure => {
-  if (failure === false)
-    return false
-  if (failure.errors)
-    return {errors: failure.errors.map(normalizeOperationError)}
-  return normalizeOperationError(failure)
-}
 
 export const flow = (operations, opts = {}) => {
   if (!Array.isArray(operations))
