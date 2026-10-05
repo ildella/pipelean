@@ -72,9 +72,7 @@ export const seriesSync = (...args) => {
             onError(withTotal(errorContext, plannedTotal))
 
           if (strategyName === 'failFast') {
-            if (onFailure) {
-              onFailure(errorContext)
-            }
+            onFailure?.(errorContext)
             return {
               results: [], errors, sourceErrors, failure: errorContext,
             }
@@ -228,7 +226,7 @@ export const findSync = (...args) => {
   return immediate ? run(items) : run
 }
 
-// eslint-disable-next-line complexity, max-statements
+// eslint-disable-next-line complexity, max-statements, max-params
 export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
   const {
     strategy = failFast, onError, onFailure, onSourceError,
@@ -260,9 +258,7 @@ export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
         }
 
         if (strategyName === 'failFast') {
-          if (onFailure) {
-            onFailure(errorContext)
-          }
+          onFailure?.(errorContext)
           return storePartialResults
             ? {
               results: [], errors, sourceErrors, failure: errorContext,
@@ -343,6 +339,8 @@ export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
     }
 }
 
+// Public API keeps the (iterable, scanner, initialValue, opts) signature.
+// eslint-disable-next-line max-params
 export const reduceSync = (iterable, scanner, initialValue, opts) => {
   const merged = {...opts, storePartialResults: false}
   return scanSync(iterable, scanner, initialValue, merged)

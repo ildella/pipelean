@@ -87,6 +87,12 @@ export const series = (...args) => {
       return result
     }
 
+    const waitForPause = async () => {
+      if (pause) {
+        await delay(pause)
+      }
+    }
+
     let index = 0
 
     try {
@@ -117,9 +123,7 @@ export const series = (...args) => {
             await onError(withTotal(errorContext, plannedTotal))
 
           if (strategyName === 'failFast') {
-            if (onFailure) {
-              onFailure(errorContext)
-            }
+            onFailure?.(errorContext)
             return {
               results: [], errors, sourceErrors, failure: errorContext,
             }
@@ -127,9 +131,7 @@ export const series = (...args) => {
 
           if (strategyName === 'skip') {
             index++
-            if (pause) {
-              await delay(pause)
-            }
+            await waitForPause()
             continue
           }
 
@@ -227,7 +229,7 @@ export const filter = (...args) => {
  *  strategy?: StrategyFn, onError?, onFailure?, storePartialResults?: boolean
  * }} opts
  */
-// eslint-disable-next-line complexity, max-statements
+// eslint-disable-next-line complexity, max-statements, max-params
 export const scan = async (iterable, scanner, initialValue, opts = {}) => {
   const {
     strategy = failFast, onError, onFailure, onSourceError,
@@ -259,9 +261,7 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
         }
 
         if (strategyName === 'failFast') {
-          if (onFailure) {
-            onFailure(errorContext)
-          }
+          onFailure?.(errorContext)
           return storePartialResults
             ? {
               results: [], errors, sourceErrors, failure: errorContext,
@@ -342,6 +342,8 @@ export const scan = async (iterable, scanner, initialValue, opts = {}) => {
     }
 }
 
+// Public API keeps the (iterable, scanner, initialValue, opts) signature.
+// eslint-disable-next-line max-params
 export const reduce = (iterable, scanner, initialValue, opts = {}) =>
   scan(iterable, scanner, initialValue, {...opts, storePartialResults: false})
 
