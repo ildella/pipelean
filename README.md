@@ -31,6 +31,7 @@ array.filter(predicate).map(transform)
 Pipelean gives you:
 
 - `series` for sequential work over arrays **and async iterables** — live `onProgress`, `pause` rate limits, `take`, first-class error strategies
+- `stopWhen` to cancel or predicate-stop any source — composes with every consumer, no option changes
 - `scan` / `reduce` for stateful accumulation across many items
 - `flow` for stateful accumulation across one input — each operation enriches the same state
 - `join` for fork/join over **named** concurrent tasks — one structured `{value, errors, failure}` outcome, errors as data per branch

@@ -30,6 +30,7 @@
 - [scan](#scan) - Stateful Sequential Transformation
 - [reduce](#reduce) - Pure Reduction
 - [filter](#filter) - Stateless Selection
+- [stopWhen](#stopwhen) - Source Adapter for Predicate-Based Early Exit (alias of sorts: the `while` you don't need)
 
 ### Composition
 
@@ -454,7 +455,7 @@ const {value: totalDuration} = await reduce(
 
 **Key Characteristics**:
 - The predicate's return value is never placed into `results` — only truthiness is checked, and the original `item` is what gets kept or dropped.
-- Pattern objects are supported: `filter(users, {active: true})` works via `where()`.
+- Pattern objects are supported: `filter(users, {active: true})` works via `where()`. Anything implementing the iteration protocols (arrays, generators, source adapters like `stopWhen`) is always treated as a source, never as a pattern.
 
 **Usage Example**:
 ```javascript
@@ -465,6 +466,42 @@ const adults = await filter(
   user => user.age >= 18,
 )
 // result.results = [user1, user3, ...] — original items, not predicate output
+```
+
+---
+
+### stopWhen
+
+**Purpose**: Source adapter that stops pulling from an iterable as soon as a predicate is truthy. The standard way to cancel or predicate-stop any source consumed by `series`, `scan`, `reduce`, `filter`, or a raw `for await`.
+
+**Type**: `(items, predicate?) => asyncIterable`
+Sync: `(items, predicate?) => iterable`
+
+**Parameters**:
+- `items`: An array or (async) iterable — generators and paging sources included
+- `predicate(item, index)`: Checked **before** each item is yielded. Truthy → stop. Defaults to `() => false` (never stops). Sync only.
+
+**Key Characteristics**:
+- **Check before yield**: the triggering item is pulled from the source but never offered downstream — "cancel before work"
+- **Pull-lazy**: once stopped, the underlying source is abandoned mid-stream; native cleanup (`iterator.return()`, generator `finally`) still runs
+- **Clean completion, not an error**: consumers see a finished source — `failure: false`, empty `sourceErrors`. Cancel is a shorter run, not a source death
+- **Composable**: zero changes in `series` / `scan` / `reduce` / `filter`; they just see an iterable that ends early. Works with raw `for await` too
+- **Length forwarding**: when the source has a numeric `length` (arrays), it is forwarded on the wrapper so `series` keeps progress totals without an explicit `total`. Generators have no cheap size — `total` stays omitted
+- **Predicate throws are source errors**: reported through `onSourceError` / `sourceErrors`, never `onError`
+- This is **not** intra-item abort: work already started on an item is not interrupted (use `AbortController` in your operation for that)
+
+**Usage Example**:
+```javascript
+import { series, stopWhen } from 'pipelean'
+
+const {results} = await series(enrichOne, {
+  total: albums.length,
+  pause: ENRICH_DELAY_MS,
+  onProgress: onItem,
+})(stopWhen(albums, shouldStop))
+
+// limit-style: close over counters instead of the item
+stopWhen(folders, () => count >= limit)
 ```
 
 ---
@@ -838,6 +875,7 @@ want Pipelean's structured error collection.
 - `pipeSync` composes synchronous functions left-to-right
 - `flowSync` returns `{value, errors, failure}` directly and runs a state-enrichment pipeline synchronously
 - `tryCatchSync` wraps a synchronous function with lifecycle hooks
+- `stopWhenSync` is the sync source adapter — same contract as `stopWhen`, sync iterables only
 
 The sync variants handle **source errors** with the same semantics as their async twins: `seriesSync`, `filterSync`, `scanSync`, and `reduceSync` accept `onSourceError({error, index})` and report errors thrown by the iteration itself in the `sourceErrors` field. See [Source errors](#source-errors) under `series`.
 

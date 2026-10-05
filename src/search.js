@@ -1,9 +1,13 @@
 export const where = pattern => item =>
   Object.entries(pattern).every(([key, value]) => item[key] === value)
 
+// A where() pattern is a plain data object. Anything that can be iterated
+// (arrays, generators, source adapters) is an input, not a pattern.
 const isPattern = x => x !== null &&
   typeof x === 'object' &&
-  !Array.isArray(x)
+  !Array.isArray(x) &&
+  !(Symbol.asyncIterator in x) &&
+  !(Symbol.iterator in x)
 
 const toPredicate = x => isPattern(x) ? where(x) : x
 

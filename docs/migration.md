@@ -2,6 +2,28 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.10.1: `stopWhen` source adapter
+
+`stopWhen(items, predicate)` stops pulling from any iterable once the predicate is truthy, checked before the item is offered downstream. Additive — no migration needed, but delete your hand-rolled stop logic when you see it:
+
+```js
+// Before: a generator with inline checks (and cleanup tangled into finally)
+async function * events () {
+  for (const album of albums) {
+    if (shouldStop())
+      return
+    yield await enrichOne(album)
+  }
+}
+
+// After: cancellation lives in the source, work lives in the operation
+await series(enrichOne, {pause: DELAY})(stopWhen(albums, shouldStop))
+```
+
+The predicate receives `(item, index)` and may close over cancel flags or counters (`() => count >= limit`). Stopping is a clean completion (`failure: false`), not an error; the abandoned source's cleanup still runs. See [stopWhen](reference.md#stopwhen).
+
+Also in 0.10.1: iterable objects (generators, custom adapters) passed to `filter` / `filterSync` / `findSync` are now correctly treated as sources instead of `where()` patterns — `filter(pages(), pred)` used to silently misbehave.
+
 ## 0.8.4: Node engine requirement
 
 Pipelean now requires Node `>22.7` (package.json `engines`).
