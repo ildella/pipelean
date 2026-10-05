@@ -1,9 +1,66 @@
 /* eslint-disable max-lines */
-/* eslint-disable max-lines-per-function */
+
 import {getPlannedTotal, withTotal} from './shared.js'
 import {
   collect, failFast, normalizeOperationError, where,
 } from './functional.js'
+import {
+  aggregateFailure, handleItemError, handleSourceError, seriesShape,
+} from './strategy.js'
+
+const runSyncStrategy = ({
+  items, take, strategyName, onSourceError, onFailure,
+  results, errors, sourceErrors, shape, step,
+}) => {
+  let index = 0
+
+  const iterate = () => {
+    for (const item of items) {
+      if (take !== undefined && index >= take)
+        break
+
+      const outcome = step(item, index)
+      if (outcome?.stop)
+        return outcome.result
+      if (outcome?.skip) {
+        index++
+        continue
+      }
+
+      index++
+    }
+
+    return null
+  }
+
+  try {
+    const stop = iterate()
+    if (stop)
+      return stop
+  } catch (error) {
+    const handled = handleSourceError({
+      error,
+      index,
+      strategyName,
+      onSourceError,
+      onFailure,
+      results,
+      errors,
+      sourceErrors,
+      shape,
+    })
+    if (handled)
+      return handled
+  }
+
+  const failure = aggregateFailure({
+    strategyName, onFailure, errors, sourceErrors,
+  })
+
+  return shape({
+    results, errors, sourceErrors, failure,
+  })
+}
 
 export const tryCatchSync = (fn, {
   onStart, onSuccess, onError, onFinally,
@@ -30,7 +87,6 @@ export const seriesSync = (...args) => {
   const immediate = typeof args[0] !== 'function'
   const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
 
-  // eslint-disable-next-line complexity, max-statements
   const run = inputItems => {
     const {
       strategy = collect, total,
@@ -41,6 +97,7 @@ export const seriesSync = (...args) => {
     const sourceErrors = []
     const strategyName = strategy.name ?? strategy
     const plannedTotal = getPlannedTotal({items: inputItems, take, total})
+    const shape = seriesShape
 
     const runFn = (item, index) => {
       const result = fn(item, index)
@@ -49,87 +106,40 @@ export const seriesSync = (...args) => {
       return result
     }
 
-    let index = 0
+    const step = (item, index) => {
+      try {
+        const result = runFn(item, index)
+        if (result !== undefined)
+          results.push(result)
+      } catch (error) {
+        if (strategyName === 'throw')
+          throw error
 
-    try {
-      for (const item of inputItems) {
-        if (take !== undefined && index >= take)
-          break
+        const errorContext = {item, error, index}
 
-        try {
-          const result = runFn(item, index)
-          if (result !== undefined) {
-            results.push(result)
-          }
-        } catch (error) {
-          if (strategyName === 'throw') {
-            throw error
-          }
+        if (onError)
+          onError(withTotal(errorContext, plannedTotal))
 
-          const errorContext = {item, error, index}
-
-          if (onError)
-            onError(withTotal(errorContext, plannedTotal))
-
-          if (strategyName === 'failFast') {
-            onFailure?.(errorContext)
-            return {
-              results: [], errors, sourceErrors, failure: errorContext,
-            }
-          }
-
-          if (strategyName === 'skip') {
-            index++
-            continue
-          }
-
-          errors.push(errorContext)
-        }
-        index++
-      }
-    } catch (error) {
-      if (strategyName === 'throw') {
-        throw error
+        return handleItemError(errorContext, {
+          strategyName, onFailure, errors, sourceErrors, shape,
+        })
       }
 
-      const sourceContext = {error, index}
-
-      if (onSourceError)
-        onSourceError(sourceContext)
-
-      if (strategyName === 'failFast') {
-        if (onFailure) {
-          onFailure(sourceContext)
-        }
-        return {
-          results: [],
-          errors,
-          sourceErrors: [sourceContext],
-          failure: sourceContext,
-        }
-      }
-
-      if (strategyName === 'skip') {
-        return {
-          results, errors, sourceErrors: [], failure: false,
-        }
-      }
-
-      sourceErrors.push(sourceContext)
+      return null
     }
 
-    const failure = strategyName === 'failLate' &&
-      (errors.length > 0 || sourceErrors.length > 0)
-      ? {errors: [...errors, ...sourceErrors]}
-      : false
-
-    if (failure && onFailure) {
-      onFailure(failure)
-    }
-
-    return {
-      results, errors, sourceErrors, failure,
-    }
+    return runSyncStrategy({
+      items: inputItems,
+      take,
+      strategyName,
+      onSourceError,
+      onFailure,
+      results,
+      errors,
+      sourceErrors,
+      shape,
+      step,
+    })
   }
 
   return immediate ? run(items) : run
@@ -205,8 +215,7 @@ export const findSync = (...args) => {
           onError(withTotal(errorContext, plannedTotal))
 
         if (strategyName === 'failFast') {
-          if (onFailure)
-            onFailure(errorContext)
+          onFailure?.(errorContext)
           return {result: undefined, errors, failure: errorContext}
         }
 
@@ -226,7 +235,7 @@ export const findSync = (...args) => {
   return immediate ? run(items) : run
 }
 
-// eslint-disable-next-line complexity, max-statements, max-params
+// eslint-disable-next-line max-params
 export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
   const {
     strategy = failFast, onError, onFailure, onSourceError,
@@ -238,105 +247,50 @@ export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
   const sourceErrors = []
   const strategyName = strategy.name ?? strategy
   const plannedTotal = getPlannedTotal({items: iterable})
-  let index = 0
-
-  try {
-    for (const item of iterable) {
-      try {
-        acc = scanner(acc, item, index)
-        if (storePartialResults)
-          results.push(acc)
-      } catch (error) {
-        const errorContext = {item, error, index}
-
-        if (strategyName === 'throw') {
-          throw error
-        }
-
-        if (onError) {
-          onError(withTotal(errorContext, plannedTotal))
-        }
-
-        if (strategyName === 'failFast') {
-          onFailure?.(errorContext)
-          return storePartialResults
-            ? {
-              results: [], errors, sourceErrors, failure: errorContext,
-            }
-            : {
-              value: acc, errors, sourceErrors, failure: errorContext,
-            }
-        }
-
-        if (strategyName === 'skip') {
-          index++
-          continue
-        }
-
-        errors.push(errorContext)
+  const shape = ({
+    results, errors, sourceErrors, failure,
+  }) =>
+    storePartialResults
+      ? {
+        results, errors, sourceErrors, failure,
       }
-      index++
-    }
-  } catch (error) {
-    if (strategyName === 'throw') {
-      throw error
-    }
-
-    const sourceContext = {error, index}
-
-    if (onSourceError) {
-      onSourceError(sourceContext)
-    }
-
-    if (strategyName === 'failFast') {
-      if (onFailure) {
-        onFailure(sourceContext)
+      : {
+        value: acc, errors, sourceErrors, failure,
       }
-      return storePartialResults
-        ? {
-          results: [],
-          errors,
-          sourceErrors: [sourceContext],
-          failure: sourceContext,
-        }
-        : {
-          value: acc,
-          errors,
-          sourceErrors: [sourceContext],
-          failure: sourceContext,
-        }
+
+  const step = (item, index) => {
+    try {
+      acc = scanner(acc, item, index)
+      if (storePartialResults)
+        results.push(acc)
+    } catch (error) {
+      if (strategyName === 'throw')
+        throw error
+
+      const errorContext = {item, error, index}
+
+      if (onError)
+        onError(withTotal(errorContext, plannedTotal))
+
+      return handleItemError(errorContext, {
+        strategyName, onFailure, errors, sourceErrors, shape,
+      })
     }
 
-    if (strategyName === 'skip') {
-      return storePartialResults
-        ? {
-          results, errors, sourceErrors: [], failure: false,
-        }
-        : {
-          value: acc, errors, sourceErrors: [], failure: false,
-        }
-    }
-
-    sourceErrors.push(sourceContext)
+    return null
   }
 
-  const failure =
-    strategyName === 'failLate' &&
-    (errors.length > 0 || sourceErrors.length > 0)
-      ? {errors: [...errors, ...sourceErrors]}
-      : false
-
-  if (failure && onFailure) {
-    onFailure(failure)
-  }
-
-  return storePartialResults
-    ? {
-      results, errors, sourceErrors, failure,
-    }
-    : {
-      value: acc, errors, sourceErrors, failure,
-    }
+  return runSyncStrategy({
+    items: iterable,
+    strategyName,
+    onSourceError,
+    onFailure,
+    results,
+    errors,
+    sourceErrors,
+    shape,
+    step,
+  })
 }
 
 // Public API keeps the (iterable, scanner, initialValue, opts) signature.
