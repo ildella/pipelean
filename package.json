@@ -1,6 +1,6 @@
 {
   "name": "pipelean",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "A pragmatic library for sequential async operations with first-class error handling.",
   "type": "module",
   "license": "MIT",
@@ -36,6 +36,7 @@
   "scripts": {
     "audit": "yarn npm audit",
     "audit.prod": "yarn npm audit --recursive --environment production --severity moderate",
+    "check": "yarn lint && yarn dup",
     "check:lint": "eslint --report-unused-disable-directives .",
     "dup.jsinspect": "jsinspect -c quality/dup/jsinspect.json",
     "dup.jscpd": "s=0; npx jscpd -c quality/dup/jscpd.json || s=$?; npx jscpd -c quality/dup/jscpd.md.json || s=$?; exit $s",
