@@ -1,0 +1,6 @@
+{
+  "minTokens": 50,
+  "threshold": 5,
+  "reporters": ["console", "html", "json"],
+  "path": ["../../src"]
+}

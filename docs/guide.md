@@ -17,6 +17,7 @@ Pipelean provides core tools grouped by **data flow direction** (horizontal vs v
 7. flow (Vertical / Stateful accumulation — one input, many enrichments, final accumulated value)
 8. assign (Utility for creating conditional property assignments for flow)
 9. stopWhen (Source adapter — predicate-based early exit for any iterable)
+10. join (Fork/join — named heterogeneous tasks run concurrently, one structured outcome)
 
 > **Sync variants** — The iteration functions above also have synchronous
 > counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`, `stopWhenSync`, and
@@ -199,6 +200,24 @@ const process = flow([prepare, enrich, finalize])
 const {value} = await process(input)
 ```
 
+#### Fork/join: join
+
+When a handful of **named, heterogeneous** tasks can run at the same time, use `join()`. Every branch starts immediately and `join()` waits for all of them to settle. The result is a single structured object, with each branch's failure reported as data under its name.
+
+```js
+import { join } from 'pipelean'
+
+const {value, errors, failure} = await join({
+  api: () => ping('api.example.com'),
+  cdn: () => ping('cdn.example.com'),
+})
+
+// value = {api: 200, cdn: 200}, errors = [], failure = false
+// a failed branch: value keeps the successes, errors names the failure
+```
+
+`join()` uses the same error strategies as `flow()` (default `collect`). `failFast` behaves as `failLate` here: branches already started and there is no cancellation. `join()` is deliberately *not* a concurrent map — for that, use p-map.
+
 #### Wrappers
 
 Pipelean also provides lightweight wrappers that add behavior to **individual functions**. These act as reusable middleware / lifecycle hooks and compose naturally with `pipe`.
@@ -222,7 +241,7 @@ Pipelean also provides lightweight wrappers that add behavior to **individual fu
 ## Key Principles
 
 1. **`onError` ≠ error strategy**: `onError` is a callback, not a strategy
-2. **`failure` is truthy for**: `failFast` (`{item, error, index}`) and `failLate` (`{errors}`)
+2. **`failure` is truthy for**: `failFast` (`{item, error, index}`) and `failLate` (`{errors}`). In `join()`, `failFast` behaves as `failLate` (`{errors}`) — branches already started cannot be stopped.
 3. **`failure` is falsy for**: `collect`, `skip`, and `throw` on success
 4. **`throw` does not return on error**: It propagates the error to the caller
 5. **Strategy selection**: Choose based on whether failures are acceptable

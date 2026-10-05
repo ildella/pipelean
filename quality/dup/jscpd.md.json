@@ -1,0 +1,13 @@
+{
+  "minTokens": 30,
+  "threshold": 5,
+  "formats": ["markdown"],
+  "reporters": ["console", "html", "json"],
+  "output": "report/dup/jscpd-md",
+  "path": [
+    "../../docs",
+    "../../README.md",
+    "../../AGENTS.md",
+    "../../skills"
+  ]
+}

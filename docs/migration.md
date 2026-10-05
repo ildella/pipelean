@@ -2,7 +2,7 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
-## 0.9.2: `stopWhen` source adapter
+## 0.10.1: `stopWhen` source adapter
 
 `stopWhen(items, predicate)` stops pulling from any iterable once the predicate is truthy, checked before the item is offered downstream. Additive — no migration needed, but delete your hand-rolled stop logic when you see it:
 
@@ -22,7 +22,7 @@ await series(enrichOne, {pause: DELAY})(stopWhen(albums, shouldStop))
 
 The predicate receives `(item, index)` and may close over cancel flags or counters (`() => count >= limit`). Stopping is a clean completion (`failure: false`), not an error; the abandoned source's cleanup still runs. See [stopWhen](reference.md#stopwhen).
 
-Also in 0.9.2: iterable objects (generators, custom adapters) passed to `filter` / `filterSync` / `findSync` are now correctly treated as sources instead of `where()` patterns — `filter(pages(), pred)` used to silently misbehave.
+Also in 0.10.1: iterable objects (generators, custom adapters) passed to `filter` / `filterSync` / `findSync` are now correctly treated as sources instead of `where()` patterns — `filter(pages(), pred)` used to silently misbehave.
 
 ## 0.8.4: Node engine requirement
 
@@ -377,7 +377,7 @@ import { series, collect } from 'pipelean'
 const { results, errors } = await series(items, fn, { strategy: collect })
 ```
 
-## Promise.allSettled() → series with collect
+## Promise.allSettled() → series with collect, or join for named tasks
 
 **Before:**
 ```js
@@ -385,12 +385,24 @@ const results = await Promise.allSettled(items.map(fn))
 // Must manually unpack {status, value, reason} per item
 ```
 
-**After:**
+**After (positional collection — sequential):**
 ```js
 import { series, collect } from 'pipelean'
 const { results, errors } = await series(items, fn, { strategy: collect })
 // Structured result: results and errors already separated
 ```
+
+**After (named, heterogeneous tasks — run concurrently):**
+```js
+import { join } from 'pipelean'
+const { value, errors } = await join({
+  api: () => ping('api.example.com'),
+  cdn: () => ping('cdn.example.com'),
+})
+// value keeps the successes by name; errors names each failed branch
+```
+
+Unlike `series` (sequential), `join` runs its branches at the same time — closer to the *intent* of `Promise.allSettled`, but with a structured `{value, errors, failure}` result instead of manual `{status, value, reason}` unpacking.
 
 ## Manual retry logic → retry
 

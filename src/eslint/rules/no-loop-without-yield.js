@@ -17,6 +17,19 @@ const SKIP_KEYS = new Set([
   'comments',
 ])
 
+const visitValue = (value, visit) => {
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      if (isNode(child))
+        visit(child)
+    }
+    return
+  }
+
+  if (isNode(value))
+    visit(value)
+}
+
 const visitChildren = (current, visit) => {
   for (const key of Object.keys(current)) {
     if (SKIP_KEYS.has(key))
@@ -26,14 +39,7 @@ const visitChildren = (current, visit) => {
     if (!value)
       continue
 
-    if (Array.isArray(value)) {
-      for (const child of value) {
-        if (isNode(child))
-          visit(child)
-      }
-    } else if (isNode(value)) {
-      visit(value)
-    }
+    visitValue(value, visit)
   }
 }
 

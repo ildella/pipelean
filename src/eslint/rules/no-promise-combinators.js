@@ -17,8 +17,9 @@ export default {
     messages: {
       preferSeries: 'Use pipelean series(items, fn) instead of Promise.all()',
       preferSeriesCollect:
-        'Use pipelean series(items, fn, {strategy: collect}) ' +
-        'instead of Promise.allSettled()',
+        'Use pipelean join(tasks) for named tasks, or ' +
+        'series(items, fn, {strategy: collect}) for positional ' +
+        'collections, instead of Promise.allSettled()',
       preferSeriesAny:
         'Use pipelean series(items, fn) instead of Promise.any()',
       preferSeriesRace:

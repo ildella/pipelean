@@ -34,6 +34,7 @@ Pipelean gives you:
 - `stopWhen` to cancel or predicate-stop any source — composes with every consumer, no option changes
 - `scan` / `reduce` for stateful accumulation across many items
 - `flow` for stateful accumulation across one input — each operation enriches the same state
+- `join` for fork/join over **named** concurrent tasks — one structured `{value, errors, failure}` outcome, errors as data per branch
 - `pipe` for vertical composition
 - `tryCatch` and `retry` middleware you can reuse across your app
 - Structured results `{results, errors, sourceErrors, failure}` — no silent crashes
@@ -41,13 +42,16 @@ Pipelean gives you:
 
 ## The alternatives
 
-Need parallel? → p-map
+Need a concurrent map over a homogeneous collection? → p-map
+Need fork/join over named, heterogeneous tasks with one structured outcome? → `join` (built in)
 Want lazy iterators? → iter-tools
 Love reactive streams? → RxJS / most.js
 
 We believe Pipelean is a pragmatic middle path: sequential by design, with built-in error control and resiliency — so you stop rewriting the same boilerplate every time.
 
-Pipelean focuses on sequential workflows: compose operations, process collections one item at a time, carry state when needed, and control failures with built-in retry and error policies.
+Pipelean focuses on sequential workflows: compose operations, process collections one item at a time, carry state when needed, and control failures with built-in retry and error policies. `join()` is the deliberate exception: a small fork/join over named branches, not a concurrency runtime. No scheduler, no cancellation — the branches start together and you get one structured result.
+
+Need the full reference for `join()`? See [Fork/join: `join()`](#forkjoin-join) below and [docs/reference.md](docs/reference.md#join).
 
 ## ESLint Plugin
 
@@ -146,3 +150,22 @@ const {value, errors, failure} = await processAlbum(input)
 ```
 
 `flow()` defines the operation pipeline upfront and returns a function that runs that flow against different inputs. Each operation receives the current accumulated state and must return an **object patch** that gets shallow-merged in. Errors are handled per operation using Pipelean strategies, the same as `series` and `scan`. See [docs/reference.md](docs/reference.md#flow) for the full reference.
+
+## Fork/join: `join()`
+
+When you have a handful of **named, heterogeneous** async tasks that should run at the same time and be reported together, use `join()`. Every branch starts immediately and `join()` waits for all of them to settle — there is no cancellation and completion order never changes the shape of the result.
+
+```js
+import { join } from 'pipelean'
+
+const { value, errors, failure } = await join({
+  ping: () => pingHost('api.example.com'),
+  scan: () => scanPort('api.example.com', 443),
+})
+
+// all good:     value = {ping: <ms>, scan: <bool>}, errors = [], failure = false
+// ping failed:  value = {scan: <bool>},
+//               errors = [{operation: 'ping', error, index: 0}], failure = false
+```
+
+Errors are data, per branch, using the same strategies as `flow`: `collect` (default), `failLate`, `skip`, `rethrow`. `failFast` is an alias of `failLate` here, because branches already started and cannot be stopped without an `AbortSignal`. `join()` is for named branches; for a concurrent map over a homogeneous collection, use p-map. See [docs/reference.md](docs/reference.md#join) for the full reference.

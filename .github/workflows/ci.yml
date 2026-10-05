@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -33,7 +33,7 @@ jobs:
         run: yarn lint
 
       - name: Run tests
-        run: yarn vitest run
+        run: yarn test
 
       - name: Run audit
         run: yarn audit.prod
