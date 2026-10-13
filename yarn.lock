@@ -4,7 +4,7 @@
   },
   "project": {
     "workspaces": {
-      "pipelean": "33876da4e8bbc30e0b8471b84ccf4ad1f6645dd48dbd15c515c00718bc655cec57b88b178f5fda29a0e298da50ef74be888ed9bf56dbb2b8eee01b5248c595db"
+      "pipelean": "08713331fe090f5dcc1c7a673f253d4b2003505b8dd252b315ac2a23a3d415835cb38bcd780616b7845b6969ce5c5813d307ed2e0e211e93964f4a21809aaf72"
     }
   },
   "entries": {
@@ -751,24 +751,24 @@
         }
       }
     },
-    "@vitest/coverage-v8@npm:5.0.3": {
-      "checksum": "25e47fe8e9162475965c594ed5e3ab6133028341d36346c8b8ccee03b4858268df4c82731a908f7c633844e70c95059a603f694972858cddeb813eafd4e563ac",
+    "@vitest/coverage-v8@npm:5.0.4": {
+      "checksum": "a3c96dbdd839cde8be2e3dab2e1aa9fd7f7a6109fe9eb87c0e9f3cd361233aa0b6586d48648205727aea59394d6d6cdc1e98ef79e0f5ba535d0f9cfe1a20027e",
       "resolution": {
-        "resolution": "@vitest/coverage-v8@npm:5.0.3",
-        "version": "5.0.3",
+        "resolution": "@vitest/coverage-v8@npm:5.0.4",
+        "version": "5.0.4",
         "dependencies": {
           "@bcoe/v8-coverage": "^1.0.2",
-          "@vitest/istanbul-lib-coverage": "^1.0.0",
-          "@vitest/istanbul-lib-report": "^1.0.0",
-          "ast-v8-to-istanbul": "^1.0.5",
-          "magicast": "^0.5.4",
-          "obug": "^2.1.4",
-          "std-env": "^4.2.0",
-          "tinyrainbow": "^3.1.1"
+          "@vitest/istanbul-lib-coverage": "^1.0.2",
+          "@vitest/istanbul-lib-report": "^1.0.2",
+          "ast-v8-to-istanbul": "^1.0.7",
+          "magicast": "^0.5.5",
+          "obug": "^3.0.0",
+          "std-env": "^4.3.0",
+          "tinyrainbow": "^3.2.0"
         },
         "peerDependencies": {
-          "@vitest/browser": "5.0.3",
-          "vitest": "5.0.3"
+          "@vitest/browser": "5.0.4",
+          "vitest": "5.0.4"
         },
         "optionalPeerDependencies": [
           "@vitest/browser"
@@ -797,14 +797,14 @@
         ]
       }
     },
-    "@vitest/istanbul-lib-coverage@npm:1.0.2, @vitest/istanbul-lib-coverage@npm:^1.0.0": {
+    "@vitest/istanbul-lib-coverage@npm:1.0.2, @vitest/istanbul-lib-coverage@npm:^1.0.2": {
       "checksum": "6fc43d2416bed36a96413299194c10ec8e2d40685b00f38610c09f8eda97d4029c0602de20a5e85fe9b3de6b6486497cb68e9695faa59d525e2f0f3f5e1d7c35",
       "resolution": {
         "resolution": "@vitest/istanbul-lib-coverage@npm:1.0.2",
         "version": "1.0.2"
       }
     },
-    "@vitest/istanbul-lib-report@npm:^1.0.0": {
+    "@vitest/istanbul-lib-report@npm:^1.0.2": {
       "checksum": "5f5d63a98a546d90501c41877eb1561d591e59672450bf29823152e1db3eb064514174aaa89a99aea8e13b9a94b78754f1a381f50c74350364b21d63021b4df8",
       "resolution": {
         "resolution": "@vitest/istanbul-lib-report@npm:1.0.2",
@@ -814,19 +814,19 @@
         }
       }
     },
-    "@vitest/mocker@npm:5.0.3": {
-      "checksum": "f297b63afbd4f26dd602488bfcf9d014f068bc96a8e55542f00859b329cba5325e63f06f3212788b2b55845c9b0000b4f1bba07194df72eb69122eae2f9e47b2",
+    "@vitest/mocker@npm:5.0.4": {
+      "checksum": "e04a7e35c8effed44477d1dca655ddc7a6f761f63285b1d192a0662aafa9380237a119d7176b2114b8f1ae04b0e3ac7abbb818b8657c9d4297787b4a214ca27a",
       "resolution": {
-        "resolution": "@vitest/mocker@npm:5.0.3",
-        "version": "5.0.3",
+        "resolution": "@vitest/mocker@npm:5.0.4",
+        "version": "5.0.4",
         "dependencies": {
           "@jridgewell/trace-mapping": "0.3.31",
-          "@vitest/spy": "5.0.3",
+          "@vitest/spy": "5.0.4",
           "estree-walker": "^3.0.3",
-          "magic-string": "^1.2.3"
+          "magic-string": "^1.4.3"
         },
         "peerDependencies": {
-          "msw": "^2.4.9",
+          "msw": "^2.4.9 || ^3.0.0",
           "vite": "^6.0.0 || ^7.0.0 || ^8.0.0"
         },
         "optionalPeerDependencies": [
@@ -835,11 +835,11 @@
         ]
       }
     },
-    "@vitest/spy@npm:5.0.3": {
-      "checksum": "2cac2b8b885bf3e1798cc3797eb8279b28d55543a1f67bd594ab91c634c89e511fcf6de03cea390b8a176f0527355f3ab98741931cb96df288efa13f26fb1bf9",
+    "@vitest/spy@npm:5.0.4": {
+      "checksum": "7b2f28ce63d9e01618b905a1ba98618cf5e7ab5daaa6603d470f17227d70f579dcc68846957e9538b8f31cd7b1053cb870f2aaf1f1e257b9de1c9067a1e2f25f",
       "resolution": {
-        "resolution": "@vitest/spy@npm:5.0.3",
-        "version": "5.0.3"
+        "resolution": "@vitest/spy@npm:5.0.4",
+        "version": "5.0.4"
       }
     },
     "abbrev@npm:^5.0.0": {
@@ -903,7 +903,7 @@
         "version": "2.0.1"
       }
     },
-    "ast-v8-to-istanbul@npm:^1.0.5": {
+    "ast-v8-to-istanbul@npm:^1.0.7": {
       "checksum": "641e1f4f7b9fff3b6c35e6890d6a5d2d9835536eea9ce976448c82433da7be3fa4d1c9574b8454670dc6e6a5582f50e4e4a885eedd0bb96e4e81e2d82425088b",
       "resolution": {
         "resolution": "ast-v8-to-istanbul@npm:1.0.7",
@@ -956,11 +956,11 @@
         }
       }
     },
-    "chai@npm:^6.2.2": {
-      "checksum": "9b9a0d09e47412f583352566f5ec991676dc025d612227fc6a4014fbc1f0ac1437c969d93ce8089e574d3657bf0527872a56e60149c05f07bba1db93edf3f778",
+    "chai@npm:^6.3.0": {
+      "checksum": "be8eb2f3dc17f62b4bea20dcb6a3c65e2502b654e1c60e8c804e71cdeaf83aea2eda4ac95805d08b39e3ada99077f22eed726138570388dc4ece518d83c36f54",
       "resolution": {
-        "resolution": "chai@npm:6.2.2",
-        "version": "6.2.2"
+        "resolution": "chai@npm:6.3.0",
+        "version": "6.3.0"
       }
     },
     "chalk@npm:^2.4.2": {
@@ -1516,20 +1516,20 @@
         "version": "10.0.0"
       }
     },
-    "jscpd@npm:5.4.0": {
-      "checksum": "ba5527c629289d92e9554015646cdfa069119440aa7c66c56f18d3b4e59fb6160c33955bb4963afd873ec9b6cd5716137d3b91db1b6981df080977db7e9a6fdd",
+    "jscpd@npm:5.4.1": {
+      "checksum": "49db98b9f022b77b40e6f05c2a972e645b5720ee5261a3ee0a3f89d64c6e4eaefd4d01a05470230d23f6bcd9affb8a6b0ee2a2e08ce3475ea7f452ccd36dbd2e",
       "resolution": {
-        "resolution": "jscpd@npm:5.4.0",
-        "version": "5.4.0",
+        "resolution": "jscpd@npm:5.4.1",
+        "version": "5.4.1",
         "dependencies": {
-          "jscpd-darwin-arm64": "5.4.0",
-          "jscpd-darwin-x64": "5.4.0",
-          "jscpd-linux-arm64-gnu": "5.4.0",
-          "jscpd-linux-arm64-musl": "5.4.0",
-          "jscpd-linux-x64-gnu": "5.4.0",
-          "jscpd-linux-x64-musl": "5.4.0",
-          "jscpd-windows-arm64-msvc": "5.4.0",
-          "jscpd-windows-x64-msvc": "5.4.0"
+          "jscpd-darwin-arm64": "5.4.1",
+          "jscpd-darwin-x64": "5.4.1",
+          "jscpd-linux-arm64-gnu": "5.4.1",
+          "jscpd-linux-arm64-musl": "5.4.1",
+          "jscpd-linux-x64-gnu": "5.4.1",
+          "jscpd-linux-x64-musl": "5.4.1",
+          "jscpd-windows-arm64-msvc": "5.4.1",
+          "jscpd-windows-x64-msvc": "5.4.1"
         },
         "optionalDependencies": [
           "jscpd-darwin-arm64",
@@ -1543,11 +1543,11 @@
         ]
       }
     },
-    "jscpd-darwin-arm64@npm:5.4.0": {
+    "jscpd-darwin-arm64@npm:5.4.1": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-darwin-arm64@npm:5.4.0",
-        "version": "5.4.0",
+        "resolution": "jscpd-darwin-arm64@npm:5.4.1",
+        "version": "5.4.1",
         "requirements": {
           "cpu": [
             "arm64"
@@ -1558,11 +1558,11 @@
         }
       }
     },
-    "jscpd-darwin-x64@npm:5.4.0": {
+    "jscpd-darwin-x64@npm:5.4.1": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-darwin-x64@npm:5.4.0",
-        "version": "5.4.0",
+        "resolution": "jscpd-darwin-x64@npm:5.4.1",
+        "version": "5.4.1",
         "requirements": {
           "cpu": [
             "x64"
@@ -1573,11 +1573,11 @@
         }
       }
     },
-    "jscpd-linux-arm64-gnu@npm:5.4.0": {
+    "jscpd-linux-arm64-gnu@npm:5.4.1": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-linux-arm64-gnu@npm:5.4.0",
-        "version": "5.4.0",
+        "resolution": "jscpd-linux-arm64-gnu@npm:5.4.1",
+        "version": "5.4.1",
         "requirements": {
           "cpu": [
             "arm64"
@@ -1591,11 +1591,11 @@
         }
       }
     },
-    "jscpd-linux-arm64-musl@npm:5.4.0": {
+    "jscpd-linux-arm64-musl@npm:5.4.1": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-linux-arm64-musl@npm:5.4.0",
-        "version": "5.4.0",
+        "resolution": "jscpd-linux-arm64-musl@npm:5.4.1",
+        "version": "5.4.1",
         "requirements": {
           "cpu": [
             "arm64"
@@ -1609,11 +1609,11 @@
         }
       }
     },
-    "jscpd-linux-x64-gnu@npm:5.4.0": {
+    "jscpd-linux-x64-gnu@npm:5.4.1": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-linux-x64-gnu@npm:5.4.0",
-        "version": "5.4.0",
+        "resolution": "jscpd-linux-x64-gnu@npm:5.4.1",
+        "version": "5.4.1",
         "requirements": {
           "cpu": [
             "x64"
@@ -1627,11 +1627,11 @@
         }
       }
     },
-    "jscpd-linux-x64-musl@npm:5.4.0": {
+    "jscpd-linux-x64-musl@npm:5.4.1": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-linux-x64-musl@npm:5.4.0",
-        "version": "5.4.0",
+        "resolution": "jscpd-linux-x64-musl@npm:5.4.1",
+        "version": "5.4.1",
         "requirements": {
           "cpu": [
             "x64"
@@ -1645,11 +1645,11 @@
         }
       }
     },
-    "jscpd-windows-arm64-msvc@npm:5.4.0": {
+    "jscpd-windows-arm64-msvc@npm:5.4.1": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-windows-arm64-msvc@npm:5.4.0",
-        "version": "5.4.0",
+        "resolution": "jscpd-windows-arm64-msvc@npm:5.4.1",
+        "version": "5.4.1",
         "requirements": {
           "cpu": [
             "arm64"
@@ -1660,11 +1660,11 @@
         }
       }
     },
-    "jscpd-windows-x64-msvc@npm:5.4.0": {
+    "jscpd-windows-x64-msvc@npm:5.4.1": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-windows-x64-msvc@npm:5.4.0",
-        "version": "5.4.0",
+        "resolution": "jscpd-windows-x64-msvc@npm:5.4.1",
+        "version": "5.4.1",
         "requirements": {
           "cpu": [
             "x64"
@@ -1947,7 +1947,7 @@
         }
       }
     },
-    "magic-string@npm:^1.2.3": {
+    "magic-string@npm:^1.4.3": {
       "checksum": "557735de3e622f4e72171f3ec78b8df3db0bce3b3356aef99e96d802abc8929e27c0f337a07ec218bc94d4f92bd376070b0f7a17e83d7dd9acdce330e7b3766b",
       "resolution": {
         "resolution": "magic-string@npm:1.4.3",
@@ -1957,7 +1957,7 @@
         }
       }
     },
-    "magicast@npm:^0.5.4": {
+    "magicast@npm:^0.5.5": {
       "checksum": "404a3e40d2878523a5044934dca8d323c4644898c3a46167632b39e32d7f4da34412a6cccc0859e91c490682903d38108b722bef16777db4ad377e50768cf700",
       "resolution": {
         "resolution": "magicast@npm:0.5.5",
@@ -2063,11 +2063,11 @@
         }
       }
     },
-    "obug@npm:^2.1.4": {
-      "checksum": "a52513b358de5206c39128708ca73e1b8088e657c6d18e5ac66cb2d061ff416e4014e2927a23a6d4e0346b55ba97a678bd31a45cce0ee77bf5425137596db989",
+    "obug@npm:^3.0.0": {
+      "checksum": "d5bc56bc2303597585908ee2912939285230aaecf25a184f58d071fe470a198db8b8ee66bc1921b140c3dd807070bc877d09648d753724d4c3333af839b54bc5",
       "resolution": {
-        "resolution": "obug@npm:2.2.1",
-        "version": "2.2.1"
+        "resolution": "obug@npm:3.0.0",
+        "version": "3.0.0"
       }
     },
     "optionator@npm:^0.9.3": {
@@ -2285,7 +2285,7 @@
         "version": "0.1.8"
       }
     },
-    "std-env@npm:^4.2.0": {
+    "std-env@npm:^4.3.0": {
       "checksum": "fa4a731bc01ff6e8c3138f71b5b458085b97fdcfed04c5fad9ce709cab5a3afcf0c0588b019f9d6f6cc19f4cae65baae1b2d38b3b9182eb7ee4893cd74e9f176",
       "resolution": {
         "resolution": "std-env@npm:4.3.0",
@@ -2333,14 +2333,14 @@
         }
       }
     },
-    "tinybench@npm:^6.1.4": {
-      "checksum": "3bff4f4f2cbfd8671efe9ace2152aab678010af9b95de90e9745825ca93ff946f51b7e2c6b4af2e84dd24e2fc2e230f7f8663dfedad83eb0d1243b1973af7761",
+    "tinybench@npm:^6.2.2": {
+      "checksum": "79b02a9df686a62d74eea905b5aaaae1b6d1212ebd2ff375f565f599a619bb7ac98cf53deb1b51cdd7ac36afe282c9d5ffb7e3a117d35ed556acdee7d501a178",
       "resolution": {
-        "resolution": "tinybench@npm:6.2.0",
-        "version": "6.2.0"
+        "resolution": "tinybench@npm:6.2.2",
+        "version": "6.2.2"
       }
     },
-    "tinyexec@npm:^1.3.0": {
+    "tinyexec@npm:^1.3.1": {
       "checksum": "ec75c6ea0eb1277b999050f95a578bd9a62f31d49b47623883c71862316ab1676125dea943f0bead37746c86f82da0b2e0e952e1219799ebb76610fb47314937",
       "resolution": {
         "resolution": "tinyexec@npm:1.3.1",
@@ -2369,7 +2369,7 @@
         }
       }
     },
-    "tinyrainbow@npm:^3.1.1": {
+    "tinyrainbow@npm:^3.2.0": {
       "checksum": "82aafb698db9adeabd20f9cc8c149ed1aff5f6991933a96bdf12e7788f60b82b752d9a50c14125d88ad378bef296af2097af3f5064167d5932b2202e9baa0ba9",
       "resolution": {
         "resolution": "tinyrainbow@npm:3.2.0",
@@ -2473,23 +2473,23 @@
         ]
       }
     },
-    "vitest@npm:5.0.3": {
-      "checksum": "affd643e96cbfdc10a22704129b949c5945a58f5405af3c40f5435ad22005e262930906c8780cc16119b847ead80de19a766f3cdd6b2f56f68d63b888a75869d",
+    "vitest@npm:5.0.4": {
+      "checksum": "28710e427d4abc537bba7ed6fa91dd10b61d246323230701a7ad4360048511488fc69dff1093b1095d283ce9513680e6e2828d30ed9014638298520caec006e8",
       "resolution": {
-        "resolution": "vitest@npm:5.0.3",
-        "version": "5.0.3",
+        "resolution": "vitest@npm:5.0.4",
+        "version": "5.0.4",
         "dependencies": {
           "@types/chai": "^5.2.2",
-          "@vitest/mocker": "5.0.3",
-          "chai": "^6.2.2",
+          "@vitest/mocker": "5.0.4",
+          "chai": "^6.3.0",
           "es-module-lexer": "^2.3.2",
           "expect-type": "^1.4.0",
-          "magic-string": "^1.2.3",
-          "obug": "^2.1.4",
+          "magic-string": "^1.4.3",
+          "obug": "^3.0.0",
           "picomatch": "^4.0.7",
-          "std-env": "^4.2.0",
-          "tinybench": "^6.1.4",
-          "tinyexec": "^1.3.0",
+          "std-env": "^4.3.0",
+          "tinybench": "^6.2.2",
+          "tinyexec": "^1.3.1",
           "tinyglobby": "^0.2.17",
           "why-is-node-running": "3.2.1"
         },
@@ -2497,12 +2497,12 @@
           "@edge-runtime/vm": "*",
           "@opentelemetry/api": "^1.9.0",
           "@types/node": "^22.0.0 || >=24.0.0",
-          "@vitest/browser-playwright": "5.0.3",
-          "@vitest/browser-preview": "5.0.3",
+          "@vitest/browser-playwright": "5.0.4",
+          "@vitest/browser-preview": "5.0.4",
           "@vitest/browser-webdriverio": "^5.0.0-beta.5 || >=5.0.0",
-          "@vitest/coverage-istanbul": "5.0.3",
-          "@vitest/coverage-v8": "5.0.3",
-          "@vitest/ui": "5.0.3",
+          "@vitest/coverage-istanbul": "5.0.4",
+          "@vitest/coverage-v8": "5.0.4",
+          "@vitest/ui": "5.0.4",
           "happy-dom": "*",
           "jsdom": "*",
           "vite": "^6.4.0 || ^7.0.0 || ^8.0.0"
