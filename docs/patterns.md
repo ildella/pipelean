@@ -186,3 +186,31 @@ Two things `stopWhen` does **not** do:
 
 - it does not abort work already started on an item — intra-item cancellation stays in your operation (e.g. `AbortController`);
 - it is not a `series` option on purpose: wrapping the source also serves raw `for await` loops and `reduce`/`scan` pipelines, where a consumer option would not reach.
+
+### Pattern 10: Daemon loop with `forever()` + `stopWhen()`
+
+Some loops have no items: repeat a step until a signal says stop — a sync daemon, a poller, a worker tick. There are no pages to stream and no albums to enrich; the rounds themselves are the only thing being iterated. Pipelean ships the two halves and lets the composition be the loop: `forever()` yields the tick indices with no end, `stopWhen(predicate)` gives the run its length, and `reduce` carries the loop's state without accumulating results. The predicate is checked before each tick, so a cancel lands exactly where a `while` loop's exit condition would — between rounds:
+
+```javascript
+import { reduce, rethrow, forever, stopWhen } from 'pipelean'
+
+const { value: progress } = await reduce(
+  stopWhen(forever(), () => controller.signal.aborted),
+  async (state, index) => {
+    await runRound({ index, state })              // one pass, immediately
+    await sleep({ ms: everyMs(state), signal })   // the cadence, abort-aware
+    return state
+  },
+  { cycles: 0, failures: 0 },
+  { strategy: rethrow },
+)
+```
+
+The rules that make this the daemon shape:
+
+- `reduce`, not `series`: a daemon has no results to keep, and `reduce` returns only the final state — no accumulation over an unbounded source;
+- `rethrow`: a fatal error (infrastructure death, not a handled tick failure) must exit the loop, not be collected into it — tick-level failures are contained inside the scanner, as they were inside the `while` body;
+- the sleep lives in the scanner and stays abort-aware (resolve immediately when already aborted, cut short on abort) — this preserves "no sleep after a cancel that arrived mid-round";
+- the predicate closes over the signal, not the item: `stopWhen(forever(), () => signal.aborted)`.
+
+The same composition covers pollers (`sleep, then read what was appended`) and fixed-cadence workers; the sync twin is `foreverSync()` + `stopWhenSync()`.

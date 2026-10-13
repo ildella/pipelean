@@ -1,6 +1,10 @@
 // Source adapters: lazy iterable producers, consumed by series/reduce/scan,
 // filter, findSync, or any raw for await / for of.
 //
+// forever is the unbounded source: 0, 1, 2, ... with no end. A daemon loop
+// composes it with stopWhen — the predicate (usually an abort-signal check)
+// is what gives the run its length.
+//
 // stopWhen stops pulling from the source as soon as the predicate is truthy.
 // The predicate is checked BEFORE yielding: the triggering item is pulled but
 // not offered downstream ("cancel before work"). Stopping is a clean
@@ -19,6 +23,22 @@ export const stopWhen = (items, predicate = () => false) => ({
       yield item
       index++
     }
+  },
+})
+
+export const forever = () => ({
+  async * [Symbol.asyncIterator] () {
+    let index = 0
+    while (true)
+      yield index++
+  },
+})
+
+export const foreverSync = () => ({
+  * [Symbol.iterator] () {
+    let index = 0
+    while (true)
+      yield index++
   },
 })
 

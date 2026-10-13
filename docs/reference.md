@@ -31,6 +31,7 @@
 - [reduce](#reduce) - Pure Reduction
 - [filter](#filter) - Stateless Selection
 - [stopWhen](#stopwhen) - Source Adapter for Predicate-Based Early Exit (alias of sorts: the `while` you don't need)
+- [forever](#forever) - Source Adapter for Unbounded Ticking (the `while (true)` you don't need)
 
 ### Composition
 
@@ -502,6 +503,40 @@ const {results} = await series(enrichOne, {
 
 // limit-style: close over counters instead of the item
 stopWhen(folders, () => count >= limit)
+```
+
+---
+
+### forever
+
+**Purpose**: Source adapter that yields the natural numbers 0, 1, 2, ... with no end — the unbounded counterpart of `stopWhen`. The building block for daemon loops: repeat a step until an abort predicate says so. Pipelean does not ship a daemon primitive; it ships the two halves, `forever` and `stopWhen`, and the composition is the whole story.
+
+**Type**: `() => asyncIterable<number>`
+Sync: `() => iterable<number>`
+
+**Parameters**: none.
+
+**Key Characteristics**:
+- **Unbounded**: yields forever until the consumer stops pulling — every consumption must be bounded by `stopWhen`, `take`, or a `break`. A bare `collect(forever())` never ends
+- **Composable**: `stopWhen(forever(), predicate)` is a predicate-stopped tick source; the predicate (usually an abort-signal check) is checked before each tick, so "cancel before work" holds
+- **Index semantics**: the yielded numbers are the tick indices a consumer receives — a cycle counter for free
+- **Non-accumulating consumers recommended**: a daemon has no items, so `reduce`/`scan` (stateful, no `results` array) fit better than `series`, which would otherwise rely on the `undefined` drop signal every tick
+
+**Usage Example**:
+```javascript
+import { reduce, rethrow, forever, stopWhen } from 'pipelean'
+
+// daemon loop: one pass immediately, then repeat until Ctrl-C
+const { value: progress } = await reduce(
+  stopWhen(forever(), () => controller.signal.aborted),
+  async (state, index) => {
+    await runRound({ index })
+    await sleep({ ms: everyMs, signal: controller.signal })
+    return state
+  },
+  { cycles: 0, failures: 0 },
+  { strategy: rethrow },
+)
 ```
 
 ---
