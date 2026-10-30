@@ -104,6 +104,37 @@
         }
       }
     },
+    "@emnapi/core@npm:1.11.2": {
+      "checksum": "f80d3ebdcf1ccf9355133d674092f5e7d23ece01e9d65e9dc891f6b3bd60ae981bb82b5aeeb2f8924e11b7714ee9f5da7ec2f516b50d600d95d59dd1972b43ee",
+      "resolution": {
+        "resolution": "@emnapi/core@npm:1.11.2",
+        "version": "1.11.2",
+        "dependencies": {
+          "@emnapi/wasi-threads": "1.2.2",
+          "tslib": "^2.4.0"
+        }
+      }
+    },
+    "@emnapi/runtime@npm:1.11.2": {
+      "checksum": "124d8540aa8fc15a44c5d095f5da8c3a3c36281456d819f35eb968436b329a8842f0146f56d95c92cd86493cb7b7c115967163a73b72f8224fa52a00e6da9dbb",
+      "resolution": {
+        "resolution": "@emnapi/runtime@npm:1.11.2",
+        "version": "1.11.2",
+        "dependencies": {
+          "tslib": "^2.4.0"
+        }
+      }
+    },
+    "@emnapi/wasi-threads@npm:1.2.2": {
+      "checksum": "ecdcdc2ce8c69f4f8ff20af9cdaef0bf6054f0ae652957980f875b68ccc87e9342bf98826c5383a21b8516a7d8984a05e4e7f83eb31e630d161ad5889652464e",
+      "resolution": {
+        "resolution": "@emnapi/wasi-threads@npm:1.2.2",
+        "version": "1.2.2",
+        "dependencies": {
+          "tslib": "^2.4.0"
+        }
+      }
+    },
     "@eslint-community/eslint-utils@npm:^4.8.0, @eslint-community/eslint-utils@npm:^4.9.1": {
       "checksum": "d07633ded6e1d15384be359a53c857c2c1d5427d7ad42fc23520e3f4c013eff8341df13544ea994c724847f56c9d600b00aa1a10bb55d95b43c3e920336b6cb1",
       "resolution": {
@@ -305,11 +336,652 @@
         "version": "1.1.1"
       }
     },
+    "@napi-rs/wasm-runtime@npm:^1.1.6": {
+      "checksum": "52cc58f9e002a59f48165918181c6808e9fc19828a2e8081f46293384be1d20e5451d3c541e33bc07f467536203c7196ad552890d011e17961a4a2c7a9c42ce2",
+      "resolution": {
+        "resolution": "@napi-rs/wasm-runtime@npm:1.2.6",
+        "version": "1.2.6",
+        "dependencies": {
+          "@tybys/wasm-util": "^0.10.3"
+        },
+        "peerDependencies": {
+          "@emnapi/core": "^1.7.1 || 2.0.0-beta.2",
+          "@emnapi/runtime": "^1.7.1 || 2.0.0-beta.2"
+        }
+      }
+    },
+    "@oxc-parser/binding-android-arm-eabi@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-android-arm-eabi@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "arm"
+          ],
+          "os": [
+            "android"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-android-arm64@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-android-arm64@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "android"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-darwin-arm64@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-darwin-arm64@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "darwin"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-darwin-x64@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-darwin-x64@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "darwin"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-freebsd-x64@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-freebsd-x64@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "freebsd"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-arm-gnueabihf@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-arm-gnueabihf@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "arm"
+          ],
+          "os": [
+            "linux"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-arm-musleabihf@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-arm-musleabihf@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "arm"
+          ],
+          "os": [
+            "linux"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-arm64-gnu@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-arm64-gnu@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-arm64-musl@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-arm64-musl@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "musl"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-ppc64-gnu@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-ppc64-gnu@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "ppc64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-riscv64-gnu@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-riscv64-gnu@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "riscv64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-riscv64-musl@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-riscv64-musl@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "riscv64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "musl"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-s390x-gnu@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-s390x-gnu@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "s390x"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-x64-gnu@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-x64-gnu@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-linux-x64-musl@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-linux-x64-musl@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "musl"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-openharmony-arm64@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-openharmony-arm64@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "openharmony"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-win32-arm64-msvc@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-win32-arm64-msvc@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "win32"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-win32-ia32-msvc@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-win32-ia32-msvc@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "ia32"
+          ],
+          "os": [
+            "win32"
+          ]
+        }
+      }
+    },
+    "@oxc-parser/binding-win32-x64-msvc@npm:0.155.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-parser/binding-win32-x64-msvc@npm:0.155.0",
+        "version": "0.155.0",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "win32"
+          ]
+        }
+      }
+    },
     "@oxc-project/types@npm:=0.156.0": {
       "checksum": "afbaa4431c0b7798c14f2d37dccce16934145888541148e346307b6f0623df4e3da05bc4358aea004350cedd3831c2a60b8852c129a4e28dca866e987c87ce29",
       "resolution": {
         "resolution": "@oxc-project/types@npm:0.156.0",
         "version": "0.156.0"
+      }
+    },
+    "@oxc-project/types@npm:^0.155.0": {
+      "checksum": "94d92d871ab702a9270136a425ea2b40b0f060edf9179e7d0733097a3f82f766cce33b4a5dc512cb43219c5248b8e25debbec8d22fe852652230168d8c7f853b",
+      "resolution": {
+        "resolution": "@oxc-project/types@npm:0.155.0",
+        "version": "0.155.0"
+      }
+    },
+    "@oxc-resolver/binding-android-arm-eabi@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-android-arm-eabi@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "arm"
+          ],
+          "os": [
+            "android"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-android-arm64@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-android-arm64@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "android"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-darwin-arm64@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-darwin-arm64@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "darwin"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-darwin-x64@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-darwin-x64@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "darwin"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-freebsd-x64@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-freebsd-x64@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "freebsd"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-arm-gnueabihf@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-arm-gnueabihf@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "arm"
+          ],
+          "os": [
+            "linux"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-arm-musleabihf@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-arm-musleabihf@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "arm"
+          ],
+          "os": [
+            "linux"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-arm64-gnu@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-arm64-gnu@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-arm64-musl@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-arm64-musl@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "musl"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-ppc64-gnu@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-ppc64-gnu@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "ppc64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-riscv64-gnu@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-riscv64-gnu@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "riscv64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-riscv64-musl@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-riscv64-musl@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "riscv64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "musl"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-s390x-gnu@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-s390x-gnu@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "s390x"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-x64-gnu@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-x64-gnu@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "glibc"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-linux-x64-musl@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-linux-x64-musl@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "linux"
+          ],
+          "libc": [
+            "musl"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-openharmony-arm64@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-openharmony-arm64@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "openharmony"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-wasm32-wasi@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-wasm32-wasi@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "wasm32"
+          ]
+        },
+        "dependencies": {
+          "@emnapi/core": "1.11.2",
+          "@emnapi/runtime": "1.11.2",
+          "@napi-rs/wasm-runtime": "^1.1.6"
+        }
+      }
+    },
+    "@oxc-resolver/binding-win32-arm64-msvc@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-win32-arm64-msvc@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "arm64"
+          ],
+          "os": [
+            "win32"
+          ]
+        }
+      }
+    },
+    "@oxc-resolver/binding-win32-x64-msvc@npm:11.24.2": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "@oxc-resolver/binding-win32-x64-msvc@npm:11.24.2",
+        "version": "11.24.2",
+        "requirements": {
+          "cpu": [
+            "x64"
+          ],
+          "os": [
+            "win32"
+          ]
+        }
       }
     },
     "@rolldown/binding-android-arm-eabi@npm:1.2.16": {
@@ -580,17 +1252,13 @@
         }
       }
     },
-    "@stylistic/eslint-plugin-js@npm:4.4.1": {
-      "checksum": "c7bb6fd9e1c9ab3801821ffe7cfc090012d664fff98b7de816a6f5f085e41c1cd745269a6f8b3ea1273c8696dafb01b9ff3c348253d26873cf74e18408b981f8",
+    "@tybys/wasm-util@npm:^0.10.3": {
+      "checksum": "b2ce011ddbc5822deb4ea654cc88c4b2fb06d8987dc5427cffb53884ba2daf767d20a1b456a762c909736750279c8c77eefeefd637bb81c9c6ead6704e145b47",
       "resolution": {
-        "resolution": "@stylistic/eslint-plugin-js@npm:4.4.1",
-        "version": "4.4.1",
+        "resolution": "@tybys/wasm-util@npm:0.10.4",
+        "version": "0.10.4",
         "dependencies": {
-          "eslint-visitor-keys": "^4.2.0",
-          "espree": "^10.3.0"
-        },
-        "peerDependencies": {
-          "eslint": ">=9.0.0"
+          "tslib": "^2.4.0"
         }
       }
     },
@@ -842,13 +1510,6 @@
       "resolution": {
         "resolution": "abbrev@npm:5.0.0",
         "version": "5.0.0"
-      }
-    },
-    "acorn@npm:^8.14.0": {
-      "checksum": "5b5ed564432ab3a27df0106b1d2ff94b90cdcd32b78d6065b5135dbf182ffb72fbe8a81dfa144f46f45df7c558e9de97748b5e90a6df8eee96d1ee4f140d8f91",
-      "resolution": {
-        "resolution": "acorn@npm:8.14.0",
-        "version": "8.14.0"
       }
     },
     "acorn@npm:^8.15.0, acorn@npm:^8.16.0": {
@@ -1181,13 +1842,6 @@
         "version": "3.4.3"
       }
     },
-    "eslint-visitor-keys@npm:^4.2.0": {
-      "checksum": "496414767367699628fbcde5d6ad4d964ddb9fadfd1e0ec847221ce1924a12607042b284f4ca9f468295a77dcfe36de88b8fd1889b758acdbef539da80fe8956",
-      "resolution": {
-        "resolution": "eslint-visitor-keys@npm:4.2.0",
-        "version": "4.2.0"
-      }
-    },
     "eslint-visitor-keys@npm:^4.2.1": {
       "checksum": "46a33fbb6e3054096a4e2cd47be2329f9ae47490b1ec60f9ef593db0923ea9f3cd07abf74a67d74fbcb5d53d3202b26a7a2ecbc872541a69a82ccf9f322830b6",
       "resolution": {
@@ -1200,18 +1854,6 @@
       "resolution": {
         "resolution": "eslint-visitor-keys@npm:5.0.1",
         "version": "5.0.1"
-      }
-    },
-    "espree@npm:^10.3.0": {
-      "checksum": "b5a3d1052b4428da62acfa7161934632f4cf1ee46dc23185d7951bed60259ce9bc8a49c72049347525de7965474085507f1d3d1ac256cfd6d963de07a89ffbf5",
-      "resolution": {
-        "resolution": "espree@npm:10.3.0",
-        "version": "10.3.0",
-        "dependencies": {
-          "acorn": "^8.14.0",
-          "acorn-jsx": "^5.3.2",
-          "eslint-visitor-keys": "^4.2.0"
-        }
       }
     },
     "espree@npm:^10.4.0": {
@@ -1317,6 +1959,16 @@
         "version": "2.0.6"
       }
     },
+    "fd-package-json@npm:^2.0.0": {
+      "checksum": "942d76d433f3979e6cc7d7f908f771450f61c496bfa4c74daf11a0c0ed44bcd4920cabf3ba0a21cdaf2e7623f2fab59c47e644c49f6d35086dc1f5c0eef53f6f",
+      "resolution": {
+        "resolution": "fd-package-json@npm:2.0.0",
+        "version": "2.0.0",
+        "dependencies": {
+          "walk-up-path": "^4.0.0"
+        }
+      }
+    },
     "fdir@npm:^6.5.0": {
       "checksum": "0c41530155b676b82f3606958fd1248717aef9a7ba046707a3d12862f5293c2f4c3ea255a3124948084cc32c1a939b1d172b1f2265ebfa68ebc66e97483bc598",
       "resolution": {
@@ -1377,6 +2029,17 @@
         "version": "3.4.4"
       }
     },
+    "formatly@npm:^0.11.4": {
+      "checksum": "69596c98119cbb247b192c556776aa32862f95494bfcc19116a1a42f042c6ede5bc4f635d8c0a3e0470fdd3574faf4eb7601dcaf659a680a336751701bd80453",
+      "resolution": {
+        "resolution": "formatly@npm:0.11.4",
+        "version": "0.11.4",
+        "dependencies": {
+          "fd-package-json": "^2.0.0",
+          "package-manager-detector": "^1.8.0"
+        }
+      }
+    },
     "fsevents@npm:~2.3.3": {
       "checksum": null,
       "resolution": {
@@ -1401,6 +2064,16 @@
           "os": [
             "darwin"
           ]
+        }
+      }
+    },
+    "get-tsconfig@npm:4.14.3": {
+      "checksum": "52f1d410557424bb4c40dd9aa6489262eb742ca84b4cedf47b7b1f3832a41a777423bea96c5e0d28ba19d5c4bb3534ccb5d0c8521031b711967dd9bd4fec8230",
+      "resolution": {
+        "resolution": "get-tsconfig@npm:4.14.3",
+        "version": "4.14.3",
+        "dependencies": {
+          "resolve-pkg-maps": "^1.0.0"
         }
       }
     },
@@ -1502,6 +2175,13 @@
       "resolution": {
         "resolution": "isexe@npm:4.0.0",
         "version": "4.0.0"
+      }
+    },
+    "jiti@npm:^2.7.0": {
+      "checksum": "cd50cdad3d8a719b2324945f94d67d952ed9ffcc068ea02e43e2a792a297e9b08a747d305d2c7a96b1451d3eb3857a58ceffc82784b0c81ce2bcadf6f80a192f",
+      "resolution": {
+        "resolution": "jiti@npm:2.7.0",
+        "version": "2.7.0"
       }
     },
     "js-tokens@npm:^10.0.0": {
@@ -1707,6 +2387,27 @@
         "version": "5.6.0",
         "dependencies": {
           "@keyv/serialize": "^1.1.1"
+        }
+      }
+    },
+    "knip@npm:6.44.0": {
+      "checksum": "495f0a1d17221deab3b5cc47c545975cddbb730b155cd325f6f30af304c9d1eb21467bbd4cf30b83197110035f9f2a1925fae30839119dc5d65a12f3d983e685",
+      "resolution": {
+        "resolution": "knip@npm:6.44.0",
+        "version": "6.44.0",
+        "dependencies": {
+          "formatly": "^0.11.4",
+          "get-tsconfig": "4.14.3",
+          "jiti": "^2.7.0",
+          "oxc-parser": "^0.155.0",
+          "oxc-resolver": "11.24.2",
+          "picomatch": "^4.0.7",
+          "smol-toml": "^1.9.0",
+          "strip-json-comments": "5.0.3",
+          "tinyglobby": "^0.2.17",
+          "unbash": "^6.0.1",
+          "yaml": "^2.9.1",
+          "zod": "^4.6.5"
         }
       }
     },
@@ -2080,6 +2781,105 @@
         }
       }
     },
+    "oxc-parser@npm:^0.155.0": {
+      "checksum": "b4edcb8589d5f72f703ddea2b5599882695f91b6f64f640b1d3f8cd4ca4ad5af8b3fc07299a5e90aa691df4635ea0301b9eaffd2c8a341cc31921a37dbfb3f01",
+      "resolution": {
+        "resolution": "oxc-parser@npm:0.155.0",
+        "version": "0.155.0",
+        "dependencies": {
+          "@oxc-parser/binding-android-arm-eabi": "0.155.0",
+          "@oxc-parser/binding-android-arm64": "0.155.0",
+          "@oxc-parser/binding-darwin-arm64": "0.155.0",
+          "@oxc-parser/binding-darwin-x64": "0.155.0",
+          "@oxc-parser/binding-freebsd-x64": "0.155.0",
+          "@oxc-parser/binding-linux-arm-gnueabihf": "0.155.0",
+          "@oxc-parser/binding-linux-arm-musleabihf": "0.155.0",
+          "@oxc-parser/binding-linux-arm64-gnu": "0.155.0",
+          "@oxc-parser/binding-linux-arm64-musl": "0.155.0",
+          "@oxc-parser/binding-linux-ppc64-gnu": "0.155.0",
+          "@oxc-parser/binding-linux-riscv64-gnu": "0.155.0",
+          "@oxc-parser/binding-linux-riscv64-musl": "0.155.0",
+          "@oxc-parser/binding-linux-s390x-gnu": "0.155.0",
+          "@oxc-parser/binding-linux-x64-gnu": "0.155.0",
+          "@oxc-parser/binding-linux-x64-musl": "0.155.0",
+          "@oxc-parser/binding-openharmony-arm64": "0.155.0",
+          "@oxc-parser/binding-win32-arm64-msvc": "0.155.0",
+          "@oxc-parser/binding-win32-ia32-msvc": "0.155.0",
+          "@oxc-parser/binding-win32-x64-msvc": "0.155.0",
+          "@oxc-project/types": "^0.155.0"
+        },
+        "optionalDependencies": [
+          "@oxc-parser/binding-android-arm-eabi",
+          "@oxc-parser/binding-android-arm64",
+          "@oxc-parser/binding-darwin-arm64",
+          "@oxc-parser/binding-darwin-x64",
+          "@oxc-parser/binding-freebsd-x64",
+          "@oxc-parser/binding-linux-arm-gnueabihf",
+          "@oxc-parser/binding-linux-arm-musleabihf",
+          "@oxc-parser/binding-linux-arm64-gnu",
+          "@oxc-parser/binding-linux-arm64-musl",
+          "@oxc-parser/binding-linux-ppc64-gnu",
+          "@oxc-parser/binding-linux-riscv64-gnu",
+          "@oxc-parser/binding-linux-riscv64-musl",
+          "@oxc-parser/binding-linux-s390x-gnu",
+          "@oxc-parser/binding-linux-x64-gnu",
+          "@oxc-parser/binding-linux-x64-musl",
+          "@oxc-parser/binding-openharmony-arm64",
+          "@oxc-parser/binding-win32-arm64-msvc",
+          "@oxc-parser/binding-win32-ia32-msvc",
+          "@oxc-parser/binding-win32-x64-msvc"
+        ]
+      }
+    },
+    "oxc-resolver@npm:11.24.2": {
+      "checksum": "8554547e6db41d060f9c71e1801b2fcd692c5cd8098fc3437ed6d1413d0c962a14ce373b53fdcd64a7738e2a4efd353242504a6da19fce5bb26a5ea8bf9be9eb",
+      "resolution": {
+        "resolution": "oxc-resolver@npm:11.24.2",
+        "version": "11.24.2",
+        "dependencies": {
+          "@oxc-resolver/binding-android-arm-eabi": "11.24.2",
+          "@oxc-resolver/binding-android-arm64": "11.24.2",
+          "@oxc-resolver/binding-darwin-arm64": "11.24.2",
+          "@oxc-resolver/binding-darwin-x64": "11.24.2",
+          "@oxc-resolver/binding-freebsd-x64": "11.24.2",
+          "@oxc-resolver/binding-linux-arm-gnueabihf": "11.24.2",
+          "@oxc-resolver/binding-linux-arm-musleabihf": "11.24.2",
+          "@oxc-resolver/binding-linux-arm64-gnu": "11.24.2",
+          "@oxc-resolver/binding-linux-arm64-musl": "11.24.2",
+          "@oxc-resolver/binding-linux-ppc64-gnu": "11.24.2",
+          "@oxc-resolver/binding-linux-riscv64-gnu": "11.24.2",
+          "@oxc-resolver/binding-linux-riscv64-musl": "11.24.2",
+          "@oxc-resolver/binding-linux-s390x-gnu": "11.24.2",
+          "@oxc-resolver/binding-linux-x64-gnu": "11.24.2",
+          "@oxc-resolver/binding-linux-x64-musl": "11.24.2",
+          "@oxc-resolver/binding-openharmony-arm64": "11.24.2",
+          "@oxc-resolver/binding-wasm32-wasi": "11.24.2",
+          "@oxc-resolver/binding-win32-arm64-msvc": "11.24.2",
+          "@oxc-resolver/binding-win32-x64-msvc": "11.24.2"
+        },
+        "optionalDependencies": [
+          "@oxc-resolver/binding-android-arm-eabi",
+          "@oxc-resolver/binding-android-arm64",
+          "@oxc-resolver/binding-darwin-arm64",
+          "@oxc-resolver/binding-darwin-x64",
+          "@oxc-resolver/binding-freebsd-x64",
+          "@oxc-resolver/binding-linux-arm-gnueabihf",
+          "@oxc-resolver/binding-linux-arm-musleabihf",
+          "@oxc-resolver/binding-linux-arm64-gnu",
+          "@oxc-resolver/binding-linux-arm64-musl",
+          "@oxc-resolver/binding-linux-ppc64-gnu",
+          "@oxc-resolver/binding-linux-riscv64-gnu",
+          "@oxc-resolver/binding-linux-riscv64-musl",
+          "@oxc-resolver/binding-linux-s390x-gnu",
+          "@oxc-resolver/binding-linux-x64-gnu",
+          "@oxc-resolver/binding-linux-x64-musl",
+          "@oxc-resolver/binding-openharmony-arm64",
+          "@oxc-resolver/binding-wasm32-wasi",
+          "@oxc-resolver/binding-win32-arm64-msvc",
+          "@oxc-resolver/binding-win32-x64-msvc"
+        ]
+      }
+    },
     "p-limit@npm:^3.0.2": {
       "checksum": "53ed20590feb4bd0f15a15ac2280c7756e9853c39a9919b796f4f180436e82d9d53fbc161f12750ee308cb58976b2af803b1a81eda201995a423fc2b45dd2b12",
       "resolution": {
@@ -2098,6 +2898,13 @@
         "dependencies": {
           "p-limit": "^3.0.2"
         }
+      }
+    },
+    "package-manager-detector@npm:^1.8.0": {
+      "checksum": "b306697d79ef01d75adb2b841dbd0e438ccd235a968d686ab3af102f2f7b3415b00809a38a6b7abf46cb946ae931b308aeab088d96e20560719d59271ccb6e92",
+      "resolution": {
+        "resolution": "package-manager-detector@npm:1.9.0",
+        "version": "1.9.0"
       }
     },
     "path-exists@npm:^4.0.0": {
@@ -2151,7 +2958,6 @@
           "@eslint/compat": "2.1.1",
           "@eslint/js": "10.0.1",
           "@stylistic/eslint-plugin": "5.10.0",
-          "@stylistic/eslint-plugin-js": "4.4.1",
           "@vitest/coverage-v8": "5.0.5",
           "@vitest/eslint-plugin": "1.6.28",
           "eslint": "10.13.0",
@@ -2159,6 +2965,7 @@
           "globals": "17.13.0",
           "jscpd": "5.4.2",
           "jsinspect-plus": "3.1.3",
+          "knip": "6.44.0",
           "typescript": "5.9.3",
           "vite": "8.3.5",
           "vitest": "5.0.5"
@@ -2206,6 +3013,13 @@
         "dependencies": {
           "hookified": "^2.1.1"
         }
+      }
+    },
+    "resolve-pkg-maps@npm:^1.0.0": {
+      "checksum": "895f88b8e49371772a0500ec82f0a836551afe24a72b86c7560c092736e6e5aff9cfc5ba89cf15344eb4519be2a5053450f6d03798425ff74e7aeefb224412c9",
+      "resolution": {
+        "resolution": "resolve-pkg-maps@npm:1.0.0",
+        "version": "1.0.0"
       }
     },
     "rolldown@npm:~1.2.14": {
@@ -2282,6 +3096,13 @@
         "version": "3.0.0"
       }
     },
+    "smol-toml@npm:^1.9.0": {
+      "checksum": "934e48f4e7afa4f6db0399ae367169262abfcc7ac31a908658ae8647b50d5100c4426c229bb7c44da0d82af4b8e165d4e43e6fcdb4722ab539649f665ff3f10b",
+      "resolution": {
+        "resolution": "smol-toml@npm:1.9.1",
+        "version": "1.9.1"
+      }
+    },
     "source-map-js@npm:^1.2.1": {
       "checksum": "ad34b90e5974e6039ea2b07bbf236ef7a82e4f5958777c3919e38a74b044458e5608dce9101d54cc950515490be928cae8e18e0cfb1c52e2438d40b92f9d58df",
       "resolution": {
@@ -2318,6 +3139,13 @@
         "dependencies": {
           "min-indent": "^1.0.0"
         }
+      }
+    },
+    "strip-json-comments@npm:5.0.3": {
+      "checksum": "e5e41e4e52971fc57d98615b608582da191358bcb8e51016f2f2a8b7c930353a16fd8768f59cff643e90da3b429505ddd88de85e721ac63c3904e12c89ef64a0",
+      "resolution": {
+        "resolution": "strip-json-comments@npm:5.0.3",
+        "version": "5.0.3"
       }
     },
     "strip-json-comments@npm:^3.1.1": {
@@ -2404,6 +3232,13 @@
         }
       }
     },
+    "tslib@npm:^2.4.0": {
+      "checksum": "3b4cfa3fb43765eb6f4f173f10f0825ac19f09b18a737d2c9bf28e987271f97530b4f5e39f8ab16e9907ba65868878d0f405d8bacd0cb51f41f4be128cff92ad",
+      "resolution": {
+        "resolution": "tslib@npm:2.8.1",
+        "version": "2.8.1"
+      }
+    },
     "type-check@npm:^0.4.0, type-check@npm:~0.4.0": {
       "checksum": "4932833cdcf9aa18b2a7eaa252dfb41653b002546b537e174838869e463af8cf63836d0d568976710c544f1496dedef75b8ff20321e78cb7aed928c951cc1e8c",
       "resolution": {
@@ -2426,6 +3261,13 @@
       "resolution": {
         "resolution": "typescript@patch:typescript%40npm%3A5.9.3#<builtin>&checksum=794343709b38fa2bda6fba140153ca2f2a3a19c87e96198fc70af6ad8b94ae00f2ad0a67d10282e87b9b1322a8322f9137f2d0877b8245a2af96d92d21a23f61",
         "version": "5.9.3"
+      }
+    },
+    "unbash@npm:^6.0.1": {
+      "checksum": "91f896217bc5f3521cc2bbd327e96bdfa58e9f3a4c4fd624f9218df37bb10a6691cdb89570dbfca04a4a90a16b9ae4f335acd9476d4c0d1208df80619cfdb77d",
+      "resolution": {
+        "resolution": "unbash@npm:6.0.2",
+        "version": "6.0.2"
       }
     },
     "undici@npm:^8.4.1": {
@@ -2540,6 +3382,13 @@
         ]
       }
     },
+    "walk-up-path@npm:^4.0.0": {
+      "checksum": "5591849e88eab2a1ac9372f3a06340eaf5881e3afad54df0d3273400e2d3f9b03e82b87c787f8f10412de4b28a7f19be39f98e955916c2d1f87bb3bba6b1db2e",
+      "resolution": {
+        "resolution": "walk-up-path@npm:4.0.0",
+        "version": "4.0.0"
+      }
+    },
     "which@npm:^2.0.1": {
       "checksum": "d3669ffb36cb21c90dd15c23344354cc68127b769bc4fa163b93f4a21c8331bb6088a564b47c3a23de28bcb4e06bb9df559a4a6c4387cc9a30d56cb215506059",
       "resolution": {
@@ -2581,11 +3430,25 @@
         "version": "5.0.0"
       }
     },
+    "yaml@npm:^2.9.1": {
+      "checksum": "6a6d88e0a160f81331e1c53b43ae60befb707585bb81b01f3690c522200a52654d5bdba712631d5dc5d73ee4aba5f923e1588458b17197eebb9e3e27726a9006",
+      "resolution": {
+        "resolution": "yaml@npm:2.9.1",
+        "version": "2.9.1"
+      }
+    },
     "yocto-queue@npm:^0.1.0": {
       "checksum": "f8f877b56f9dc0e23ce4dae28bc0e939069410fd07aa01a8f0bdaad47b4ce87a6aa2efb300c028bc3c0610aad973fcf30974391f8376f8b2237ddace6a21d031",
       "resolution": {
         "resolution": "yocto-queue@npm:0.1.0",
         "version": "0.1.0"
+      }
+    },
+    "zod@npm:^4.6.5": {
+      "checksum": "6cb697c14b5ae4b4247fb467f743e760c0075c458bb5e4b50d5821e40b956bdbd3ed6c46cb0da5b4ad69c3c446a64920afe23ea6680c2f3c5bd875f8dd75fa9e",
+      "resolution": {
+        "resolution": "zod@npm:4.6.7",
+        "version": "4.6.7"
       }
     }
   }
