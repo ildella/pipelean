@@ -2,5 +2,6 @@
   "minTokens": 50,
   "threshold": 5,
   "reporters": ["console", "html", "json"],
+  "output": "report/dup/jscpd",
   "path": ["../../src"]
 }
