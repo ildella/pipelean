@@ -234,22 +234,33 @@
         }
       }
     },
-    "@humanfs/core@npm:^0.19.1": {
-      "checksum": "10188f17cf82674a244d701c3560ba3456aad4ed6890d59f6d4a19eb1e38d998fca7c8b1f8d27914d5a459edd34a2cd12e23d52acfb42f145e37fcf5c224de58",
+    "@humanfs/core@npm:^0.19.2": {
+      "checksum": "6e802207cf8eee4fb4ff0b3a51cf880012d62dc1e18da6313e8e02b9645237e07132c15711245bbf57b8befa389ae1ff684ba8ae124bdab52c82202dc17808cd",
       "resolution": {
-        "resolution": "@humanfs/core@npm:0.19.1",
-        "version": "0.19.1"
+        "resolution": "@humanfs/core@npm:0.19.2",
+        "version": "0.19.2",
+        "dependencies": {
+          "@humanfs/types": "^0.15.0"
+        }
       }
     },
-    "@humanfs/node@npm:^0.16.6": {
-      "checksum": "2a0983ad64f5cc8d8b954a7cd1fe7aa24e4f1c7e2b0194606b424603c09026da9462bc673869c4ad1c48032bde9cfd72f95d4ed30997f70655feb553fa6a7fa5",
+    "@humanfs/node@npm:^0.16.8": {
+      "checksum": "806884ef4fd1b97e61ec6802632572a1d74c2c414d4d827eab2f383f6cc0fdecc044e42b68564f7073c88222c7311d6b6523dcc30ebfc96bfffeaac68828c735",
       "resolution": {
-        "resolution": "@humanfs/node@npm:0.16.6",
-        "version": "0.16.6",
+        "resolution": "@humanfs/node@npm:0.16.8",
+        "version": "0.16.8",
         "dependencies": {
-          "@humanfs/core": "^0.19.1",
-          "@humanwhocodes/retry": "^0.3.0"
+          "@humanfs/core": "^0.19.2",
+          "@humanfs/types": "^0.15.0",
+          "@humanwhocodes/retry": "^0.4.0"
         }
+      }
+    },
+    "@humanfs/types@npm:^0.15.0": {
+      "checksum": "f6ec5468a6a95ffb2415283942c7480e58c9676d599022506cbb0f50055f4b52759cd5936bd3f7abb26a26c4a05665a668f7e39c3b5228975401e6b25696e04e",
+      "resolution": {
+        "resolution": "@humanfs/types@npm:0.15.0",
+        "version": "0.15.0"
       }
     },
     "@humanwhocodes/module-importer@npm:^1.0.1": {
@@ -259,14 +270,7 @@
         "version": "1.0.1"
       }
     },
-    "@humanwhocodes/retry@npm:^0.3.0": {
-      "checksum": "54180cb863f2d0917bb3c21e382fb6600a279a8bb4ec62725e5f28379ddf7d25e8ab07ef3997f3512949dccfc2c35bf01fe0e44cdb5d6df86adf27377773dd69",
-      "resolution": {
-        "resolution": "@humanwhocodes/retry@npm:0.3.1",
-        "version": "0.3.1"
-      }
-    },
-    "@humanwhocodes/retry@npm:^0.4.2": {
+    "@humanwhocodes/retry@npm:^0.4.0, @humanwhocodes/retry@npm:^0.4.2": {
       "checksum": "b532d265e0c77e576d289ea3e16acf196736efd2a0c167d4cc878b558c28f2eb5629e640a8d61bf195741f4c7173ad6b73e60e8ca04f38cdaa0c7361aeb7db75",
       "resolution": {
         "resolution": "@humanwhocodes/retry@npm:0.4.3",
@@ -1748,11 +1752,11 @@
         "version": "4.0.0"
       }
     },
-    "eslint@npm:10.13.0": {
-      "checksum": "f67cc859ad5c5099baeab6e6a906fbb3518bf1713f357da042e43b0bb9611b3cd2f2b69dfff494ac9c8f20b671574334d4a44d34f72f8f8cf961f6dd26085516",
+    "eslint@npm:10.14.0": {
+      "checksum": "10ef779d61e6b6c9658ab19571dc568eeaa51b3718ddc46398c2764375c0db2c683b655ddceef020daaa17085761cac630f34438fb9bf4b55f25325ec8089bdb",
       "resolution": {
-        "resolution": "eslint@npm:10.13.0",
-        "version": "10.13.0",
+        "resolution": "eslint@npm:10.14.0",
+        "version": "10.14.0",
         "dependencies": {
           "@eslint-community/eslint-utils": "^4.8.0",
           "@eslint-community/regexpp": "^4.12.2",
@@ -1760,7 +1764,7 @@
           "@eslint/config-helpers": "^0.7.0",
           "@eslint/core": "^1.2.1",
           "@eslint/plugin-kit": "^0.7.3",
-          "@humanfs/node": "^0.16.6",
+          "@humanfs/node": "^0.16.8",
           "@humanwhocodes/module-importer": "^1.0.1",
           "@humanwhocodes/retry": "^0.4.2",
           "@types/estree": "^1.0.6",
@@ -1781,7 +1785,7 @@
           "imurmurhash": "^0.1.4",
           "is-glob": "^4.0.0",
           "json-stable-stringify-without-jsonify": "^1.0.1",
-          "minimatch": "^10.2.5",
+          "minimatch": "^10.2.6",
           "natural-compare": "^1.4.0",
           "optionator": "^0.9.3"
         },
@@ -2682,7 +2686,7 @@
         }
       }
     },
-    "minimatch@npm:^10.2.4, minimatch@npm:^10.2.5": {
+    "minimatch@npm:^10.2.4, minimatch@npm:^10.2.6": {
       "checksum": "bccae7851c0808d3ddcf35370b858eee6a2b3299b97d41d4e4675c08c9cba8c461c7e4b2a29774f3006435122c88996e3b9520f625b7f5a83535c817f0baf5a1",
       "resolution": {
         "resolution": "minimatch@npm:10.2.6",
@@ -2953,14 +2957,14 @@
       "checksum": null,
       "resolution": {
         "resolution": "pipelean@workspace:pipelean",
-        "version": "0.12.0",
+        "version": "0.13.0",
         "dependencies": {
           "@eslint/compat": "2.1.1",
           "@eslint/js": "10.0.1",
           "@stylistic/eslint-plugin": "5.10.0",
           "@vitest/coverage-v8": "5.0.5",
           "@vitest/eslint-plugin": "1.6.28",
-          "eslint": "10.13.0",
+          "eslint": "10.14.0",
           "eslint-nostandard": "1.4.1",
           "globals": "17.13.0",
           "jscpd": "5.4.2",
