@@ -1,4 +1,4 @@
-import {test, expect} from 'vitest'
+import {test, expect, vi} from 'vitest'
 import {seriesSync, collect} from '$src/index'
 
 test('all items succeed returns results with no errors', () => {
@@ -30,6 +30,23 @@ test('collect continues past errors', () => {
   expect(result.results).toEqual([10, 30])
   expect(result.errors).toEqual([{item: 2, error: bang, index: 1}])
   expect(result.failure).toBe(false)
+})
+
+test('calls onError with context and total for each failed item', () => {
+  const bang = new Error('bang')
+  const onError = vi.fn()
+  const result = seriesSync([1, 2, 3], x => {
+    if (x === 2)
+      throw bang
+    return x * 10
+  }, {onError})
+
+  expect(onError).toHaveBeenCalledTimes(1)
+  expect(onError).toHaveBeenCalledWith({
+    item: 2, error: bang, index: 1, total: 3,
+  })
+  expect(result.results).toEqual([10, 30])
+  expect(result.errors).toEqual([{item: 2, error: bang, index: 1}])
 })
 
 test('passes index as second arg to fn', () => {

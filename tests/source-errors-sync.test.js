@@ -165,6 +165,29 @@ test('scanSync mode: partial results preserved per strategy', () => {
   expect(skipResult.failure).toBe(false)
 })
 
+test('scanSync failLate: source error merges with item errors into failure', () => {
+  const opError = new Error('scanner failed sync')
+  const srcError = new Error('scan source died sync')
+  const onSourceError = vi.fn()
+
+  const gen = function * () {
+    yield 1
+    yield 2
+    throw srcError
+  }
+  const result = scanSync(gen(), (acc, x) => {
+    if (x === 1)
+      throw opError
+    return acc + x
+  }, 0, {strategy: failLate, onSourceError})
+
+  expect(result.results).toEqual([2])
+  expect(onSourceError).toHaveBeenCalledWith({error: srcError, index: 2})
+  expect(result.failure).toEqual({
+    errors: [...result.errors, ...result.sourceErrors],
+  })
+})
+
 test('filterSync: filtered results preserved and sourceErrors captured', () => {
   const boom = new Error('filter stream broke')
   const items = fragileSource([1, 2, 3, 4], boom)

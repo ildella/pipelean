@@ -177,6 +177,29 @@ test('scan mode: partial results preserved per strategy', async () => {
   expect(skipResult.failure).toBe(false)
 })
 
+test('scan failLate: source error merges with item errors into failure', async () => {
+  const opError = new Error('scanner failed')
+  const srcError = new Error('scan source died')
+  const onSourceError = vi.fn()
+
+  const gen = async function * () {
+    yield 1
+    yield 2
+    throw srcError
+  }
+  const result = await scan(gen(), async (acc, x) => {
+    if (x === 1)
+      throw opError
+    return acc + x
+  }, 0, {strategy: failLate, onSourceError})
+
+  expect(result.results).toEqual([2])
+  expect(onSourceError).toHaveBeenCalledWith({error: srcError, index: 2})
+  expect(result.failure).toEqual({
+    errors: [...result.errors, ...result.sourceErrors],
+  })
+})
+
 test('filter: filtered results preserved and sourceErrors captured', async () => {
   const boom = new Error('filtered stream broke')
   const items = fragileSource([1, 2, 3, 4], boom)
