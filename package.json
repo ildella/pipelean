@@ -1,6 +1,6 @@
 {
   "name": "pipelean",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "A pragmatic library for sequential async operations with first-class error handling.",
   "type": "module",
   "license": "MIT",
@@ -48,7 +48,7 @@
     "coverage": "vitest run --coverage",
     "up.ui": "npx -y npm-check-updates --interactive"
   },
-  "packageManager": "yarn@6.0.0-rc.22",
+  "packageManager": "yarn@6.0.0-rc.23",
   "devDependencies": {
     "@eslint/compat": "2.1.1",
     "@eslint/js": "10.0.1",

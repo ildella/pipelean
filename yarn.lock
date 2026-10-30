@@ -1,11 +1,6 @@
 {
   "__metadata": {
-    "version": 9
-  },
-  "project": {
-    "workspaces": {
-      "pipelean": "3e22ad672e48fe784bfaec7e2874c20b5418f5a936c9e82b508d2d6f77ccf42cd2e028c5260b39fb6ccf4aba00a1a2ca4570118099acb35637664cee23625d74"
-    }
+    "version": 10
   },
   "entries": {
     "@babel/helper-string-parser@npm:^7.29.7": {
@@ -2145,6 +2140,29 @@
       "resolution": {
         "resolution": "picomatch@npm:4.0.7",
         "version": "4.0.7"
+      }
+    },
+    "pipelean@workspace:^": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "pipelean@workspace:pipelean",
+        "version": "0.12.0",
+        "dependencies": {
+          "@eslint/compat": "2.1.1",
+          "@eslint/js": "10.0.1",
+          "@stylistic/eslint-plugin": "5.10.0",
+          "@stylistic/eslint-plugin-js": "4.4.1",
+          "@vitest/coverage-v8": "5.0.5",
+          "@vitest/eslint-plugin": "1.6.28",
+          "eslint": "10.13.0",
+          "eslint-nostandard": "1.4.1",
+          "globals": "17.13.0",
+          "jscpd": "5.4.2",
+          "jsinspect-plus": "3.1.3",
+          "typescript": "5.9.3",
+          "vite": "8.3.5",
+          "vitest": "5.0.5"
+        }
       }
     },
     "postcss@npm:^8.5.30": {
