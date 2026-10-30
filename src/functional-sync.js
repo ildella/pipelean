@@ -133,37 +133,28 @@ export const findSync = (...args) => {
     immediate, items, predicate, opts,
   } = parseSearchArgs(args, {})
 
-  // eslint-disable-next-line complexity
   const run = inputItems => {
     const {
-      strategy = collect, take, total, onError, onFailure,
+      strategy = collect, take, total, onError, onFailure, onSourceError,
     } = opts
-    const errors = []
-    const strategyName = strategy.name ?? strategy
     const plannedTotal = getPlannedTotal({items: inputItems, take, total})
 
-    const finish = result => {
-      const failure = strategyName === 'failLate' && errors.length > 0
-        ? {errors}
-        : false
+    let found
+    const shape = ({
+      errors, sourceErrors, failure,
+    }) => ({
+      result: found, errors, sourceErrors, failure,
+    })
+    const state = createRunState(strategy, {onFailure, onSourceError, shape})
 
-      if (failure && onFailure)
-        onFailure(failure)
-
-      return {result, errors, failure}
-    }
-
-    let index = 0
-
-    for (const item of inputItems) {
-      if (take !== undefined && index >= take)
-        break
-
+    const step = (item, index) => {
       try {
-        if (predicate(item, index))
-          return finish(item)
+        if (predicate(item, index)) {
+          found = item
+          return {stop: true, result: toResult(state, settle(state))}
+        }
       } catch (error) {
-        if (strategyName === 'throw')
+        if (state.strategyName === 'throw')
           throw error
 
         const errorContext = {item, error, index}
@@ -171,22 +162,15 @@ export const findSync = (...args) => {
         if (onError)
           onError(withTotal(errorContext, plannedTotal))
 
-        if (strategyName === 'failFast') {
-          onFailure?.(errorContext)
-          return {result: undefined, errors, failure: errorContext}
-        }
-
-        if (strategyName === 'skip') {
-          index++
-          continue
-        }
-
-        errors.push(errorContext)
+        return failOnItem(state, errorContext)
       }
-      index++
+
+      return null
     }
 
-    return finish(undefined)
+    return runSyncStrategy({
+      state, items: inputItems, take, step,
+    })
   }
 
   return immediate ? run(items) : run

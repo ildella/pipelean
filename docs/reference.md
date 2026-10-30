@@ -931,7 +931,7 @@ want Pipelean's structured error collection.
 
 - `seriesSync` returns `{results, errors, sourceErrors, failure}` directly
 - `filterSync` returns `{results, errors, sourceErrors, failure}` directly
-- `findSync` returns `{result, errors, failure}` directly and stops at the first match
+- `findSync` returns `{result, errors, sourceErrors, failure}` directly and stops at the first match
 - `scanSync` returns `{results, errors, sourceErrors, failure}` directly
 - `reduceSync` returns `{value, errors, sourceErrors, failure}` directly
 - `pipeSync` composes synchronous functions left-to-right
@@ -939,7 +939,7 @@ want Pipelean's structured error collection.
 - `tryCatchSync` wraps a synchronous function with lifecycle hooks
 - `stopWhenSync` is the sync source adapter — same contract as `stopWhen`, sync iterables only
 
-The sync variants handle **source errors** with the same semantics as their async twins: `seriesSync`, `filterSync`, `scanSync`, and `reduceSync` accept `onSourceError({error, index})` and report errors thrown by the iteration itself in the `sourceErrors` field. See [Source errors](#source-errors) under `series`.
+The sync variants handle **source errors** with the same semantics as their async twins: `seriesSync`, `filterSync`, `findSync`, `scanSync`, and `reduceSync` accept `onSourceError({error, index})` and report errors thrown by the iteration itself in the `sourceErrors` field. See [Source errors](#source-errors) under `series`.
 
 **Not supported in sync variants**:
 
@@ -973,16 +973,23 @@ const users = [
   {id: 3, active: true},
 ]
 
-const {result, errors, failure} = findSync(users, {active: true})
+const {result, errors, sourceErrors, failure} = findSync(users, {active: true})
 
 // result: {id: 2, active: true}
 // errors: []
+// sourceErrors: []
 // failure: false
 ```
 
 `findSync` supports the same predicate forms as `filterSync`, including object
 patterns via `where()`. It exits as soon as the first match is found. When no
-item matches, it returns `{result: undefined, errors: [], failure: false}`.
+item matches, it returns
+`{result: undefined, errors: [], sourceErrors: [], failure: false}`.
+
+For a dying source, `findSync` behaves like `seriesSync`: it accepts
+`onSourceError({error, index})` and reports the failure in `sourceErrors`
+(ignored under `skip`, rethrown under `throw`). See
+[Source errors](#source-errors) under `series`.
 
 **Synchronous state enrichment with `enrichSync`**:
 
