@@ -76,6 +76,12 @@ export const prepareEnrich = ({
 }) => {
   validateOperations(operations, label)
 
+  if (opts.recover !== undefined)
+    throw new TypeError(
+      `${label} does not support recover; use reduce if fold recovery is ` +
+      'needed',
+    )
+
   const {strategy = collect, onError, onFailure} = opts
 
   return {

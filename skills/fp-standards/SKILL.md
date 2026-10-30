@@ -12,7 +12,7 @@ description: "General Functional Programming principles and patterns. Use this s
 - **No `Array.prototype.forEach`**: ForEach swallows promises and doesn't handle async errors correctly. Use `series` instead.
 - **No raw `Promise` combinators**: Use `series` for positional collections, or `join` for named concurrent tasks, instead of `Promise.all` / `Promise.allSettled`. The `no-promise-combinators` rule flags them.
 - **No `Array.prototype.reduce`**: Reduce is often unreadable and mixes state with iteration. Use `reduce` for simple reduction (sums, counts), `scan` for dependent stateful transformation where intermediate values matter.
-- **Eager Execution**: Reach for `series`/`pipe`/`scan`/`enrich` first — you get a structured report `{ results, errors, failure }` back immediately. When you genuinely need a lazy producer (e.g. a generator that streams progress events), that is a supported escape hatch: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` rule allows loops only inside a generator that yields.
+- **Eager Execution**: Reach for `series`/`pipe`/`scan`/`enrich` first — you get a structured report `{ results, errors, sourceErrors, failure }` back immediately. When you genuinely need a lazy producer (e.g. a generator that streams progress events), that is a supported escape hatch: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` rule allows loops only inside a generator that yields.
 - **Undefined Short-Circuit**: When composing operations (via `pipe`), returning `undefined` signals dropping the item (selection/filtering).
 
 ## State accumulation: `scan` vs `reduce` vs `enrich`

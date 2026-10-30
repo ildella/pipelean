@@ -7,7 +7,10 @@ import {
   collect, createRunState, failOnSource, settle, toResult,
 } from './strategy.js'
 import {
-  handleItemError, notifyProgress, planFold, planSeries,
+  handleItemError, settleFoldError,
+} from './errors.js'
+import {
+  notifyProgress, planFold, planSeries, validateOptions,
 } from './run.js'
 
 const runSyncStrategy = ({
@@ -75,7 +78,7 @@ export const seriesSync = (...args) => {
   } = parseCallArgs(args)
 
   const run = inputItems => {
-    const plan = planSeries(opts, inputItems)
+    const plan = planSeries(opts, inputItems, {sync: true})
 
     const runFn = (item, index) => {
       const result = fn(item, index)
@@ -125,6 +128,8 @@ export const findSync = (...args) => {
   } = parseSearchArgs(args, {})
 
   const run = inputItems => {
+    validateOptions(opts, {sync: true})
+
     const {
       strategy = collect, take, total,
       onError, onFailure, onSourceError,
@@ -170,17 +175,25 @@ const runScanSync = ({
     items: iterable,
     keepPartials,
     readAcc: () => acc,
-  })
+  }, {sync: true})
+
+  const commit = value => {
+    acc = value
+    if (keepPartials)
+      plan.state.results.push(value)
+  }
 
   const step = (item, index) => {
+    const state = acc
+
     try {
-      acc = scanner(acc, item, index)
-      if (keepPartials)
-        plan.state.results.push(acc)
+      commit(scanner(acc, item, index))
     } catch (error) {
-      return handleItemError(
-        plan.state, {item, error, index}, plan,
-      )
+      const settled = settleFoldError(plan, {item, error, index}, state)
+      if (!settled.recovered)
+        return settled.errorOutcome
+
+      commit(settled.acc)
     }
 
     return null

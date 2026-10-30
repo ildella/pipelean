@@ -2,6 +2,112 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.13.0: signals, pause policy, fold `recover`, `assertOk`
+
+Everything here is **additive**: no strategy default changes, no result-shape
+changes, no rename. You can keep existing code as it is.
+
+New tools:
+
+- `signal` on `series`, `filter`, `scan` and `reduce`: lifecycle cancellation
+  checked between items and during a pending `pause`, keeping completed work.
+- `pause` (and `pauseOnErrors`) on `scan` / `reduce`, not just `series`: the
+  loop cadence now lives in the consumer, abort-aware.
+- `recover` on the folds: a fold-local seam that turns a scanner error into the
+  next accumulator.
+- `assertOk(result)`: throw when a result's `failure` is truthy, for callers
+  that would otherwise ignore a `failFast` stop.
+
+### Two behavior changes to call out
+
+1. **Sync twins now throw for async-only options.** `seriesSync`, `filterSync`,
+   `findSync`, `scanSync` and `reduceSync` used to ignore `signal`, `pause` and
+   `pauseOnErrors` silently. They now throw a `TypeError`: a sync run cannot wait
+   on a timer and cannot react to an async abort, so accepting the option was a
+   lie. Remove the option, or move that run to the async twin.
+2. **Invalid `pause` / `signal` types now throw.** `pause` must be a finite
+   number or a function; `signal` must be an `AbortSignal`. A string, `NaN`,
+   `Infinity`, a plain object or a number passed as `signal` throws a `TypeError`
+   before iteration starts instead of being ignored.
+
+### Service loop: before / after
+
+Before, lifecycle cancellation and the cadence were assembled by hand: a
+predicate over the abort flag, a hand-rolled interruptible sleep, and a
+`try/catch` inside the round to keep the loop alive.
+
+```js
+// Before
+const {value} = await reduce(
+  stopWhen(forever(), () => signal.aborted),
+  async state => {
+    try {
+      await runRound(state)
+      return {...state, failures: 0}
+    } catch (error) {
+      log.warn(error.message)
+      await interruptibleSleep(everyMs, signal)   // hand-rolled
+      return {...state, failures: state.failures + 1}
+    }
+  },
+  {failures: 0},
+  {strategy: rethrow},
+)
+```
+
+After, each concern has one home: `signal` is the lifecycle stop, `pause` is the
+abort-aware cadence, and `recover` turns a failed round into the next
+accumulator.
+
+```js
+// After
+const {value} = await reduce(
+  forever(),
+  async state => {
+    await runRound(state)                         // may throw
+    return {...state, failures: 0}
+  },
+  {failures: 0},
+  {
+    signal,                                       // lifecycle stop
+    strategy: rethrow,                            // fatal errors still exit
+    onError: ({error}) => log.warn(error.message),
+    recover: ({state}) => ({...state, failures: state.failures + 1}),
+    pause: state => backoff({failures: state.failures}),
+  },
+)
+```
+
+`recover` is fold-only and receives the accumulator *before* the failed round.
+`onError` still fires even under `rethrow`; the recovered error is consumed. The
+outer `try/finally` for external resources remains the caller's business.
+
+### Tests: injected timers → fake timers
+
+Loop tests used to inject a fake timer/sleep into the scanner because the delay
+lived there. With `pause` owned by the consumer, use Vitest's fake timers
+instead: `vi.useFakeTimers()`, advance with
+`await vi.advanceTimersByTimeAsync(ms)`, and `vi.useRealTimers()` in
+`afterEach`. Aborts during a pause resolve immediately, so no injected clock is
+needed.
+
+### `assertOk` for ignored outcomes
+
+`failFast` reports failure as data; a caller that never inspects the result can
+stop silently. Wrap the result:
+
+```js
+import {assertOk, series} from 'pipelean'
+
+const result = assertOk(await series(items, fn, {strategy: 'failFast'}))
+```
+
+No failure returns the same object. A truthy `failure` throws
+`Error('pipelean: operation failed')` with `cause` set to the underlying error
+(the first error for a `failLate` aggregate) and `failure` set to the structured
+failure. It checks `failure`, not `errors`, so `collect` / `skip` results pass
+through: this is a guard, not a new strategy.
+
 ## 0.12.0: `flow` → `enrich`, stricter composition
 
 Four breaking changes. They exist to remove the "is the stateful one `flow`, `scan` or `reduce`?" ambiguity.

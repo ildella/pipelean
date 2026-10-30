@@ -1,46 +1,77 @@
 import {getPlannedTotal, withTotal} from './shared.js'
 import {
-  collect, createRunState, failFast, failOnItem,
+  collect, createRunState, failFast,
 } from './strategy.js'
 
-const itemErrorContext = (state, {item, error, index}) => {
-  if (state.strategyName === 'throw')
-    throw error
+const ASYNC_ONLY_OPTIONS = ['signal', 'pause', 'pauseOnErrors']
 
-  return {item, error, index}
+const isAbortSignal = signal =>
+  typeof signal === 'object' &&
+  signal !== null &&
+  typeof signal.aborted === 'boolean' &&
+  typeof signal.addEventListener === 'function' &&
+  typeof signal.removeEventListener === 'function'
+
+const isPauseOption = pause =>
+  pause === undefined ||
+  typeof pause === 'function' ||
+  (typeof pause === 'number' && Number.isFinite(pause))
+
+const assertSignal = signal => {
+  if (signal !== undefined && !isAbortSignal(signal))
+    throw new TypeError('signal must be an AbortSignal')
 }
 
-/**
- * Turn an item error into a step outcome, notifying `onError` first.
- *
- * The sync twin leaves the callback fire-and-forget; `handleItemErrorAsync`
- * awaits it so an async `onError` settles before the run continues.
- */
-export const handleItemError = (state, errorContext, {onError, total}) => {
-  const context = itemErrorContext(state, errorContext)
-
-  if (onError)
-    onError(withTotal(context, total))
-
-  return failOnItem(state, context)
+const assertPause = pause => {
+  if (!isPauseOption(pause))
+    throw new TypeError('pause must be a finite number or a function')
 }
 
-export const handleItemErrorAsync = async (
-  state, errorContext, {onError, total},
-) => {
-  const context = itemErrorContext(state, errorContext)
+const assertSyncOptions = opts => {
+  for (const key of ASYNC_ONLY_OPTIONS) {
+    if (opts[key] !== undefined)
+      throw new TypeError(
+        `Sync combinators do not support the "${key}" option`,
+      )
+  }
+}
 
-  if (onError)
-    await onError(withTotal(context, total))
+// `recover` is a fold-local seam: it turns one scanner error into the next
+// accumulator. Nothing else has an accumulator to recover into.
+const assertRecover = (opts, fold) => {
+  const {recover} = opts
 
-  return failOnItem(state, context)
+  if (recover === undefined)
+    return
+
+  if (!fold)
+    throw new TypeError(
+      'recover is only supported by folds (scan and reduce)',
+    )
+
+  if (typeof recover !== 'function')
+    throw new TypeError('recover must be a function')
+}
+
+export const validateOptions = (opts, {sync = false, fold = false} = {}) => {
+  assertRecover(opts, fold)
+
+  if (sync) {
+    assertSyncOptions(opts)
+    return
+  }
+
+  assertSignal(opts.signal)
+  assertPause(opts.pause)
 }
 
 /**
  * Everything one series run needs before the first item is pulled: the run
  * state, the planned total and the callback/pause knobs its step reads.
  */
-export const planSeries = (opts, items) => {
+export const planSeries = (opts, items, {sync = false} = {}) => {
+  validateOptions(opts, {sync})
+
   const {
     strategy = collect, total, take,
     onProgress, onError, onFailure, onSourceError,
@@ -55,6 +86,7 @@ export const planSeries = (opts, items) => {
     onError,
     pause,
     pauseOnErrors,
+    signal: opts.signal,
   }
 }
 
@@ -91,8 +123,18 @@ const createFoldState = (opts, {keepPartials, readAcc}) => {
  * Everything one fold run needs before the first item is pulled: the run state
  * (with the right result shape) plus the error-handling knobs.
  */
-export const planFold = (opts, {items, keepPartials, readAcc}) => ({
-  state: createFoldState(opts, {keepPartials, readAcc}),
-  total: getPlannedTotal({items}),
-  onError: opts.onError,
-})
+export const planFold = (
+  opts, {items, keepPartials, readAcc}, {sync = false} = {},
+) => {
+  validateOptions(opts, {sync, fold: true})
+
+  return {
+    state: createFoldState(opts, {keepPartials, readAcc}),
+    total: getPlannedTotal({items}),
+    onError: opts.onError,
+    recover: opts.recover,
+    signal: opts.signal,
+    pause: opts.pause,
+    pauseOnErrors: opts.pauseOnErrors ?? false,
+  }
+}

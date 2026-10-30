@@ -7,8 +7,12 @@ import {
   collect, failOnSource, normalizeOperationError, settle, toResult,
 } from './strategy.js'
 import {
-  handleItemErrorAsync, notifyProgress, planFold, planSeries,
+  handleItemErrorAsync, settleFoldErrorAsync,
+} from './errors.js'
+import {
+  notifyProgress, planFold, planSeries,
 } from './run.js'
+import {waitWithSignal} from './wait.js'
 
 export {where} from './search.js'
 export {
@@ -60,19 +64,95 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
     throw lastError
   }
 
+const failureCause = failure =>
+  Array.isArray(failure.errors)
+    ? failure.errors[0]?.error
+    : failure.error
+
+const isThenable = value =>
+  value !== null &&
+  (typeof value === 'object' || typeof value === 'function') &&
+  typeof value.then === 'function'
+
+/**
+ * Throw when a structured result carries a truthy `failure`.
+ *
+ * The `failFast` default can stop a run "silently" if the caller ignores the
+ * returned object: the failure is data, not an exception. `assertOk` turns an
+ * ignored outcome into a thrown `Error` whose `cause` is the underlying error
+ * (the first error for a `failLate` aggregate) and whose `failure` property is
+ * the structured failure object.
+ *
+ * It expects an **awaited** Pipelean result. A thenable is rejected with a
+ * `TypeError` (an un-awaited `series()` call would otherwise be returned as a
+ * Promise and the guard would be silently skipped), and so is a value that is
+ * not a result object.
+ *
+ * It asserts **no failure**, not "no errors": under `collect` / `skip` the
+ * `failure` field is false even when `errors` is non-empty, so the result is
+ * returned unchanged. Use it to guard ignored outcomes, not to turn `collect`
+ * into `rethrow`.
+ *
+ * @param {{failure: false|object}} result An awaited Pipelean result.
+ * @returns {*} The same result object when `failure` is falsy.
+ */
+export const assertOk = result => {
+  if (isThenable(result))
+    throw new TypeError('assertOk() expects an awaited result, not a Promise')
+
+  if (result === null || typeof result !== 'object' || !('failure' in result))
+    throw new TypeError('assertOk() expects a pipelean result')
+
+  if (!result.failure)
+    return result
+
+  const {failure} = result
+  const error = new Error('pipelean: operation failed', {
+    cause: failureCause(failure),
+  })
+  error.failure = failure
+
+  throw error
+}
+
 export const assign = (property, parse) => state => {
   const value = parse(state)
   return value === undefined ? {} : {[property]: value}
 }
 
+const isPositiveDuration = duration =>
+  typeof duration === 'number' && Number.isFinite(duration) && duration > 0
+
+/**
+ * Pause after a step, if configured and if the run was not aborted.
+ *
+ * `pause` may be a number or a function returning a value or a promise. A
+ * non-positive/`undefined`/`NaN` duration means "no wait". A throw escapes to
+ * the caller — never into the item error path.
+ */
+const waitForPause = async (pause, signal, args) => {
+  if (pause === undefined || signal?.aborted)
+    return
+
+  const duration = typeof pause === 'function'
+    ? await pause(...args)
+    : pause
+
+  if (isPositiveDuration(duration))
+    await waitWithSignal(duration, signal)
+}
+
+const shouldStopPull = (signal, index, take) =>
+  signal?.aborted || (take !== undefined && index >= take)
+
 const runAsyncStrategy = async ({
-  state, items, take, step,
+  state, items, take, step, signal,
 }) => {
   let index = 0
 
   const iterate = async () => {
     for await (const item of items) {
-      if (take !== undefined && index >= take)
+      if (shouldStopPull(signal, index, take))
         break
 
       const outcome = await step(item, index)
@@ -102,6 +182,30 @@ const runAsyncStrategy = async ({
   return toResult(state, settle(state))
 }
 
+/**
+ * Apply one series mapper, recording either its result or the handled error.
+ */
+const attemptSeriesItem = async (plan, runFn, {item, index}) => {
+  try {
+    const result = await runFn(item, index)
+    // undefined means "drop this item" (this is how filter() works).
+    if (result !== undefined)
+      plan.state.results.push(result)
+
+    return {failed: false}
+  } catch (error) {
+    const errorOutcome = await handleItemErrorAsync(
+      plan.state, {item, error, index}, plan,
+    )
+
+    return {failed: true, errorOutcome}
+  }
+}
+
+// `skip` keeps spacing; a collected error only pauses when asked.
+const shouldPauseAfter = (plan, failed, errorOutcome) =>
+  !failed || Boolean(errorOutcome?.skip) || plan.pauseOnErrors
+
 export const series = (...args) => {
   const {
     immediate, items, fn, opts,
@@ -116,40 +220,26 @@ export const series = (...args) => {
       return result
     }
 
-    const waitForPause = async condition => {
-      if (condition)
-        await delay(plan.pause)
-    }
-
-    const pauseAfterError = async outcome => {
-      if (outcome === null)
-        await waitForPause(plan.pause && plan.pauseOnErrors)
-      else if (outcome.skip)
-        await waitForPause(plan.pause)
-    }
-
     const step = async (item, index) => {
-      try {
-        const result = await runFn(item, index)
-        // undefined means "drop this item" (this is how filter() works).
-        if (result !== undefined)
-          plan.state.results.push(result)
+      const {failed, errorOutcome} = await attemptSeriesItem(
+        plan, runFn, {item, index},
+      )
 
-        await waitForPause(plan.pause)
-      } catch (error) {
-        const outcome = await handleItemErrorAsync(
-          plan.state, {item, error, index}, plan,
-        )
+      if (errorOutcome?.stop)
+        return errorOutcome
 
-        await pauseAfterError(outcome)
-        return outcome
-      }
+      if (shouldPauseAfter(plan, failed, errorOutcome))
+        await waitForPause(plan.pause, plan.signal, [item, index])
 
-      return null
+      return errorOutcome ?? null
     }
 
     return runAsyncStrategy({
-      state: plan.state, items: inputItems, take: plan.take, step,
+      state: plan.state,
+      items: inputItems,
+      take: plan.take,
+      step,
+      signal: plan.signal,
     })
   }
 
@@ -182,7 +272,8 @@ export const filter = (...args) => {
  *  iterable: AsyncIterable|Array,
  *  scanner: (accumulator, item, index) => Promise<Accumulator>,
  *  initialValue: *,
- *  opts?: {strategy?: StrategyFn, onError?, onFailure?, onSourceError?},
+ *  opts?: {strategy?: StrategyFn, onError?, onFailure?, onSourceError?,
+ *    recover?: (context) => any, pause?, pauseOnErrors?, signal?},
  *  keepPartials: boolean
  * }} params
  */
@@ -196,21 +287,45 @@ const runScan = ({
     readAcc: () => acc,
   })
 
-  const step = async (item, index) => {
-    try {
-      acc = await scanner(acc, item, index)
-      if (keepPartials)
-        plan.state.results.push(acc)
-    } catch (error) {
-      return handleItemErrorAsync(
-        plan.state, {item, error, index}, plan,
-      )
-    }
-
-    return null
+  const commit = value => {
+    acc = value
+    if (keepPartials)
+      plan.state.results.push(value)
   }
 
-  return runAsyncStrategy({state: plan.state, items: iterable, step})
+  const step = async (item, index) => {
+    const state = acc
+    let failed = false
+    let errorOutcome
+
+    try {
+      commit(await scanner(acc, item, index))
+    } catch (error) {
+      const settled = await settleFoldErrorAsync(
+        plan, {item, error, index}, state,
+      )
+      if (settled.recovered)
+        commit(settled.acc)
+      else {
+        failed = true
+        errorOutcome = settled.errorOutcome
+        if (errorOutcome?.stop)
+          return errorOutcome
+      }
+    }
+
+    // The pause runs after the accumulator update, so it sees the new state.
+    // A recovered item is a success, so it always pauses. With pauseOnErrors,
+    // a handled error (including `skip`) pauses too.
+    if (!failed || plan.pauseOnErrors)
+      await waitForPause(plan.pause, plan.signal, [acc, item, index])
+
+    return errorOutcome ?? null
+  }
+
+  return runAsyncStrategy({
+    state: plan.state, items: iterable, step, signal: plan.signal,
+  })
 }
 
 /**
@@ -223,7 +338,8 @@ const runScan = ({
  * @param {AsyncIterable|Array} iterable - Source of values.
  * @param {(accumulator, item, index) => Promise<Accumulator>} scanner
  * @param {*} initialValue
- * @param {{strategy?: StrategyFn, onError?, onFailure?, onSourceError?}} opts
+ * @param {{strategy?: StrategyFn, onError?, onFailure?, onSourceError?,
+ *   recover?: (context) => any}} opts
  */
 // eslint-disable-next-line max-params
 export const scan = (iterable, scanner, initialValue, opts = {}) =>
@@ -235,12 +351,14 @@ export const scan = (iterable, scanner, initialValue, opts = {}) =>
  * Fold over data items and keep only the final accumulator.
  *
  * Use when the last value is all you need: sums, counts, growing records, or a
- * daemon loop built with `forever()` + `stopWhen()`.
+ * service loop built with `forever()` + `signal` + `pause` (and `recover` when
+ * a failed round must not end the loop).
  *
  * @param {AsyncIterable|Array} iterable - Source of values.
  * @param {(accumulator, item, index) => Promise<Accumulator>} scanner
  * @param {*} initialValue
- * @param {{strategy?: StrategyFn, onError?, onFailure?, onSourceError?}} opts
+ * @param {{strategy?: StrategyFn, onError?, onFailure?, onSourceError?,
+ *   recover?: (context) => any}} opts
  */
 // eslint-disable-next-line max-params
 export const reduce = (iterable, scanner, initialValue, opts = {}) =>
@@ -319,6 +437,9 @@ const runBranch = (fn, key, index) =>
  */
 // eslint-disable-next-line complexity, max-statements
 export const join = async (tasks, opts = {}) => {
+  if (opts.recover !== undefined)
+    throw new TypeError('join() does not support recover')
+
   if (tasks === null || typeof tasks !== 'object' || Array.isArray(tasks))
     throw new TypeError('join() requires a record of named async functions')
 

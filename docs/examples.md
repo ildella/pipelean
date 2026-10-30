@@ -87,7 +87,7 @@ const enrichLibrary = async (albums, { shouldStop = () => false, onProgress }) =
     pause: ENRICH_DELAY_MS,     // rate limit lives in series
     pauseOnErrors: true,
     onProgress,                 // progress lives in series
-  })(stopWhen(albums, shouldStop)) // cancellation lives in the source
+  })(stopWhen(albums, shouldStop)) // the predicate stop lives in the source
 
 const { results } = await enrichLibrary(albums, {
   shouldStop: () => cancelRequested,
@@ -96,6 +96,48 @@ const { results } = await enrichLibrary(albums, {
 ```
 
 Before `stopWhen`, this needed an async generator with inline `shouldStop()` checks and the rate-limit delay tangled into its `finally` block — which is how double-yield bugs are born. Now each concern has one home.
+
+#### Example: service loop (`forever` + `signal` + `pause` + `recover`)
+
+Scenario: a worker tick with no items. `signal` is lifecycle cancel, `pause` is
+the cadence, and `recover` keeps the loop alive across a failed round:
+
+```js
+import {forever, reduce, rethrow} from 'pipelean'
+
+const {value} = await reduce(forever(), async state => {
+  await runRound(state)                 // may throw
+  return {...state, failures: 0}
+}, {failures: 0}, {
+  signal: controller.signal,
+  strategy: rethrow,                    // fatal errors still exit
+  onError: ({error}) => log.warn(error.message),
+  recover: ({state}) => ({...state, failures: state.failures + 1}),
+  pause: state => backoff({failures: state.failures}),
+})
+```
+
+The recovered round is consumed (no `errors` entry, `failure: false`), and the
+pause sees the recovered state. `recover` is fold-only; the caller still owns
+`try/finally` for external resources.
+
+#### Example: don't ignore a failure (`assertOk`)
+
+Scenario: a script with `failFast` where nobody inspects the result. The run
+stops as data, and the process exits 0. `assertOk` turns that into an exception:
+
+```js
+import {assertOk, series} from 'pipelean'
+
+const {results} = assertOk(
+  await series(jobs, importJob, {strategy: failFast}),
+)
+// truthy failure → throws with `cause` and `failure`; no failure → same object
+```
+
+Under `collect` / `skip`, `failure` is `false` even with errors recorded, so
+`assertOk` passes the result through — it guards ignored outcomes, it does not
+change the strategy.
 
 #### Example: tryCatch as an App-Layer Primitive
 

@@ -29,6 +29,7 @@
 - [series](#series) - Stateless Sequential Execution
 - [scan](#scan) - Stateful Sequential Transformation
 - [reduce](#reduce) - Pure Reduction
+- [recover](#recover) - Fold-Only Error Recovery (`scan` / `reduce`)
 - [filter](#filter) - Stateless Selection
 - [stopWhen](#stopwhen) - Source Adapter for Predicate-Based Early Exit (alias of sorts: the `while` you don't need)
 - [forever](#forever) - Source Adapter for Unbounded Ticking (the `while (true)` you don't need)
@@ -43,6 +44,7 @@
 
 - [assign](#assign) - Conditional property assignment for `enrich`
 - [where](#where) - Object-pattern predicate
+- [assertOk](#assertok) - Guard against an ignored failure
 - [retry](#retry) - Configurable Retry Logic
 - [tryCatch](#trycatch) - Single Function Lifecycle Hooks
 
@@ -85,7 +87,7 @@ use `failFast`.
 - Calls `onError({item, error, index, total})`, then `onFailure({item, error, index})` immediately
 - Stops iteration
 
-**Return Format**: `{results: [], errors: [], failure: {item, error, index}}`
+**Return Format**: `{results: [], errors: [], sourceErrors: [], failure: {item, error, index}}`
 
 **Example**:
 ```javascript
@@ -112,7 +114,7 @@ const result = await series([1, 2, 3], async item => {
 - Does NOT call `onFailure`
 - Does NOT call `onError` in `series`
 
-**Return Format**: On success: `{results, errors: [], failure: false}`
+**Return Format**: On success: `{results, errors: [], sourceErrors: [], failure: false}`
 
 **Example**:
 ```javascript
@@ -141,7 +143,7 @@ try {
 - Sets `failure: false`
 - Does NOT call `onFailure`
 
-**Return Format**: `{results, errors: [{item, error, index}], failure: false}`
+**Return Format**: `{results, errors: [{item, error, index}], sourceErrors, failure: false}`
 
 **Example**:
 ```javascript
@@ -167,7 +169,7 @@ const result = await series([1, 2, 3], async item => {
 - Sets `failure: {errors}` after loop completes (only if `errors.length > 0`)
 - Calls `onFailure({errors})` if `failure` is truthy
 
-**Return Format**: `{results, errors: [{item, error, index}], failure: {errors}}` (if any errors occurred)
+**Return Format**: `{results, errors: [{item, error, index}], sourceErrors, failure: {errors}}` (if any errors occurred)
 
 **Example**:
 ```javascript
@@ -193,7 +195,7 @@ const result = await series([1, 2, 3], async item => {
 - Sets `failure: false`
 - Does NOT call `onFailure`
 
-**Return Format**: `{results, errors: [], failure: false}`
+**Return Format**: `{results, errors: [], sourceErrors: [], failure: false}`
 
 **Example**:
 ```javascript
@@ -274,8 +276,10 @@ Curried: `(fn, opts?) => (items) => Promise<Outcome>`
   - `onSourceError({error, index})`: Called when the iteration itself throws (a source error). Never called under `rethrow`; mutually exclusive with `onError`.
   - `take`: Limit items processed.
   - `total`: Explicit planned input count for progress/error callbacks. If omitted, `series` uses a cheap known input size when available. If `take` is set, callback `total` is limited to `Math.min(take, knownTotal)`. If no total is known, the `total` key is omitted.
-  - `pause`: Milliseconds between successful items.
-  - `pauseOnErrors`: Whether to also pause after errors (default: `false`).
+  - `pause`: Spacing between items — a number of milliseconds, or `(item, index) => number | Promise<number>` resolved after the result update. `0`, a negative number, `undefined` or `NaN` means no wait.
+  - `pauseOnErrors`: Whether to also pause after handled errors (default: `false`). Under `skip`, the pause always applies.
+  - `signal`: An `AbortSignal`. Checked before each item and while waiting in `pause`; aborting ends the run cleanly — `failure: false`, no `sourceErrors` — with collected `results` preserved. It never interrupts the in-flight mapper or a pending `source.next()`.
+  - `recover`: **not** supported by `series`. It is a fold-only seam — see [recover](#recover).
 
 **Return**: `{results, errors, sourceErrors, failure}` where `failure` is `false` on success. Collected `errors` are `{item, error, index}`. `sourceErrors` is an array of source-error contexts, empty when the source completed cleanly (see [Source errors](#source-errors)).
 
@@ -292,6 +296,12 @@ const result = await series(items, fn, { strategy: failFast })
 
 // With pause for rate limiting
 const result = await series(endpoints, fn, { pause: 500 })
+
+// Pause with a per-item function, abortable through a signal
+const result = await series(endpoints, fn, {
+  signal: controller.signal,
+  pause: (item, index) => (index % 10 === 0 ? 1000 : 100),
+})
 
 // With UI progress
 await series(items, saveItem, {
@@ -310,6 +320,18 @@ const { results } = await series(items, pipe(
   x => x.name,                     // extract name
 ))
 ```
+
+#### Cancellation with `signal`
+
+`signal` (an `AbortSignal`) stops the run at the next safe boundary. It is checked before each item is processed and while a `pause` is pending. Aborting is a clean completion, not an error: it adds no `sourceErrors` and, with no earlier failure, the outcome is `failure: false`. Every result (or accumulator) completed before the abort is preserved.
+
+- An aborted signal before the first item returns zero items and, for folds, the initial accumulator.
+- Aborting during a `pause` resolves the wait immediately, then the loop stops without running another item.
+- Aborting during an in-flight mapper or scanner does **not** interrupt it: the step finishes, its result/accumulator is kept, then the run stops before the pause.
+- A pending `source.next()` is not interrupted either; the item it produces is fetched but not processed.
+- `signal` composes with `stopWhen()` and `take` — they are independent stop conditions.
+
+Callers inspect their own signal; there is no `aborted` field in the outcome.
 
 #### Source errors
 
@@ -368,7 +390,11 @@ Cleanup follows native generator semantics: the generator's own `finally` runs d
   - `onError`: Called for each handled item error. Does not affect control flow.
   - `onFailure`: Called when failure is truthy.
   - `onSourceError`: Called when the iterable itself throws.
-  - `scan` does **not** support `onProgress`, `pause`, or `take`.
+  - `pause`: Spacing after each successful scanner call — a number or `(accumulator, item, index) => number | Promise<number>` resolved after the accumulator update.
+  - `pauseOnErrors`: Also pause after a handled error (including `skip`); default `false`.
+  - `signal`: `AbortSignal` checked before each item and during `pause`; aborting keeps the current accumulator and ends cleanly.
+  - `recover(context)`: Fold-only recovery seam, called when the scanner throws. See [recover](#recover).
+  - `scan` does **not** support `onProgress` or `take`.
 
 **Return Type**: A Promise that resolves to an object containing:
 - `results`: Array of intermediate results (or `[]` on failFast failure)
@@ -417,7 +443,11 @@ const { results, errors } = await scan(
   - `onError`: Called for each handled item error. Does not affect control flow.
   - `onFailure`: Called when failure is truthy.
   - `onSourceError`: Called when the iterable itself throws.
-  - `reduce` does **not** support `onProgress`, `pause`, or `take`.
+  - `pause`: Spacing after each successful scanner call — a number or `(accumulator, item, index) => number | Promise<number>` resolved after the accumulator update.
+  - `pauseOnErrors`: Also pause after a handled error (including `skip`); default `false`.
+  - `signal`: `AbortSignal` checked before each item and during `pause`; aborting keeps the current accumulator and ends cleanly.
+  - `recover(context)`: Fold-only recovery seam, called when the scanner throws. See [recover](#recover).
+  - `reduce` does **not** support `onProgress` or `take`.
 
 **Return Type**: A Promise that resolves to an object containing:
 - `value`: The final accumulated value. Preserved under every strategy except `rethrow`, even when the source dies mid-stream
@@ -453,6 +483,69 @@ const {value: totalDuration} = await reduce(
 
 ---
 
+### recover
+
+**Purpose**: A fold-local recovery seam. When the scanner throws, `recover` turns that error into the **next accumulator** instead of letting the error strategy consume the iteration. It is an option, not a strategy: it sits between the item error and the strategy and gives `scan` / `reduce` a way to keep folding through a failed step.
+
+**Applies to**: `scan`, `reduce`, `scanSync`, `reduceSync`. It is **not** supported by `series`, `filter`, `findSync`, `enrich`, `join`, or `pipe` — those have no accumulator to recover into. Passing `recover` to any of them throws a `TypeError` (`enrich` raises its own message pointing at `reduce`).
+
+**Type**: `(context) => nextAccumulator` — sync or async in the async folds.
+
+**Context**: `{error, item, index, state, total?}`
+
+- `error`: the error the scanner threw.
+- `item` / `index`: the item being folded and its iteration index.
+- `state`: the accumulator that was passed **into** the scanner for this item (not a partially updated value).
+- `total`: the planned item count when known (an array has a length; a generator does not), otherwise omitted.
+
+**Return value**: the **next accumulator**, not a patch. It is used exactly as if the scanner had returned it.
+
+**Semantics**:
+
+- **`onError` fires first, even under `rethrow`.** With `recover` present the item error is handled, so `rethrow` must not suppress the telemetry. Without `recover`, `rethrow` behaves as before and does not call `onError`.
+- **A successfully recovered error is consumed**: it is not appended to `errors`, it does not make `failure` truthy, `onFailure` is not called for it, and `scan` pushes the recovered accumulator into `results`. It is a successful intermediate state.
+- **`recover` throwing** makes that throw the item error, handled by the normal strategy: `failFast` stops, `collect` / `failLate` record it, `skip` ignores it, `rethrow` rejects. The original scanner error has already gone through `onError`, so in this edge two reports can be observed for one item: the original through the recovery path, then the recover error through the normal path.
+- **Source errors bypass `recover`.** A generator dying mid-stream is still a source error: `onSourceError` / `sourceErrors` / `rethrow`, never `recover`.
+- **A throwing `pause` is not recoverable.** It stays a source/config error, as with any fold.
+- **`pause` runs after a successful recovery**, regardless of `pauseOnErrors`, because a recovery is a successful iteration. If `recover` throws, the error path follows `pauseOnErrors` as usual.
+- **`signal` during `recover`**: the recovered accumulator is kept, then the pause is skipped and the loop stops, consistent with an abort during an in-flight scanner.
+
+**Validation**: `recover` must be a function. A non-function throws a `TypeError` before iteration starts. In the sync folds `recover` must be synchronous: a returned thenable is rejected with a `TypeError`.
+
+```javascript
+import {reduce, rethrow, forever} from 'pipelean'
+
+const {value} = await reduce(
+  forever(),
+  async state => {
+    const results = await runner.sync({full: state.full})
+    return {...state, full: false, failures: failed(results) ? state.failures + 1 : 0}
+  },
+  {failures: 0, full: true},
+  {
+    signal: controller.signal,
+    strategy: rethrow,
+    onError: ({error}) => log.warn(error.message),
+    recover: ({state}) => ({...state, full: false, failures: state.failures + 1}),
+    pause: state => backoff({base: everyMs, failures: state.failures}),
+  },
+)
+```
+
+The thrown round is logged by `onError`, converted into the next accumulator by `recover`, and the pause sees the recovered state. The loop survives failed rounds with no `try/catch` inside the scanner.
+
+**recover vs the other error tools**:
+
+| Tool | Scope | Direction |
+| --- | --- | --- |
+| `recover` | one fold item | error → next accumulator, then keep folding |
+| `strategy: collect` | the whole run | record the error, continue with the *previous* accumulator |
+| `tryCatch` | one function | swallow, return `undefined` (the drop signal) |
+| `retry` | one function | retry the same call, then rethrow |
+| `assertOk` | one finished result | throw if `failure` is truthy, preserving the cause |
+
+---
+
 ### filter
 
 **Purpose**: Stateless selection tool - filters items from an iterable based on a predicate function. Delegates to `series` internally: the predicate is converted to a transform that returns the original item (keep) or `undefined` (drop).
@@ -464,9 +557,9 @@ const {value: totalDuration} = await reduce(
 - `items`: The iterable to filter (immediate mode)
 - `opts` (optional): Options passed through to `series`
 
-**Options**: Same as `series` — `strategy`, `onError`, `onFailure`, `take`, `total`, `onProgress`, `pause`, `pauseOnErrors`.
+**Options**: Same as `series` — `strategy`, `onError`, `onFailure`, `take`, `total`, `onProgress`, `pause`, `pauseOnErrors`, `signal`. `recover` is **not** supported: it is fold-only (`scan` / `reduce`).
 
-**Return Type**: `{ results, errors, failure }` — same shape as `series`:
+**Return Type**: `{ results, errors, sourceErrors, failure }` — same shape as `series`:
 - `results`: Original items where the predicate returned truthy
 - `failure`: `false` on success (no errors), `{item, error, index}` for `failFast`, `{errors}` for `failLate`
 
@@ -525,7 +618,7 @@ stopWhen(folders, () => count >= limit)
 
 ### forever
 
-**Purpose**: Source adapter that yields the natural numbers 0, 1, 2, ... with no end — the unbounded counterpart of `stopWhen`. The building block for daemon loops: repeat a step until an abort predicate says so. Pipelean does not ship a daemon primitive; it ships the two halves, `forever` and `stopWhen`, and the composition is the whole story.
+**Purpose**: Source adapter that yields the natural numbers 0, 1, 2, ... with no end — the unbounded counterpart of `stopWhen`. Use it to build a daemon loop: repeat a step until an abort signal says stop, with `pause` owning the cadence. `stopWhen` remains available for domain limits (a max number of rounds) layered on top.
 
 **Type**: `() => asyncIterable<number>`
 Sync: `() => iterable<number>`
@@ -533,27 +626,32 @@ Sync: `() => iterable<number>`
 **Parameters**: none.
 
 **Key Characteristics**:
-- **Unbounded**: yields forever until the consumer stops pulling — every consumption must be bounded by `stopWhen`, `take`, or a `break`. A bare `collect(forever())` never ends
-- **Composable**: `stopWhen(forever(), predicate)` is a predicate-stopped tick source; the predicate (usually an abort-signal check) is checked before each tick, so "cancel before work" holds
+- **Unbounded**: yields forever until the consumer stops pulling — every consumption must be bounded by `signal`, `stopWhen`, `take`, or a `break`. A bare `collect(forever())` never ends
+- **Composable**: `stopWhen(forever(), predicate)` is a predicate-stopped tick source; the predicate (usually a domain limit) is checked before each tick. For lifecycle cancellation prefer `reduce(..., {signal, pause, strategy})`
 - **Index semantics**: the yielded numbers are the tick indices a consumer receives — a cycle counter for free
 - **Non-accumulating consumers recommended**: a daemon has no items, so `reduce`/`scan` (stateful, no `results` array) fit better than `series`, which would otherwise rely on the `undefined` drop signal every tick
 
 **Usage Example**:
 ```javascript
-import { reduce, rethrow, forever, stopWhen } from 'pipelean'
+import { reduce, rethrow, forever } from 'pipelean'
 
-// daemon loop: one pass immediately, then repeat until Ctrl-C
-const { value: progress } = await reduce(
-  stopWhen(forever(), () => controller.signal.aborted),
+// daemon loop: one round, pause, repeat until the controller aborts
+const { value: state } = await reduce(
+  forever(),
   async (state, index) => {
-    await runRound({ index })
-    await sleep({ ms: everyMs, signal: controller.signal })
-    return state
+    await runRound({ index, state })
+    return {...state, cycles: state.cycles + 1}
   },
   { cycles: 0, failures: 0 },
-  { strategy: rethrow },
+  {
+    signal: controller.signal,   // lifecycle stop, checked between rounds
+    pause: everyMs,              // cadence, abort-aware
+    strategy: rethrow,           // infrastructure failure exits the loop
+  },
 )
 ```
+
+The abort lands between rounds: an in-flight round completes and its accumulator is kept, then the run stops without waiting the remaining pause. `pause` may also be `(accumulator, item, index) => ms` when the cadence varies.
 
 ---
 
@@ -636,6 +734,7 @@ The difference is ergonomics and reporting: `enrich` fixes the fold step (shallo
   - `strategy`: Error strategy (default: `collect`). `failFast`, `collect`, `failLate`, `skip`, `rethrow`.
   - `onError({operation, error, index, total})`: Called for each handled operation error. Receives a normalized shape where `operation` is the function's `name` (or `operation-${index}` for anonymous functions) and `total` is the operation count.
   - `onFailure(failure)`: Called when `failure` is truthy. Receives `{operation, error, index}` for `failFast` and `{errors}` for `failLate` — both normalized.
+  - `recover`: **not** supported. `enrich` uses `reduce` internally but rejects `recover` explicitly; use `reduce` if you need fold recovery.
 
 **Return**: A function `(initialState) => Promise<{value, errors, failure}>`.
 
@@ -837,6 +936,71 @@ const admins = await filter(users, isAdmin)
 const adults = await filter(users, {active: true})
 ```
 
+### assertOk
+
+**Purpose**: Guard against an ignored failure. `failFast` reports a failure as
+data and stops the run; it never throws. If the caller forgets to inspect the
+result, a critical job can stop silently. `assertOk` converts that ignored
+outcome into an exception.
+
+**Type**: `(result) => result` (synchronous; throws on failure)
+
+**Parameters**:
+- `result`: an **awaited** Pipelean result — `series`, `filter`, `scan`,
+  `reduce`, `enrich`, `join`, `findSync`, or any of their sync twins. Both
+  `{results, ...}` and `{value, ...}` shapes work, as does `findSync`'s
+  `{result, ...}`. It must be a result object with a `failure` property.
+
+**Return**: the **same result object**, unchanged, when `result.failure` is
+falsy.
+
+**Throws**: before inspecting `failure`, a `TypeError` when the argument is not
+a result:
+
+- an un-awaited Promise (any thenable) throws
+  `TypeError('assertOk() expects an awaited result, not a Promise')` — otherwise
+  the guard would silently return the Promise;
+- `undefined`, `null`, a primitive, an array, or a plain object without a
+  `failure` property throws `TypeError('assertOk() expects a pipelean result')`.
+
+When `result.failure` is truthy, an `Error` with:
+
+- `message`: `'pipelean: operation failed'` (stable, safe to assert on).
+- `cause`: the underlying error — `failure.error` for a normal failure, or the
+  first `failure.errors[].error` for a `failLate` aggregate.
+- `failure`: the structured failure object, exactly as returned
+  (`{item, error, index}`, `{errors}`, or a source context `{error, index}`).
+
+The result object is not mutated; only the thrown error is created.
+
+**Caveat — `failure`, not `errors`**: `assertOk` asserts **no failure**, not "no
+errors". Under `collect` and `skip`, `failure` is `false` even when `errors` is
+non-empty, so `assertOk` returns the result untouched. It is a guard for ignored
+outcomes, not a way to turn `collect` into `rethrow`: choose `failFast` /
+`failLate` when you want a silent outcome to be impossible.
+
+```javascript
+import {assertOk, series} from 'pipelean'
+
+const result = assertOk(await series(jobs, importJob, {strategy: 'failFast'}))
+// No failure: returns the same {results, errors, sourceErrors, failure: false}.
+
+try {
+  assertOk(await series(jobs, importJob, {strategy: 'failFast'}))
+} catch (error) {
+  console.error(error.message)      // 'pipelean: operation failed'
+  console.error(error.cause)        // the original mapper error
+  console.error(error.failure)      // {item, error, index}
+}
+```
+
+`assertOk` is not an error strategy and does not change strategy defaults: it
+only decides whether a finished outcome is acceptable to ignore. `retry` and
+`tryCatch` remain the single-function wrappers; `recover` remains the fold-local
+seam.
+
+---
+
 ### retry
 
 **Purpose**: Retry async functions with configurable attempts and delays between attempts.
@@ -941,9 +1105,13 @@ want Pipelean's structured error collection.
 
 The sync variants handle **source errors** with the same semantics as their async twins: `seriesSync`, `filterSync`, `findSync`, `scanSync`, and `reduceSync` accept `onSourceError({error, index})` and report errors thrown by the iteration itself in the `sourceErrors` field. See [Source errors](#source-errors) under `series`.
 
+`assertOk` is not a sync variant: it is synchronous and works on both async and sync results, so it is usable on either side of the sync/async split.
+
+`scanSync` and `reduceSync` also support the fold-only `recover` option. It must be synchronous: returning a thenable is treated as the recover error (a `TypeError`) and handled by the active strategy.
+
 **Not supported in sync variants**:
 
-- `pause` and `pauseOnErrors`, because they depend on async `delay()`
+- `signal`, `pause` and `pauseOnErrors`, because they depend on async waiting and timers. Passing any of them throws a `TypeError` — they are never silently ignored
 - async iterables, because sync variants use plain synchronous iteration
 
 **Usage Example**:

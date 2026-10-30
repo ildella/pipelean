@@ -37,13 +37,17 @@ enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), in
 6. `enrich` — one item, stateful accumulation of object patches
 7. `join` — named concurrent tasks, one structured outcome
 8. `stopWhen` / `forever` — source adapters (predicate stop, unbounded ticks)
-9. `assign` — helper for building `enrich` steps
-10. `where`, `findSync` — search helpers
+9. `signal` — cancellation option on every async iterator
+10. `assign` — helper for building `enrich` steps
+11. `where`, `findSync` — search helpers
+12. `assertOk` — guard a result whose failure would otherwise be ignored
 
 > **Sync variants** — the iteration functions also have synchronous
 > counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`,
 > `reduceSync`, `stopWhenSync`; `pipeSync`, `enrichSync` and `tryCatchSync`
 > exist too. Same strategies and shapes, direct return instead of a `Promise`.
+> `signal`, `pause` and `pauseOnErrors` are async-only: passing them to a sync
+> variant throws a `TypeError`.
 
 ## Error strategies
 
@@ -75,6 +79,67 @@ strategies:
 - Ignores errors (no collection, `errors` stays empty)
 - Sets `failure: false`
 - Does NOT call `onFailure`
+
+### Fold recovery (`recover`)
+
+`scan` and `reduce` (plus their sync twins) accept one extra option, `recover`.
+It is **not** a strategy: it is a seam that runs when the scanner throws, before
+the strategy decides anything. It receives
+`{error, item, index, state, total?}` — `state` is the accumulator passed into
+the scanner for that item — and returns the **next accumulator**, sync or async.
+
+```js
+import {reduce, rethrow} from 'pipelean'
+
+await reduce(rounds, async state => {
+  return {...state, ok: await runRound(state)}
+}, {failures: 0, ok: true}, {
+  strategy: rethrow,
+  onError: ({error}) => log.warn(error.message),
+  recover: ({state}) => ({...state, failures: state.failures + 1}),
+})
+```
+
+- `onError` fires **first**, even under `rethrow`: with recovery in place the
+  error is handled, so telemetry is not suppressed. Without `recover`, `rethrow`
+  behaves as before and does not call `onError`.
+- A recovered error is **consumed**: `errors` stays empty, `failure` stays
+  `false`, `onFailure` is not called, and `scan` pushes the recovered
+  accumulator into `results`.
+- If `recover` itself throws, that error becomes the item error and the normal
+  strategy handles it. The original scanner error was already reported, so two
+  `onError` reports may be observed for one item.
+- Source errors (a generator dying mid-stream) bypass `recover`.
+- `pause` runs after a successful recovery regardless of `pauseOnErrors`; an
+  abort during recovery keeps the recovered accumulator, skips the pause and
+  stops.
+- `recover` is fold-only: `series`, `filter`, `findSync`, `enrich`, `join` and
+  `pipe` throw a `TypeError` if given one. `enrich` points you at `reduce`.
+- In `scanSync` / `reduceSync` it must be synchronous; a thenable is rejected
+  with a `TypeError`.
+
+### Guarding ignored outcomes (`assertOk`)
+
+`failFast` is the fold default, and its failure is data: the run stops and
+returns `failure`, but nothing throws. If the caller never looks at the result,
+the job stops silently — the most common way to misuse `failFast`.
+
+`assertOk(result)` closes that gap:
+
+```js
+import {assertOk, reduce} from 'pipelean'
+
+const {value} = assertOk(await reduce(items, scanner, initial))
+```
+
+- falsy `failure`: returns the same result object;
+- truthy `failure`: throws `Error('pipelean: operation failed')` with the
+  underlying error as `cause` and the structured failure as `error.failure`.
+
+It asserts **no failure**, not "no errors": under `collect` / `skip`, `failure`
+is `false` even with entries in `errors`, so `assertOk` returns the result. Use
+`failFast` / `failLate` when an ignored failure must be impossible, and
+`assertOk` to make sure the outcome is not ignored.
 
 ### Defaults
 
@@ -123,10 +188,20 @@ details.
 
 * **`series` / `filter` only**
   - `onProgress({item, result, index, total})` after each kept success (awaited, live).
-  - `pause` / `pauseOnErrors` for rate limiting.
   - `take` to process a prefix (including infinite generators).
   - `total` for progress math; omitted when the size is unknown.
-  - `scan` and `reduce` do **not** have `onProgress`, `pause`, or `take`.
+  - `scan` and `reduce` do **not** have `onProgress` or `take`.
+
+* **Async loop control (all iterators)**
+  - `pause` spaces work: a number, or a function that receives
+    `(item, index)` on `series`/`filter` and `(accumulator, item, index)` on
+    folds, resolved after the state update.
+  - `pauseOnErrors` also pauses after handled errors (`skip` always pauses on
+    `series`).
+  - `signal: AbortSignal` stops the run before the next item and cuts a pending
+    `pause` short. Aborting is clean (`failure: false`, no source errors) and
+    keeps the completed result/accumulator; it never interrupts the in-flight
+    mapper/scanner. Sync variants reject all three options with a `TypeError`.
 
 * **Source adapters**
   - `stopWhen(items, predicate)` stops pulling as soon as the predicate is
@@ -200,8 +275,22 @@ const {value: totalDuration} = await reduce(
 
 `scan` defaults to `failFast`, and under `failFast` the `results` array is
 cleared on failure. Use `collect`/`failLate` when partial progress matters.
-Neither supports `pause`, `take`, or `onProgress`: if you need those, the work is
-probably `series` plus its own accumulator.
+Both folds support `pause`, `pauseOnErrors`, `signal` and the fold-only
+`recover` seam; `take` and `onProgress` remain `series`-only.
+
+`recover` is what lets a fold survive a failed step while keeping the
+accumulator moving:
+
+```js
+const {value} = await reduce(items, scanner, {failures: 0}, {
+  strategy: rethrow,
+  onError: ({error}) => log.warn(error.message),
+  recover: ({state}) => ({...state, failures: state.failures + 1}),
+})
+```
+
+It is not a strategy and not available outside `scan` / `reduce` (and their sync
+twins). See [Fold recovery](#fold-recovery-recover) above.
 
 `enrich` folds **steps** over one input. Each step receives the current state and
 returns an object patch that gets shallow-merged in. Define the pipeline once and

@@ -101,10 +101,11 @@ one input with many enrichments (`enrich`), or you need a fixed set of different
 tasks running together (`join`).
 
 **Gotchas** — returning `undefined` from the mapper **drops the item** (that is
-how `filter` and select-in-pipe work). `take`, `pause` and `onProgress` exist
-only on `series`/`filter`, not on `scan`/`reduce`. There is no `AbortSignal`
-support: cancel through `stopWhen()` plus your own controller inside the
-operation.
+how `filter` and select-in-pipe work). `take` and `onProgress` exist only on
+`series`/`filter`. `pause` works on `series`/`filter` (a number or
+`(item, index) => ms`) and on `scan`/`reduce` (with `(accumulator, item, index)`),
+and `signal` stops the run cleanly between items; an in-flight mapper is never
+interrupted.
 
 ### Filtering
 
@@ -184,13 +185,13 @@ independent (`series`), or the collection being folded is your operation list
 
 **Gotchas** — the default strategy is `failFast`, and under `failFast` the
 `results` array is **cleared** on failure: you get `failure`, not partials. Use
-`collect` or `failLate` when partial progress matters. No `pause`, `take` or
-`onProgress`.
+`collect` or `failLate` when partial progress matters. `pause`, `pauseOnErrors`,
+`signal` and the fold-only `recover` work; `take` and `onProgress` do not.
 
 ### `reduce()` — items, final value only
 
 **Use when** the last value is all you need: sums, counts, concatenation, folding
-into a growing record, or a daemon loop built with `forever()` + `stopWhen()`.
+into a growing record, or a daemon loop built with `forever()` + `signal`.
 
 ```js
 import {reduce} from 'pipelean'
@@ -207,6 +208,8 @@ are folding is a list of functions (`enrich`).
 
 **Gotchas** — same engine and defaults as `scan` (`failFast`); `value` is the
 last successful accumulator and is preserved when the source dies mid-stream.
+`recover` lets a failed scanner call return the next accumulator instead, so the
+fold keeps going (useful for service loops — see below).
 
 ### `enrich()` — steps, final value
 
@@ -286,29 +289,77 @@ p-map; `join` has no concurrency cap, no scheduler and no cancellation.
 
 ---
 
-## Sources and loops: `stopWhen()`, `forever()`
+## Sources and loops: `stopWhen()`, `forever()`, `signal`
 
 `stopWhen(items, predicate)` stops pulling from any iterable as soon as the
 predicate is truthy — checked **before** the item is offered downstream. It
 composes with every consumer, no option changes.
 
 ```js
-import {reduce, forever, stopWhen} from 'pipelean'
+import {series, stopWhen} from 'pipelean'
 
 await series(enrichOne, {pause: DELAY})(stopWhen(albums, shouldStop))
 ```
 
 Stopping is a clean shorter run (`failure: false`, no source error), and the
-abandoned source's cleanup still runs. `forever()` yields `0, 1, 2, …` with no
-end: the two halves make a daemon loop, with `stopWhen` supplying the length and
-`reduce` carrying the state. See [patterns](docs/patterns.md#pattern-10-daemon-loop-with-forever--stopwhen).
+abandoned source's cleanup still runs.
+
+`forever()` yields `0, 1, 2, …` with no end. A daemon loop passes `signal` and
+`pause` to the consumer instead of wrapping the source:
+
+```js
+import {reduce, forever, rethrow} from 'pipelean'
+
+await reduce(forever(), async state => {
+  await runRound(state)
+  return state
+}, {}, {
+  signal: controller.signal,   // lifecycle stop, between rounds
+  pause: everyMs,              // loop cadence, abort-aware
+  strategy: rethrow,
+})
+```
+
+A failed round can be survived without a `try/catch` inside the scanner: `recover`
+turns the thrown round into the next accumulator, `onError` still logs it (even
+under `rethrow`), and the pause sees the recovered state:
+
+```js
+await reduce(forever(), async state => {
+  writeRound(await runner.sync({full: state.full}))
+  return {...state, full: false}
+}, {failures: 0, full: true}, {
+  signal: controller.signal,
+  strategy: rethrow,
+  onError: ({error}) => log.warn(error.message),
+  recover: ({state}) => ({...state, full: false, failures: state.failures + 1}),
+  pause: state => backoff({base: everyMs, failures: state.failures}),
+})
+```
+
+`recover` is fold-only (`scan` / `reduce`): it is not a strategy and not
+available on `series`, `filter`, `findSync`, `enrich`, `join` or `pipe`.
+
+Two stop mechanisms, two jobs:
+
+- **`signal`** is the lifecycle stop: user cancel, shutdown, a parent request
+  ending. It ends the run cleanly at the next item or during `pause`, keeping the
+  completed step.
+- **`stopWhen`** is a source-level condition: a batch limit
+  (`() => count >= limit`), a content sentinel (`page.isLast`), or any predicate
+  over the item. It works with raw `for await` too and needs no consumer options.
+
+`signal` and `stopWhen` compose freely. See
+[patterns](docs/patterns.md#pattern-10-daemon-loop-with-forever--signal).
 
 ---
 
-## Resilience wrappers: `retry()`, `tryCatch()`
+## Resilience wrappers and guards: `retry()`, `tryCatch()`, `assertOk()`
 
-These wrap a single function and compose into `pipe`/`series`. They are **not**
-error strategies — strategies belong to the iterators.
+`retry` and `tryCatch` wrap a single function and compose into `pipe`/`series`.
+They are **not** error strategies — strategies belong to the iterators.
+`assertOk` is a guard on a finished result, for the case where the outcome would
+otherwise be ignored.
 
 ```js
 import {pipe, retry, series, tryCatch} from 'pipelean'
@@ -327,6 +378,33 @@ await series(tracks, pipeline, {strategy: collect})
 - `tryCatch(fn, {onStart, onSuccess, onError, onFinally})` returns `undefined`
   on failure — the same drop signal used everywhere else — so a failed step
   short-circuits `pipe` and drops the item in `series`.
+
+### `assertOk()` — don't ignore the outcome
+
+`failFast` does not throw: it stops the run and returns `failure` as data. If
+nobody reads the result, a critical job can stop silently. `assertOk` is the
+guard for that footgun:
+
+```js
+import {assertOk, series} from 'pipelean'
+
+const result = assertOk(await series(jobs, importJob, {strategy: failFast}))
+console.log(result.results)
+```
+
+- No failure: the same result object is returned unchanged.
+- Truthy `failure`: throws `Error('pipelean: operation failed')` with the
+  underlying error as `cause` (the first error for a `failLate` aggregate) and
+  the structured failure object as `error.failure`.
+- Expects an **awaited** Pipelean result: an un-awaited Promise throws
+  `TypeError('assertOk() expects an awaited result, not a Promise')`, and
+  `undefined` or a non-result object throws
+  `TypeError('assertOk() expects a pipelean result')`.
+
+`assertOk` asserts **no failure**, not "no errors". Under `collect` / `skip`,
+`failure` is `false` even when `errors` is non-empty, so `assertOk` returns the
+result: it is a guard for ignored outcomes, not a way to turn `collect` into
+`rethrow`.
 
 ---
 
@@ -357,7 +435,7 @@ never changes control flow.
 | `series`, `filter`, `scan` | `{results, errors, sourceErrors, failure}` |
 | `reduce` | `{value, errors, sourceErrors, failure}` |
 | `enrich`, `join` | `{value, errors, failure}` |
-| `findSync` | `{result, errors, failure}` |
+| `findSync` | `{result, errors, sourceErrors, failure}` |
 
 `enrich` and `join` fold a known list of steps/branches, so a "source error" is
 impossible there and the field is not returned.
@@ -428,11 +506,16 @@ Worth knowing before you adopt it:
   a lazy producer, write a normal async generator and let it yield.
 - **Sequential by design.** The only concurrency is `join`, which has no cap, no
   scheduler and no cancellation.
-- **No `AbortSignal` plumbing.** Cancel through `stopWhen()` and keep
-  intra-item cancellation in your own operation.
+- **Cancellation stops between items.** `signal` is checked before each item and
+  while `pause` is pending; it never interrupts an in-flight mapper/scanner.
+  Keep intra-item cancellation (`fetch(..., {signal})`) in your own operation.
+  `stopWhen()` remains the source-level predicate stop.
 - **`undefined` is the drop sentinel**, so you cannot map an item to `undefined`.
-- **Two error layers.** Strategies belong to the iterators; `retry`/`tryCatch`
-  are function wrappers. Mixing them up is the most common mistake.
+- **Error tools are not layers.** Strategies own the run's policy; the
+  fold-only `recover` seam turns one scanner error into the next accumulator;
+  `retry` / `tryCatch` wrap a single function; `assertOk` guards a result that
+  would otherwise be ignored. `recover` is not a strategy, and `assertOk` does
+  not change a strategy's outcome.
 - **No TypeScript declarations yet.**
 - **Not a stream adapter.** Anything `for await` accepts works; Node
   `ReadableStream` glue is yours.
