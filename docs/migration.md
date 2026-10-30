@@ -2,6 +2,53 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.12.0: `flow` → `enrich`, stricter composition
+
+Four breaking changes. They exist to remove the "is the stateful one `flow`, `scan` or `reduce`?" ambiguity.
+
+**`flow()` / `flowSync()` are now `enrich()` / `enrichSync()`.** Hard rename, no alias. The mental model:
+
+|  | keep every intermediate | keep only the final |
+|---|---|---|
+| fold over **items** | `scan` | `reduce` |
+| fold over **steps** (one input) | — | `enrich` |
+
+`enrich` is literally `reduce` over your steps:
+
+```js
+// Before
+import { flow } from 'pipelean'
+const process = flow([prepare, parse, finalize])
+
+// After
+import { enrich } from 'pipelean'
+const process = enrich([prepare, parse, finalize])
+
+// Identical to:
+const process = input => reduce(
+  [prepare, parse, finalize],
+  (state, op) => ({...state, ...op(state)}),
+  input,
+)
+```
+
+`foldSteps` is used in the documentation as the explanatory spelling of `enrich`; it is **not** an export.
+
+**`tryCatch()` / `tryCatchSync()` now return `undefined` on failure instead of `null`.** `undefined` is the library-wide drop signal, so a failed step now short-circuits `pipe` and drops the item in `series`. If you relied on `null`:
+
+```js
+// Before
+const data = await safeFetch(url) // null on error
+if (data === null) return fallback
+
+// After: undefined on error
+const data = (await safeFetch(url)) ?? fallback
+```
+
+**`scanReduce()` / `scanReduceSync()` are removed.** Use `reduce()` / `reduceSync()`.
+
+**`storePartialResults` is no longer a public option.** `scan` always keeps every intermediate result; `reduce` always keeps the final value.
+
 ## 0.10.1: `stopWhen` source adapter
 
 `stopWhen(items, predicate)` stops pulling from any iterable once the predicate is truthy, checked before the item is offered downstream. Additive — no migration needed, but delete your hand-rolled stop logic when you see it:
@@ -103,7 +150,7 @@ const {value} = await process(input)
 
 ## 0.7.1: `scanReduce()` → `reduce()`
 
-`scanReduce` was renamed to `reduce` as the main API. `scanReduce` and `scanReduceSync` are kept as aliases pointing to the same functions, so existing code keeps working.
+`scanReduce` was renamed to `reduce` as the main API. `scanReduce` and `scanReduceSync` were kept as aliases pointing to the same functions. They were removed in 0.12.0.
 
 **Before:**
 ```js

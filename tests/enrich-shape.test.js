@@ -1,10 +1,10 @@
 import {test, expect} from 'vitest'
 import {
-  failFast, failLate, flow,
+  failFast, failLate, enrich,
 } from '$src/functional'
 
 test('normalized errors shape', async () => {
-  const {errors} = await flow([
+  const {errors} = await enrich([
     () => {
       throw new Error('e')
     },
@@ -18,7 +18,7 @@ test('normalized errors shape', async () => {
 })
 
 test('normalized failure shape for failFast', async () => {
-  const {failure} = await flow([
+  const {failure} = await enrich([
     () => ({a: 1}),
     function namedOp () {
       throw new Error('fail')
@@ -31,7 +31,7 @@ test('normalized failure shape for failFast', async () => {
 })
 
 test('normalized failure shape for failLate', async () => {
-  const {failure} = await flow([
+  const {failure} = await enrich([
     () => {
       throw new Error('e1')
     },
@@ -46,7 +46,7 @@ test('normalized failure shape for failLate', async () => {
 })
 
 test('named operation uses function.name', async () => {
-  const {errors} = await flow([
+  const {errors} = await enrich([
     function extractYear () {
       throw new Error('fail')
     },
@@ -56,7 +56,7 @@ test('named operation uses function.name', async () => {
 })
 
 test('anonymous operation uses fallback name', async () => {
-  const {errors} = await flow([
+  const {errors} = await enrich([
     () => {
       throw new Error('fail')
     },
@@ -66,7 +66,7 @@ test('anonymous operation uses fallback name', async () => {
 })
 
 test('invalid return null treated as TypeError', async () => {
-  const {errors} = await flow([
+  const {errors} = await enrich([
     () => null,
   ])({})
 
@@ -75,7 +75,7 @@ test('invalid return null treated as TypeError', async () => {
 })
 
 test('invalid return array treated as TypeError', async () => {
-  const {errors} = await flow([
+  const {errors} = await enrich([
     () => [1, 2],
   ])({})
 
@@ -84,7 +84,7 @@ test('invalid return array treated as TypeError', async () => {
 })
 
 test('invalid return primitive treated as TypeError', async () => {
-  const {errors} = await flow([
+  const {errors} = await enrich([
     () => 'invalid',
   ])({})
 
@@ -93,7 +93,7 @@ test('invalid return primitive treated as TypeError', async () => {
 })
 
 test('empty operations array returns initial state', async () => {
-  const result = await flow([])({a: 1})
+  const result = await enrich([])({a: 1})
 
   expect(result).toEqual({
     value: {a: 1},
@@ -103,7 +103,7 @@ test('empty operations array returns initial state', async () => {
 })
 
 test('repeated execution with different inputs', async () => {
-  const process = flow([
+  const process = enrich([
     state => ({doubled: state.x * 2}),
   ])
 
@@ -117,7 +117,7 @@ test('repeated execution with different inputs', async () => {
 test('no mutation of initial state', async () => {
   const original = {x: 1}
 
-  await flow([
+  await enrich([
     state => ({y: state.x + 1}),
   ])(original)
 
@@ -125,21 +125,21 @@ test('no mutation of initial state', async () => {
 })
 
 test('validation: non-array operations throws TypeError', () => {
-  expect(() => flow('not an array')).toThrow(TypeError)
+  expect(() => enrich('not an array')).toThrow(TypeError)
 })
 
 test('validation: non-function in operations throws TypeError', () => {
-  expect(() => flow([() => ({}), 42])).toThrow(TypeError)
+  expect(() => enrich([() => ({}), 42])).toThrow(TypeError)
 })
 
 test('validation: null initialState throws TypeError', async () => {
-  await expect(flow([() => ({})])(null)).rejects.toThrow(TypeError)
+  await expect(enrich([() => ({})])(null)).rejects.toThrow(TypeError)
 })
 
 test('validation: array initialState throws TypeError', async () => {
-  await expect(flow([() => ({})])([1, 2])).rejects.toThrow(TypeError)
+  await expect(enrich([() => ({})])([1, 2])).rejects.toThrow(TypeError)
 })
 
 test('validation: primitive initialState throws TypeError', async () => {
-  await expect(flow([() => ({})])(42)).rejects.toThrow(TypeError)
+  await expect(enrich([() => ({})])(42)).rejects.toThrow(TypeError)
 })

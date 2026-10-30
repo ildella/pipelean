@@ -1,8 +1,8 @@
 import {test, expect} from 'vitest'
-import {flowSync} from '$src/index'
+import {enrichSync} from '$src/index'
 
 test('normalized errors shape', () => {
-  const {errors} = flowSync([
+  const {errors} = enrichSync([
     () => {
       throw new Error('e')
     },
@@ -16,7 +16,7 @@ test('normalized errors shape', () => {
 })
 
 test('named operation uses function.name', () => {
-  const {errors} = flowSync([
+  const {errors} = enrichSync([
     function extractYear () {
       throw new Error('fail')
     },
@@ -26,7 +26,7 @@ test('named operation uses function.name', () => {
 })
 
 test('anonymous operation uses fallback name', () => {
-  const {errors} = flowSync([
+  const {errors} = enrichSync([
     () => {
       throw new Error('fail')
     },
@@ -36,7 +36,7 @@ test('anonymous operation uses fallback name', () => {
 })
 
 test('invalid return null treated as TypeError', () => {
-  const {errors} = flowSync([
+  const {errors} = enrichSync([
     () => null,
   ])({})
 
@@ -45,7 +45,7 @@ test('invalid return null treated as TypeError', () => {
 })
 
 test('invalid return array treated as TypeError', () => {
-  const {errors} = flowSync([
+  const {errors} = enrichSync([
     () => [1, 2],
   ])({})
 
@@ -54,7 +54,7 @@ test('invalid return array treated as TypeError', () => {
 })
 
 test('invalid return primitive treated as TypeError', () => {
-  const {errors} = flowSync([
+  const {errors} = enrichSync([
     () => 'invalid',
   ])({})
 
@@ -63,7 +63,7 @@ test('invalid return primitive treated as TypeError', () => {
 })
 
 test('empty operations array returns initial state', () => {
-  const result = flowSync([])({a: 1})
+  const result = enrichSync([])({a: 1})
 
   expect(result).toEqual({
     value: {a: 1},
@@ -73,7 +73,7 @@ test('empty operations array returns initial state', () => {
 })
 
 test('repeated execution with different inputs', () => {
-  const process = flowSync([
+  const process = enrichSync([
     state => ({doubled: state.x * 2}),
   ])
 
@@ -87,7 +87,7 @@ test('repeated execution with different inputs', () => {
 test('no mutation of initial state', () => {
   const original = {x: 1}
 
-  flowSync([
+  enrichSync([
     state => ({y: state.x + 1}),
   ])(original)
 
@@ -95,21 +95,21 @@ test('no mutation of initial state', () => {
 })
 
 test('validation: non-array operations throws TypeError', () => {
-  expect(() => flowSync('not an array')).toThrow(TypeError)
+  expect(() => enrichSync('not an array')).toThrow(TypeError)
 })
 
 test('validation: non-function in operations throws TypeError', () => {
-  expect(() => flowSync([() => ({}), 42])).toThrow(TypeError)
+  expect(() => enrichSync([() => ({}), 42])).toThrow(TypeError)
 })
 
 test('validation: null initialState throws TypeError', () => {
-  expect(() => flowSync([() => ({})])(null)).toThrow(TypeError)
+  expect(() => enrichSync([() => ({})])(null)).toThrow(TypeError)
 })
 
 test('validation: array initialState throws TypeError', () => {
-  expect(() => flowSync([() => ({})])([1, 2])).toThrow(TypeError)
+  expect(() => enrichSync([() => ({})])([1, 2])).toThrow(TypeError)
 })
 
 test('validation: primitive initialState throws TypeError', () => {
-  expect(() => flowSync([() => ({})])(42)).toThrow(TypeError)
+  expect(() => enrichSync([() => ({})])(42)).toThrow(TypeError)
 })

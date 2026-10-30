@@ -1,8 +1,8 @@
 import {test, expect} from 'vitest'
-import {flowSync} from '$src/index'
+import {enrichSync} from '$src/index'
 
 test('default collect: all operations execute, final state correct', () => {
-  const result = flowSync([
+  const result = enrichSync([
     () => ({a: 1}),
     state => ({b: state.a + 1}),
   ])({})
@@ -15,7 +15,7 @@ test('default collect: all operations execute, final state correct', () => {
 })
 
 test('synchronous operations', () => {
-  const {value} = flowSync([
+  const {value} = enrichSync([
     () => ({x: 10}),
     () => ({y: 20}),
   ])({})
@@ -26,7 +26,7 @@ test('synchronous operations', () => {
 test('sequential execution — order matters', () => {
   const order = []
 
-  const {value} = flowSync([
+  const {value} = enrichSync([
     () => {
       order.push(1)
       return {a: 1}
@@ -46,7 +46,7 @@ test('sequential execution — order matters', () => {
 })
 
 test('shallow patch merging', () => {
-  const {value} = flowSync([
+  const {value} = enrichSync([
     () => ({a: 1, nested: {x: 1}}),
     () => ({a: 2, nested: {y: 2}}),
   ])({})
@@ -55,7 +55,7 @@ test('shallow patch merging', () => {
 })
 
 test('state preserved after failure', () => {
-  const {value} = flowSync([
+  const {value} = enrichSync([
     () => ({a: 1}),
     () => {
       throw new Error('fail')
@@ -68,7 +68,7 @@ test('state preserved after failure', () => {
 test('later operations run after failure under collect', () => {
   const ran = []
 
-  flowSync([
+  enrichSync([
     () => {
       ran.push(1)
       return {a: 1}

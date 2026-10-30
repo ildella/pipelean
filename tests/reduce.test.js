@@ -1,6 +1,6 @@
 import {test, expect, vi} from 'vitest'
 import {
-  failLate, reduce, scanReduce, rethrow,
+  failLate, reduce, rethrow,
 } from '$src/functional'
 
 test('returns final accumulated value', async () => {
@@ -109,8 +109,4 @@ test('default strategy is failFast', async () => {
 
   expect(value).toBe(1)
   expect(failure).toBeTruthy()
-})
-
-test('scanReduce alias points to reduce', () => {
-  expect(scanReduce).toBe(reduce)
 })

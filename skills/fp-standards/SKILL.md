@@ -6,18 +6,27 @@ description: "General Functional Programming principles and patterns. Use this s
 ## Core Philosophy
 1. **No swallowed errors**: Do not swallow errors or inconsistencies (`undefined`, `null`) during array sync/async operations.
 2. **Pragmatism over Purity**: Our focus is eager execution with explicit results.
-3. **No Boilerplate**: Avoid writing repetitive `try/catch` or manual iteration loops. Use `series`, `pipe`, `scan`, or `flow`.
+3. **No Boilerplate**: Avoid writing repetitive `try/catch` or manual iteration loops. Use `series`, `pipe`, `scan`, or `enrich`.
 
 ## Coding Rules
 - **No `Array.prototype.forEach`**: ForEach swallows promises and doesn't handle async errors correctly. Use `series` instead.
 - **No raw `Promise` combinators**: Use `series` for positional collections, or `join` for named concurrent tasks, instead of `Promise.all` / `Promise.allSettled`. The `no-promise-combinators` rule flags them.
 - **No `Array.prototype.reduce`**: Reduce is often unreadable and mixes state with iteration. Use `reduce` for simple reduction (sums, counts), `scan` for dependent stateful transformation where intermediate values matter.
-- **Eager Execution**: Reach for `series`/`pipe`/`scan`/`flow` first — you get a structured report `{ results, errors, failure }` back immediately. When you genuinely need a lazy producer (e.g. a generator that streams progress events), that is a supported escape hatch: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` rule allows loops only inside a generator that yields.
+- **Eager Execution**: Reach for `series`/`pipe`/`scan`/`enrich` first — you get a structured report `{ results, errors, failure }` back immediately. When you genuinely need a lazy producer (e.g. a generator that streams progress events), that is a supported escape hatch: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` rule allows loops only inside a generator that yields.
 - **Undefined Short-Circuit**: When composing operations (via `pipe`), returning `undefined` signals dropping the item (selection/filtering).
 
-## State accumulation: prefer `flow()` over hand-rolled spreads
+## State accumulation: `scan` vs `reduce` vs `enrich`
 
-If you find yourself writing nested spreads to thread state through a chain of enrichments (`const result = {...step1, ...step2(step1), ...step3(step2)}`), use `flow()` instead. `flow()`:
+|  | keep every intermediate | keep only the final |
+|---|---|---|
+| fold over **items** (many inputs) | `scan` | `reduce` |
+| fold over **steps** (one input) | — | `enrich` |
+
+If step N depends on step N-1's output you are folding: many inputs → `scan`/`reduce`; one input with many enrichments → `enrich`.
+
+## Prefer `enrich()` over hand-rolled spreads
+
+If you find yourself writing nested spreads to thread state through a chain of enrichments (`const result = {...step1, ...step2(step1), ...step3(step2)}`), use `enrich()` instead. `enrich()`:
 
 - Defines the pipeline once and reuses it with different inputs.
 - Returns `{value, errors, failure}` — never throws on handled errors.
@@ -25,9 +34,9 @@ If you find yourself writing nested spreads to thread state through a chain of e
 - Shallow-merges patches (`{...state, ...patch}`) — top-level keys are overwritten, nested objects are not deep-merged.
 
 ```js
-import { flow } from 'pipelean'
+import { enrich } from 'pipelean'
 
-const processAlbum = flow([
+const processAlbum = enrich([
   state => ({title: state.rawTitle.trim()}),
   state => ({year: parseYear(state.rawYear)}),
   state => ({artists: state.artists ?? []}),
@@ -36,14 +45,14 @@ const processAlbum = flow([
 const {value, errors, failure} = await processAlbum(input)
 ```
 
-Operations in `flow()` must return a **non-null, non-array object** (the patch). Return `{}` when a step has nothing to add — `undefined` is not a no-op signal. Use `flowSync` for synchronous pipelines.
+Operations in `enrich()` must return a **non-null, non-array object** (the patch). Return `{}` when a step has nothing to add — `undefined` is not a no-op signal. Use `enrichSync` for synchronous pipelines.
 
 ## Fork/join: prefer `join()` over `Promise.allSettled`
 
 When several **named** async tasks should run at the same time and be reported together, use `join()` — not `Promise.allSettled` with manual `{status, value, reason}` unpacking.
 
 - Branches are named: a failure is reported as data under its `operation` name, so the rest of the report is unaffected.
-- Returns `{value, errors, failure}` — same strategies as `flow` (`collect` by default).
+- Returns `{value, errors, failure}` — same strategies as `enrich` (`collect` by default).
 - `join()` always waits for every branch; there is no cancellation. `failFast` behaves as `failLate`.
 - For a concurrent map over a **homogeneous** collection, use p-map instead.
 

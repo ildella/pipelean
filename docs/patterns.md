@@ -131,14 +131,14 @@ const result = await series(pages(db), processPage, {
 // result.failure — false under collect
 ```
 
-### Pattern 8: Album Enrichment with `flow()`
+### Pattern 8: Album Enrichment with `enrich()`
 
-Use `flow()` when an app task enriches **one** input through multiple stateful steps (e.g., derive `title`, `year`, `artists`, `slug` from a raw payload). Define the pipeline once, then run it against any number of inputs.
+Use `enrich()` when an app task enriches **one** input through multiple stateful steps (e.g., derive `title`, `year`, `artists`, `slug` from a raw payload). Define the pipeline once, then run it against any number of inputs.
 
 ```javascript
-import { flow, collect } from 'pipelean'
+import { enrich, collect } from 'pipelean'
 
-const processAlbum = flow([
+const processAlbum = enrich([
   state => ({title: state.rawTitle.trim()}),
   state => ({year: parseYear(state.rawYear)}),
   state => ({artists: state.artists ?? []}),

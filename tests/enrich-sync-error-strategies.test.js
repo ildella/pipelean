@@ -1,10 +1,10 @@
 import {test, expect} from 'vitest'
 import {
-  failFast, failLate, flowSync, rethrow, skip,
+  failFast, failLate, enrichSync, rethrow, skip,
 } from '$src/index'
 
 test('skip strategy ignores errors and continues', () => {
-  const {value, errors, failure} = flowSync([
+  const {value, errors, failure} = enrichSync([
     () => ({a: 1}),
     () => {
       throw new Error('skip me')
@@ -18,7 +18,7 @@ test('skip strategy ignores errors and continues', () => {
 })
 
 test('failFast stops and preserves partial value', () => {
-  const {value, errors, failure} = flowSync([
+  const {value, errors, failure} = enrichSync([
     () => ({a: 1}),
     () => {
       throw new Error('stop')
@@ -32,7 +32,7 @@ test('failFast stops and preserves partial value', () => {
 })
 
 test('failLate collects errors and signals failure at end', () => {
-  const {value, errors, failure} = flowSync([
+  const {value, errors, failure} = enrichSync([
     () => ({a: 1}),
     () => {
       throw new Error('e1')
@@ -50,7 +50,7 @@ test('failLate collects errors and signals failure at end', () => {
 
 test('rethrow throws the original error', () => {
   expect(() =>
-    flowSync([
+    enrichSync([
       () => ({a: 1}),
       () => {
         throw new Error('kaboom')

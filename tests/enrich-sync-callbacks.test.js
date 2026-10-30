@@ -1,12 +1,12 @@
 import {test, expect, vi} from 'vitest'
 import {
-  failFast, failLate, flowSync,
+  failFast, failLate, enrichSync,
 } from '$src/index'
 
 test('onError callback receives normalized shape with total', () => {
   const onError = vi.fn()
 
-  flowSync([
+  enrichSync([
     () => ({a: 1}),
     () => {
       throw new Error('e')
@@ -25,7 +25,7 @@ test('onError callback receives normalized shape with total', () => {
 test('onFailure callback (failFast) receives normalized shape', () => {
   const onFailure = vi.fn()
 
-  flowSync([
+  enrichSync([
     function stepOne () {
       throw new Error('fail')
     },
@@ -41,7 +41,7 @@ test('onFailure callback (failFast) receives normalized shape', () => {
 test('onFailure callback (failLate) receives normalized errors shape', () => {
   const onFailure = vi.fn()
 
-  flowSync([
+  enrichSync([
     () => {
       throw new Error('e1')
     },

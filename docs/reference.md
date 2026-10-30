@@ -33,15 +33,15 @@
 - [stopWhen](#stopwhen) - Source Adapter for Predicate-Based Early Exit (alias of sorts: the `while` you don't need)
 - [forever](#forever) - Source Adapter for Unbounded Ticking (the `while (true)` you don't need)
 
-### Composition
+### Composition and folds
 
-- [pipe](#pipe) - Vertical Composition
-- [flow](#flow) - Stateful Accumulation Across One Input
+- [pipe](#pipe) - Vertical Composition (value in / value out)
+- [enrich](#enrich) - Fold steps over one input (stateful enrichment)
 - [join](#join) - Fork/join over Named Concurrent Tasks
 
 ### Misc
 
-- [assign](#assign) - Conditional property assignment for `flow`
+- [assign](#assign) - Conditional property assignment for `enrich`
 - [where](#where) - Object-pattern predicate
 - [retry](#retry) - Configurable Retry Logic
 - [tryCatch](#trycatch) - Single Function Lifecycle Hooks
@@ -49,6 +49,24 @@
 ### Sync Variants
 
 - [Sync Functions](#sync-functions) - Synchronous counterparts for synchronous code
+
+---
+
+## How to choose
+
+|  | keep every intermediate | keep only the final |
+|---|---|---|
+| fold over **items** (many inputs) | `scan` | `reduce` |
+| fold over **steps** (one input) | — | `enrich` |
+
+- `series` — many items, independent work per item.
+- `pipe` — one value, value-in / value-out composition.
+- `join` — a few named tasks, at the same time.
+
+`enrich(ops)(input)` is `reduce(ops, (state, op) => ({...state, ...op(state)}), input)`.
+
+Defaults: `series`, `filter`, `enrich`, `join` use `collect`; `scan` and `reduce`
+use `failFast`.
 
 ---
 
@@ -337,7 +355,7 @@ Cleanup follows native generator semantics: the generator's own `finally` runs d
 
 ### scan
 
-**Purpose**: Stateful sequential transformation - transforms each item and accumulates results.
+**Purpose**: Fold over data items, keeping every intermediate accumulator. Use it when each item depends on the previous one **and** the intermediate values are themselves useful. Use `reduce` when only the last value matters.
 
 **Type**: `(iterable, scanner, initialValue, opts?) => Promise<Outcome>`
 
@@ -350,7 +368,6 @@ Cleanup follows native generator semantics: the generator's own `finally` runs d
   - `onError`: Called for each handled item error. Does not affect control flow.
   - `onFailure`: Called when failure is truthy.
   - `onSourceError`: Called when the iterable itself throws.
-  - `storePartialResults`: `true` (default) returns `{results, …}`; `false` returns `{value, …}` (see `reduce`).
   - `scan` does **not** support `onProgress`, `pause`, or `take`.
 
 **Return Type**: A Promise that resolves to an object containing:
@@ -358,9 +375,10 @@ Cleanup follows native generator semantics: the generator's own `finally` runs d
 - `errors`: Array of errors encountered (empty for failFast, skip, throw)
 - `sourceErrors`: Array of `{error, index}` contexts for errors thrown by the iteration itself; empty when the source completed cleanly
 - `failure`: `false` on success; `{item, error, index}` for failFast; `{errors}` for failLate (source errors are merged into the aggregated errors array)
-- `value`: Final accumulated value when `storePartialResults: false`. Preserved under every strategy except `rethrow`, even when the source dies mid-stream
 
 **Source errors**: when the iterable itself throws mid-stream (e.g. an async generator dying), the accumulator and partial results collected so far are preserved per strategy and the context is reported through `onSourceError` instead of `onError`. See [Source errors](#source-errors) under `series` for the full per-strategy behavior.
+
+**Careful — `failFast` clears `results`**: on the first error the returned `results` array is `[]`. That is the point of fail-fast, but it surprises people who reach for `scan` exactly because they want partial progress. Use `collect` or `failLate` when partials matter.
 
 **Key Characteristics**:
 - **Stateful**: Each transformation depends on the previous result
@@ -386,7 +404,7 @@ const { results, errors } = await scan(
 
 ### reduce
 
-**Purpose**: Pure reduction - transforms each item sequentially and returns only the final accumulated value. A convenience wrapper around `scan` with `storePartialResults: false` baked in.
+**Purpose**: Fold over data items and keep only the final accumulated value. Same engine and default strategy as `scan`; different return shape.
 
 **Type**: `(iterable, scanner, initialValue, opts?) => Promise<Outcome>`
 
@@ -432,8 +450,6 @@ const {value: totalDuration} = await reduce(
 
 **When to use `scan` instead**:
 - When you need every intermediate accumulator value (e.g. dependent sequential operations where each step's output is meaningful)
-
-**Alias**: `scanReduce` is kept as an alias of `reduce` for backward compatibility and points to the same function.
 
 ---
 
@@ -600,9 +616,17 @@ const result = await series(items, pipe(
 
 ---
 
-### flow
+### enrich
 
-**Purpose**: Sequentially apply multiple state-enrichment operations to one accumulated value. Each successful operation returns an object patch. Errors are handled per operation using Pipelean strategies.
+**Purpose**: Fold over a list of **steps** that enrich one accumulated value. Each successful operation returns an object patch. Errors are handled per operation using Pipelean strategies.
+
+`enrich` is literally `reduce` over your operations:
+
+```js
+enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), input)
+```
+
+The difference is ergonomics and reporting: `enrich` fixes the fold step (shallow merge), validates patches, and names failures after the operation instead of its index.
 
 **Type**: `(operations, options?) => (initialState) => Promise<{value, errors, failure}>`
 
@@ -626,22 +650,22 @@ The returned function:
   - `failure`: `false` for `collect` and `skip`; `{operation, error, index}` for `failFast`; `{errors}` for `failLate`. For `rethrow`, the original error is thrown instead of returning a result.
 
 **Key Characteristics**:
-- **Stateful accumulation**: Each operation enriches the same state object. Output of one operation becomes the input to the next.
+- **A fold over steps**: The operations are the collection; the state is the accumulator. In FP terms it is a `foldLeft` over `State -> Patch` functions with a `merge` combiner.
 - **Shallow merge**: `{...state, ...patch}` — top-level keys are overwritten, nested objects are not deep-merged.
 - **Reusable pipeline**: The pipeline is defined once. The returned function is called with different inputs.
-- **Same error strategies as `series` / `scan`**: All four strategies work, with the same `onError` / `onFailure` semantics. Default is `collect`.
+- **Same error strategies as `series` / `scan` / `reduce`**: All five strategies work, with the same `onError` / `onFailure` semantics. Default is `collect`.
 - **No intermediate states**: Only the final accumulated value is returned. There is no `results` array.
 - **Empty operations array** is valid and returns the initial state untouched.
 
 **Usage Example**:
 ```javascript
-import { flow, collect, failFast } from 'pipelean'
+import { enrich, collect, failFast } from 'pipelean'
 
 const prepareAlbum = state => ({title: state.rawTitle.trim()})
 const extractYear = state => ({year: parseYear(state.rawYear)})
 const extractArtists = state => ({artists: state.artists ?? []})
 
-const processAlbum = flow([
+const processAlbum = enrich([
   prepareAlbum,
   extractYear,
   extractArtists,
@@ -651,7 +675,7 @@ const {value, errors, failure} = await processAlbum(input)
 // value = {title, year, artists, rawTitle, rawYear, ...input}
 
 // Strategy and callbacks are bound when the pipeline is defined
-const processOrStop = flow(
+const processOrStop = enrich(
   [prepareAlbum, extractYear, extractArtists],
   {
     strategy: failFast,
@@ -667,10 +691,12 @@ const album1 = await processAlbum(rawAlbum1)
 const album2 = await processAlbum(rawAlbum2)
 ```
 
-**When to use `flow()` vs `pipe()` vs `series()`**:
-- `flow()`: One input, many enrichments, final accumulated value. Stateful across the pipeline.
-- `pipe()`: Value-in / value-out composition. Each step transforms the previous step's return value. Stateless. Composable into `series()` and `flow()`.
-- `series()`: Many inputs, one operation per input. Horizontal.
+**When to use `enrich()` vs `pipe()` vs `series()` vs `scan()`/`reduce()`**:
+- `enrich()`: One input, many enrichments, final accumulated object. The steps are the collection being folded.
+- `pipe()`: One input, value-in / value-out. Each step transforms the previous step's return value; nothing is merged. No error capture.
+- `series()`: Many inputs, independent work per input. Transforms and drops items.
+- `scan()` / `reduce()`: Many inputs where each item depends on the previous accumulator. `scan` keeps every intermediate, `reduce` keeps the last.
+- `enrich()` and `reduce()` are the same fold; the difference is *what* is being folded (steps vs items).
 
 **Error callback payload** (always normalized):
 - `onError({operation, error, index, total})` — `operation` is the function's `name` if set, otherwise `operation-${index}`. `total` is the operations array length.
@@ -681,7 +707,7 @@ const album2 = await processAlbum(rawAlbum2)
 
 ### join
 
-**Purpose**: Fork/join over a record of **named** async tasks. Every branch starts immediately and `join` waits for all of them to settle, returning one structured result. Errors are data, per branch, using the same strategies as `flow`. This is not a concurrency runtime: no cancellation, no scheduler, no ordering guarantee.
+**Purpose**: Fork/join over a record of **named** async tasks. Every branch starts immediately and `join` waits for all of them to settle, returning one structured result. Errors are data, per branch, using the same strategies as `enrich`. This is not a concurrency runtime: no cancellation, no scheduler, no ordering guarantee.
 
 **Type**: `(tasks, options?) => Promise<{value, errors, failure}>`
 
@@ -755,7 +781,7 @@ const strict = await join(
 
 ### assign
 
-**Purpose**: Creates a `flow()` operation that conditionally assigns a property to state. If `parse(state)` returns `undefined`, the property is skipped (empty patch). Otherwise the property is set to the parsed value.
+**Purpose**: Creates a `enrich()` operation that conditionally assigns a property to state. If `parse(state)` returns `undefined`, the property is skipped (empty patch). Otherwise the property is set to the parsed value.
 
 **Type**: `(property, parse) => (state) => {} | {[property]: value}`
 
@@ -763,16 +789,16 @@ const strict = await join(
 - `property`: The property name (string) to set on state.
 - `parse`: A function `(state) => value | undefined`. Return `undefined` to skip the property.
 
-**Return Type**: A function suitable as a `flow()` operation. Returns `{}` when the parse is skipped, or `{[property]: value}` to merge into the accumulated state.
+**Return Type**: A function suitable as a `enrich()` operation. Returns `{}` when the parse is skipped, or `{[property]: value}` to merge into the accumulated state.
 
 **Key Characteristics**:
 - **Conditional assignment**: Only sets the property when `parse` returns a non-undefined value.
 - **Skip sentinel**: Only `undefined` triggers skip — `null`, `false`, `0`, `""` are all assigned normally.
-- **Composable**: Multiple `assign()` calls compose naturally inside `flow()`.
+- **Composable**: Multiple `assign()` calls compose naturally inside `enrich()`.
 
 **Usage Example**:
 ```javascript
-import { assign, flow } from 'pipelean'
+import { assign, enrich } from 'pipelean'
 
 const extractName = assign('name', state => state.rawName.trim())
 const extractYear = assign('year', state => {
@@ -780,7 +806,7 @@ const extractYear = assign('year', state => {
   return Number.isNaN(n) ? undefined : n
 })
 
-const {value} = await flow([extractName, extractYear])({
+const {value} = await enrich([extractName, extractYear])({
   rawName: '  Alice  ',
   rawYear: '1995',
 })
@@ -847,7 +873,7 @@ const result = await robust()
 
 ### tryCatch
 
-**Purpose**: Wraps individual async functions with lifecycle hooks for comprehensive error handling and telemetry. Always catches errors — returns `null` on failure.
+**Purpose**: Wraps individual async functions with lifecycle hooks for comprehensive error handling and telemetry. Always catches errors — returns `undefined` on failure, the library-wide drop signal.
 
 **Type**: `(fn, options) => wrapperFunction`
 
@@ -859,13 +885,14 @@ const result = await robust()
   - `onError: (error) => void` — Called on error (error only)
   - `onFinally: () => void` — Called regardless of success/failure (no arguments)
 
-**Return Type**: Returns a wrapper function with the same signature as `fn`. Returns `null` on error.
+**Return Type**: Returns a wrapper function with the same signature as `fn`. Returns `undefined` on error. Because `undefined` is the drop signal, a failed step short-circuits `pipe` and drops the item when used as a `series` mapper.
 
 **Features**:
 - Automatic `async/await` wrapping
 - Preserves original function signature
 - Comprehensive lifecycle: onStart → onSuccess/onError → onFinally
 - Deep telemetry support for debugging
+- Composes with `pipe` (short-circuit) and `series` (drop) through the `undefined` return
 
 **Usage Example**:
 ```javascript
@@ -884,7 +911,7 @@ const safeFetch = tryCatch(
 )
 
 const data = await safeFetch('https://api.example.com')
-// data is the parsed JSON on success, null on error
+// data is the parsed JSON on success, undefined on error
 ```
 
 ---
@@ -892,7 +919,7 @@ const data = await safeFetch('https://api.example.com')
 ## Sync Functions
 
 `seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`,
-`flowSync`, and `tryCatchSync` are synchronous counterparts of the core
+`enrichSync`, and `tryCatchSync` are synchronous counterparts of the core
 functions.
 
 They use the same error strategies and structured return conventions as the
@@ -908,13 +935,11 @@ want Pipelean's structured error collection.
 - `scanSync` returns `{results, errors, sourceErrors, failure}` directly
 - `reduceSync` returns `{value, errors, sourceErrors, failure}` directly
 - `pipeSync` composes synchronous functions left-to-right
-- `flowSync` returns `{value, errors, failure}` directly and runs a state-enrichment pipeline synchronously
+- `enrichSync` returns `{value, errors, failure}` directly and runs a state-enrichment pipeline synchronously
 - `tryCatchSync` wraps a synchronous function with lifecycle hooks
 - `stopWhenSync` is the sync source adapter — same contract as `stopWhen`, sync iterables only
 
 The sync variants handle **source errors** with the same semantics as their async twins: `seriesSync`, `filterSync`, `scanSync`, and `reduceSync` accept `onSourceError({error, index})` and report errors thrown by the iteration itself in the `sourceErrors` field. See [Source errors](#source-errors) under `series`.
-
-> `scanReduceSync` is kept as an alias of `reduceSync` for backward compatibility.
 
 **Not supported in sync variants**:
 
@@ -959,12 +984,12 @@ const {result, errors, failure} = findSync(users, {active: true})
 patterns via `where()`. It exits as soon as the first match is found. When no
 item matches, it returns `{result: undefined, errors: [], failure: false}`.
 
-**Synchronous state enrichment with `flowSync`**:
+**Synchronous state enrichment with `enrichSync`**:
 
 ```javascript
-import { flowSync, collect } from 'pipelean'
+import { enrichSync, collect } from 'pipelean'
 
-const processAlbumSync = flowSync([
+const processAlbumSync = enrichSync([
   state => ({title: state.rawTitle.trim()}),
   state => ({year: parseYear(state.rawYear)}),
 ])
@@ -975,7 +1000,7 @@ const {value, errors, failure} = processAlbumSync(input)
 // failure: false
 ```
 
-`flowSync` mirrors `flow()` exactly but executes synchronously. Same
+`enrichSync` mirrors `enrich()` exactly but executes synchronously. Same
 strategies, same `onError` / `onFailure` semantics, same normalized error
 shapes. Use it when your operations and inputs are synchronous.
 

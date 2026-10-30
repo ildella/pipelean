@@ -1,16 +1,16 @@
 import {test, expect, vi} from 'vitest'
-import {tryCatchSync} from '$src/index'
+import {pipeSync, seriesSync, tryCatchSync} from '$src/index'
 
 test('returns fn result on success', () => {
   const wrapped = tryCatchSync(() => 42)
   expect(wrapped()).toBe(42)
 })
 
-test('returns null on error when no onError provided', () => {
+test('returns undefined on error (the drop signal)', () => {
   const wrapped = tryCatchSync(() => {
     throw new Error('boom')
   })
-  expect(wrapped()).toBeNull()
+  expect(wrapped()).toBeUndefined()
 })
 
 test('passes error to onError', () => {
@@ -60,4 +60,30 @@ test('returns value synchronously not a promise', () => {
   const wrapped = tryCatchSync(() => 42)
   const result = wrapped()
   expect(result).not.toBeInstanceOf(Promise)
+})
+
+test('composes with seriesSync: failed items are dropped', () => {
+  const safe = tryCatchSync(n => {
+    if (n === 2)
+      throw new Error('boom')
+    return n
+  })
+
+  const {results} = seriesSync([1, 2, 3], safe)
+  expect(results).toEqual([1, 3])
+})
+
+test('composes with pipeSync: failure short-circuits downstream steps', () => {
+  let ran = false
+  const safe = tryCatchSync(() => {
+    throw new Error('boom')
+  })
+
+  const result = pipeSync(safe, () => {
+    ran = true
+    return 'next'
+  })(1)
+
+  expect(result).toBeUndefined()
+  expect(ran).toBe(false)
 })

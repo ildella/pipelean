@@ -14,11 +14,13 @@
     "url": "https://linktr.ee/ildella/"
   },
   "keywords": [
-    "configuration",
-    "project",
-    "eslint",
-    "vite",
-    "vitest"
+    "async",
+    "promise",
+    "pipeline",
+    "sequential",
+    "iterables",
+    "error-handling",
+    "functional"
   ],
   "engines": {
     "node": ">22.7"

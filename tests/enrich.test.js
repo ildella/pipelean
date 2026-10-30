@@ -1,8 +1,8 @@
 import {test, expect} from 'vitest'
-import {flow} from '$src/functional'
+import {enrich} from '$src/functional'
 
 test('default collect: all operations execute', async () => {
-  const result = await flow([
+  const result = await enrich([
     () => ({a: 1}),
     state => ({b: state.a + 1}),
   ])({})
@@ -15,7 +15,7 @@ test('default collect: all operations execute', async () => {
 })
 
 test('synchronous operations', async () => {
-  const {value} = await flow([
+  const {value} = await enrich([
     () => ({x: 10}),
     () => ({y: 20}),
   ])({})
@@ -33,7 +33,7 @@ test('asynchronous operations', async () => {
     return {y: result}
   }
 
-  const {value} = await flow([fetchX, fetchY])({})
+  const {value} = await enrich([fetchX, fetchY])({})
 
   expect(value).toEqual({x: 10, y: 20})
 })
@@ -41,7 +41,7 @@ test('asynchronous operations', async () => {
 test('sequential execution — order matters', async () => {
   const order = []
 
-  const {value} = await flow([
+  const {value} = await enrich([
     () => {
       order.push(1)
       return {a: 1}
@@ -61,7 +61,7 @@ test('sequential execution — order matters', async () => {
 })
 
 test('shallow patch merging', async () => {
-  const {value} = await flow([
+  const {value} = await enrich([
     () => ({a: 1, nested: {x: 1}}),
     () => ({a: 2, nested: {y: 2}}),
   ])({})
@@ -70,7 +70,7 @@ test('shallow patch merging', async () => {
 })
 
 test('state preserved after failure', async () => {
-  const {value} = await flow([
+  const {value} = await enrich([
     () => ({a: 1}),
     () => {
       throw new Error('fail')
@@ -82,7 +82,7 @@ test('state preserved after failure', async () => {
 
 test('later operations run after failure under collect', async () => {
   const ran = []
-  const {errors} = await flow([
+  const {errors} = await enrich([
     () => {
       ran.push(1)
       return {a: 1}

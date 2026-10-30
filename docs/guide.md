@@ -1,37 +1,54 @@
 # Guide
 
-## Core Concepts
+## Core concepts
 
-Pipelean provides core tools grouped by **data flow direction** (horizontal vs vertical) and **state dependency**:
+Pipelean provides tools on two axes: **what you are folding** and **what you
+keep**.
 
-- **Horizontal** tools process **multiple items** (lists/iterables) in sequence.
-- **Vertical** tools transform **one item** through a chain of steps.
-- Some tools are **stateless** (each step independent), others **stateful** (later steps depend on previous results).
+|  | keep every intermediate | keep only the final |
+|---|---|---|
+| fold over **items** (many inputs) | `scan` | `reduce` |
+| fold over **steps** (one input) | — | `enrich` |
 
-1. series (Horizontal / Stateless transformation)
-2. scan (Horizontal / Stateful transformation — returns all intermediate results)
-3. reduce (Horizontal / Pure reduction — returns only the final value)
-4. filter (Horizontal / Stateless selection)
-5. findSync (Horizontal / Stateless synchronous early-exit selection)
-6. pipe (Vertical / Composition)
-7. flow (Vertical / Stateful accumulation — one input, many enrichments, final accumulated value)
-8. assign (Utility for creating conditional property assignments for flow)
-9. stopWhen (Source adapter — predicate-based early exit for any iterable)
-10. join (Fork/join — named heterogeneous tasks run concurrently, one structured outcome)
+Outside the table:
 
-> **Sync variants** — The iteration functions above also have synchronous
-> counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`, `stopWhenSync`, and
-> `reduceSync`. `pipeSync`, `flowSync`, and `tryCatchSync` are available too.
-> They use the same error strategies and structured return shapes, but return
-> directly instead of a Promise. `findSync` is sync-only for now, returns
-> `{result, errors, failure}`, and exits at the first matching item.
->
-> `scanReduce` and `scanReduceSync` are kept as aliases of `reduce` and
-> `reduceSync` for backward compatibility.
+- **`series`** — many items, no dependency between them (map + drop, with
+  progress, pause and take).
+- **`pipe`** — one value through ordered steps, value in / value out.
+- **`join`** — a few named, different tasks running at the same time.
 
-## Error Strategies
+So: if step N needs step N-1's output you are folding; count the inputs. Many
+inputs → `scan` / `reduce`. One input, many enrichments → `enrich`.
 
-All iteration functions (`series`, `filter`, `scan`, `reduce`) support five error strategies:
+`scan` and `reduce` are one engine with two result shapes. `enrich` is a `reduce`
+over **operations** rather than items:
+
+```js
+enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), input)
+```
+
+### Picking a tool
+
+1. `series` — many items, Stateless transformation
+2. `filter` — many items, selection (keep/drop)
+3. `scan` — many items, stateful fold, every intermediate result
+4. `reduce` — many items, stateful fold, final value only
+5. `pipe` — one item, composition of value-in/value-out steps
+6. `enrich` — one item, stateful accumulation of object patches
+7. `join` — named concurrent tasks, one structured outcome
+8. `stopWhen` / `forever` — source adapters (predicate stop, unbounded ticks)
+9. `assign` — helper for building `enrich` steps
+10. `where`, `findSync` — search helpers
+
+> **Sync variants** — the iteration functions also have synchronous
+> counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`,
+> `reduceSync`, `stopWhenSync`; `pipeSync`, `enrichSync` and `tryCatchSync`
+> exist too. Same strategies and shapes, direct return instead of a `Promise`.
+
+## Error strategies
+
+All iteration functions (`series`, `filter`, `scan`, `reduce`) support five error
+strategies:
 
 **failFast** (aliases: `fail`, `stopOnError`)
 - Sets `failure: {item, error, index}` on first error
@@ -46,10 +63,10 @@ All iteration functions (`series`, `filter`, `scan`, `reduce`) support five erro
 
 **failLate**
 - Collects all errors in `errors` array
-- Sets `failure: {errors}` after loop completes (only if `errors.length > 0`)
+- Sets `failure: {errors}` after the loop completes (only if `errors.length > 0`)
 - Calls `onFailure({errors})` if `failure` is truthy
 
-**collect** (default for `series` and `filter`)
+**collect** (default for `series`, `filter`, `enrich`, `join`)
 - Collects all errors in `errors` array
 - Sets `failure: false`
 - Does NOT call `onFailure`
@@ -59,31 +76,45 @@ All iteration functions (`series`, `filter`, `scan`, `reduce`) support five erro
 - Sets `failure: false`
 - Does NOT call `onFailure`
 
+### Defaults
+
+`series`, `filter`, `enrich` and `join` default to **`collect`**: keep what
+worked, report the rest. `scan` and `reduce` default to **`failFast`**: a
+half-finished fold is usually meaningless, so stop at the first error. Pass a
+strategy explicitly whenever the default is not the policy you mean.
+
 ### Source errors
 
-Errors thrown by the **iteration itself** (e.g. an async generator dying mid-stream) are treated separately from operation errors: they never reach the error strategies' `onError`, and instead are reported through `onSourceError({error, index})` and the additive `sourceErrors` result field — so partial progress survives a dead source under every strategy except `rethrow`. See the [Source errors section in the reference](reference.md#source-errors) for details.
+Errors thrown by the **iteration itself** (e.g. an async generator dying
+mid-stream) are treated separately from operation errors: they never reach the
+error strategies' `onError`, and instead are reported through
+`onSourceError({error, index})` and the additive `sourceErrors` result field — so
+partial progress survives a dead source under every strategy except `rethrow`.
+See the [Source errors section in the reference](reference.md#source-errors) for
+details.
 
 ---
 
 ## Features
 
-#### Iterations: series / scan / reduce / filter
+#### Iteration: series / scan / reduce / filter
 
-* **Error Strategies**
-  - Built-in and first-class (see [Error Strategies](#error-strategies) above)
+* **Error strategies** — built-in and first-class (see above).
 
-* **Universal Input**
+* **Universal input**
   - Works on arrays, generators, and any async iterable (`for await`).
   - Not a Node/`ReadableStream` adapter — pass something `for await` can consume.
 
-* **Universal Mapper**
-  - Handles both Synchronous and Asynchronous mapper functions automatically.
-  - `filter` accepts patterns via `where()`: `filter(users, {active: true})` is equivalent to `filter(users, where({active: true}))`.
-  - `findSync` accepts the same predicate forms and returns the first matching item without scanning the rest of the iterable.
+* **Universal mapper**
+  - Handles sync and async mapper functions automatically.
+  - `filter` accepts patterns via `where()`: `filter(users, {active: true})` is
+    equivalent to `filter(users, where({active: true}))`.
+  - `findSync` accepts the same predicate forms and stops at the first match.
 
-* **Structured Results**
-  - Iterators return `{ results, errors, sourceErrors, failure }`.
-  - Errors are treated as data, removing the need for consumer-side `try/catch` blocks.
+* **Structured results**
+  - Iterators return `{results, errors, sourceErrors, failure}`; `reduce` returns
+    `{value, errors, sourceErrors, failure}`.
+  - Errors are data, removing the need for consumer-side `try/catch`.
 
 * **Shared callbacks**
   - `onError({item, error, index, total})` runs for handled item errors.
@@ -98,16 +129,19 @@ Errors thrown by the **iteration itself** (e.g. an async generator dying mid-str
   - `scan` and `reduce` do **not** have `onProgress`, `pause`, or `take`.
 
 * **Source adapters**
-  - `stopWhen(items, predicate)` stops pulling as soon as the predicate is truthy — checked *before* the item is offered downstream.
-  - Composes with every consumer (`series`, `scan`, `reduce`, `filter`, raw `for await`) with no option changes: `series(fn, opts)(stopWhen(items, shouldStop))`.
+  - `stopWhen(items, predicate)` stops pulling as soon as the predicate is
+    truthy — checked *before* the item is offered downstream.
+  - Composes with every consumer (`series`, `scan`, `reduce`, `filter`, raw
+    `for await`) with no option changes:
+    `series(fn, opts)(stopWhen(items, shouldStop))`.
   - Cancel is a clean shorter run (`failure: false`), never a source error.
 
-* **Order Guarantee**
-  - Because execution is sequential, output order strictly matches input order (no race conditions).
+* **Order guarantee**
+  - Execution is sequential, so output order strictly matches input order.
 
 #### Composition: pipe
 
-Compose multiple operations into a single reusable function for `series()`:
+Compose ordered steps into a single reusable function for `series()`:
 
 ```js
 import { series, pipe } from 'pipelean'
@@ -121,7 +155,10 @@ const normalizeActiveUser = pipe(
 const result = await series(users, normalizeActiveUser)
 ```
 
-`pipe()` is Pipelean's operation composer. It chains functions left-to-right and preserves Pipelean's drop signal: when any step returns `undefined`, remaining steps are skipped and `undefined` propagates out. Combined with `series` (which drops items when the operation returns `undefined`), this merges transformation and selection in a single pass:
+`pipe()` chains functions left-to-right and preserves Pipelean's drop signal:
+when any step returns `undefined`, the remaining steps are skipped and
+`undefined` propagates out. Combined with `series` (which drops items whose mapper
+returns `undefined`), this merges transformation and selection in one pass:
 
 ```js
 import { series, pipe } from 'pipelean'
@@ -133,33 +170,67 @@ const result = await series(numbers, pipe(
 // result.results = [4, 8, 12] from inputs [2, 4, 6]
 ```
 
-#### Stateful accumulation: flow
+`pipe` does **not** catch errors: a throw escapes to the caller. Only `undefined`
+short-circuits — `null`, `false`, `0` and `''` are values. This is composition in
+the `Maybe`/`Option` sense (`A => Option<B>`), not plain composition as in Ramda
+or fp-ts `flow`.
 
-When each step should enrich the **same** state object, use `flow()`. Define the operation pipeline once and call the returned function with different inputs. Each operation receives the current accumulated state and returns an **object patch** that gets shallow-merged in.
+**Use `pipe` when** one value goes through value-in/value-out steps and any step
+may bail. **Don't use it when** steps need the state accumulated so far
+(`enrich`), or you want failures captured as data (`series` strategy or
+`tryCatch`).
+
+#### Stateful accumulation: scan, reduce, enrich
+
+`scan` folds items and keeps every intermediate accumulator; `reduce` folds items
+and keeps only the last. Both take `(iterable, scanner, initialValue, opts?)`
+where the scanner is `(accumulator, item, index) => newAccumulator`.
 
 ```js
-import { flow } from 'pipelean'
+import {scan, reduce} from 'pipelean'
+
+// scan: every intermediate value matters (each insert needs the previous ID)
+const {results} = await scan(playlistTracks, insertAfter, 0)
+
+// reduce: only the total matters
+const {value: totalDuration} = await reduce(
+  tracks, (total, {duration}) => total + duration, 0,
+)
+```
+
+`scan` defaults to `failFast`, and under `failFast` the `results` array is
+cleared on failure. Use `collect`/`failLate` when partial progress matters.
+Neither supports `pause`, `take`, or `onProgress`: if you need those, the work is
+probably `series` plus its own accumulator.
+
+`enrich` folds **steps** over one input. Each step receives the current state and
+returns an object patch that gets shallow-merged in. Define the pipeline once and
+reuse it:
+
+```js
+import { enrich } from 'pipelean'
 
 const prepareAlbum = state => ({title: state.rawTitle.trim()})
 const extractYear = state => ({year: parseYear(state.rawYear)})
 const extractArtists = state => ({artists: state.artists ?? []})
 
-const processAlbum = flow([
-  prepareAlbum,
-  extractYear,
-  extractArtists,
-])
+const processAlbum = enrich([prepareAlbum, extractYear, extractArtists])
 
 const {value, errors, failure} = await processAlbum(input)
 // value = {title, year, artists, ...input}
 ```
 
+`enrich` returns `{value, errors, failure}` — no `results` array, no
+`sourceErrors` (the steps are a fixed array, so a source error is impossible).
+The default strategy is `collect`.
+
 ##### Conditional property assignment with `assign`
 
-Use `assign(property, parse)` to create a `flow()` operation that conditionally enriches state. If `parse(state)` returns `undefined`, no property is set — the step is a no-op. Otherwise `{[property]: value}` is merged into the accumulated state.
+`assign(property, parse)` builds an `enrich` step that sets a property only when
+`parse(state)` is not `undefined`:
 
 ```js
-import { assign, flow } from 'pipelean'
+import { assign, enrich } from 'pipelean'
 
 const extractName = assign('name', state => state.rawName.trim())
 const extractYear = assign('year', state => {
@@ -167,42 +238,51 @@ const extractYear = assign('year', state => {
   return Number.isNaN(n) ? undefined : n
 })
 
-const {value} = await flow([extractName, extractYear])({
+const {value} = await enrich([extractName, extractYear])({
   rawName: '  Alice  ',
 })
 // value = {rawName: '  Alice  ', name: 'Alice'}
 // year is skipped because rawYear was missing
 ```
 
-`assign()` only skips on `undefined` — `null`, `false`, `0`, and `""` are all assigned normally.
+`assign()` skips only on `undefined` — `null`, `false`, `0` and `""` are assigned
+normally.
 
-`flow()` differs from `pipe()` in three ways:
+`enrich` differs from `pipe` in three ways:
 
 - The pipeline is defined upfront and reused with different inputs.
-- Each step receives the **current accumulated state**, not the previous step's return value.
-- The result is structured: `{value, errors, failure}` — never throws on handled errors.
+- Each step receives the **current accumulated state**, not the previous step's
+  return value.
+- The result is structured: `{value, errors, failure}` — it never throws on
+  handled errors.
 
-`flow()` uses the same error strategies as `series` and `scan` (default `collect`). Operations can be sync or async. Return an empty object `{}` when a step has nothing to add — `undefined` is **not** a no-op signal. The merge is **shallow**: a later patch overwrites a top-level key but does not deep-merge nested objects.
+Operations can be sync or async. Return an empty object `{}` when a step has
+nothing to add — `undefined` is **not** a no-op signal here. The merge is
+**shallow**: a later patch overwrites a top-level key but does not deep-merge
+nested objects.
 
-#### Stateless sequential transform with merge: use `flow()` not nested spreads
+#### Don't hand-roll spreads: use `enrich()`
 
-If you find yourself writing `pipe(...lotsOfFunctionsThatReturnObjects)`, that's a sign you want `flow()` instead. `pipe()` chains value-in / value-out; `flow()` chains state-patch-in / state-patch-out and accumulates.
+If you find yourself writing `pipe(...lotsOfFunctionsThatReturnObjects)` and
+merging the results by hand, you want `enrich()`:
 
 ```js
 // Before: hand-rolled accumulation
-const input = {...}
 const step1 = prepare(input)
-const step2 = {...step1, ...enrich(step1)}
+const step2 = {...step1, ...enrichOne(step1)}
 const step3 = {...step2, ...finalize(step2)}
 
-// After: flow() defines the pipeline once
-const process = flow([prepare, enrich, finalize])
+// After: the pipeline is defined once
+const process = enrich([prepare, enrichOne, finalize])
 const {value} = await process(input)
 ```
 
 #### Fork/join: join
 
-When a handful of **named, heterogeneous** tasks can run at the same time, use `join()`. Every branch starts immediately and `join()` waits for all of them to settle. The result is a single structured object, with each branch's failure reported as data under its name.
+When a handful of **named, heterogeneous** tasks can run at the same time, use
+`join()`. Every branch starts immediately and `join()` waits for all of them to
+settle. The result is one structured object, with each failure reported as data
+under its name.
 
 ```js
 import { join } from 'pipelean'
@@ -216,36 +296,45 @@ const {value, errors, failure} = await join({
 // a failed branch: value keeps the successes, errors names the failure
 ```
 
-`join()` uses the same error strategies as `flow()` (default `collect`). `failFast` behaves as `failLate` here: branches already started and there is no cancellation. `join()` is deliberately *not* a concurrent map — for that, use p-map.
+`join()` uses the same error strategies as `enrich()` (default `collect`).
+`failFast` behaves as `failLate` here: branches already started and there is no
+cancellation. `join()` is deliberately *not* a concurrent map — for that, use
+p-map.
 
 #### Wrappers
 
-Pipelean also provides lightweight wrappers that add behavior to **individual functions**. These act as reusable middleware / lifecycle hooks and compose naturally with `pipe`.
+Pipelean provides lightweight wrappers that add behavior to **individual
+functions**. They compose with `pipe` and `series`.
 
-- **`tryCatch(fn, options?)`**  
-  Protects a single function with lifecycle hooks:  
-  - `onStart`, `onSuccess`, `onError`, `onFinally`  
-  - Captures errors without crashing the outer flow  
-  - Enables deep telemetry (e.g., log exactly which step in a 5-step pipe failed)  
-  - Works standalone or inside `series`/`scan`/`pipe`  
-  - Ideal for centralized error reporting (Sentry, UI toasts, metrics) even outside pipelines  
+- **`tryCatch(fn, options?)`**
+  Protects a single function with lifecycle hooks: `onStart`, `onSuccess`,
+  `onError`, `onFinally`. Returns `undefined` on failure — the same drop signal
+  used everywhere else — so a failed step short-circuits `pipe` and drops the
+  item in `series`. Ideal for centralized error reporting even outside
+  pipelines.
 
 - **`retry(fn, options?)`**
-  Specialized for automatic retries
-  - Configurable: `attempts` (default 3), `delay` in ms (default 0)
-  - Retries on every thrown error until attempts are exhausted
-  - Composes cleanly in `pipe` chains (e.g. retry network calls)
+  Automatic retries: `attempts` (default 3), `delay` in ms (default 0). Re-throws
+  the last error once attempts are exhausted, so the surrounding strategy still
+  sees the failure.
+
+Neither wrapper is an error strategy: strategies belong to the iterators.
 
 ---
 
-## Key Principles
+## Key principles
 
-1. **`onError` ≠ error strategy**: `onError` is a callback, not a strategy
-2. **`failure` is truthy for**: `failFast` (`{item, error, index}`) and `failLate` (`{errors}`). In `join()`, `failFast` behaves as `failLate` (`{errors}`) — branches already started cannot be stopped.
-3. **`failure` is falsy for**: `collect`, `skip`, and `throw` on success
-4. **`throw` does not return on error**: It propagates the error to the caller
-5. **Strategy selection**: Choose based on whether failures are acceptable
-6. **`flow()` returns `{value, errors, failure}`**: never throws on handled errors unless you pick `rethrow`. The `value` is always the last successful accumulated state.
-7. **Patches are shallow-merged in `flow()`**: top-level keys are overwritten; nested objects are not deep-merged. Return `{}` (not `undefined`) when a step has nothing to add.
+1. **`onError` ≠ error strategy**: `onError` is a callback, not a strategy.
+2. **`failure` is truthy for**: `failFast` (`{item, error, index}`) and `failLate`
+   (`{errors}`). In `join()`, `failFast` behaves as `failLate`.
+3. **`failure` is falsy for**: `collect`, `skip`, and `rethrow` on success.
+4. **`throw` does not return on error**: it propagates to the caller.
+5. **Strategy selection**: choose based on whether failures are acceptable.
+6. **`enrich()` returns `{value, errors, failure}`**: it never throws on handled
+   errors unless you pick `rethrow`. `value` is the last successful state.
+7. **Patches are shallow-merged in `enrich()`**: top-level keys are overwritten;
+   nested objects are not deep-merged. Return `{}` (not `undefined`) for a no-op.
+8. **`undefined` is the drop signal** in `series`, `filter` and `pipe`; it is not
+   a valid value to map to.
 
 Check out [patterns.md](./patterns.md).

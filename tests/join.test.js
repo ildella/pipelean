@@ -105,7 +105,7 @@ test('errors keep declaration order even when completion order differs',
     expect(errors.map(({operation}) => operation)).toEqual(['slow', 'fast'])
   })
 
-test('onError receives the normalized context without changing flow',
+test('onError receives the normalized context without changing enrich',
   async () => {
     const seen = []
     const {errors} = await join({

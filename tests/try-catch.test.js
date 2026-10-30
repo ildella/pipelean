@@ -1,21 +1,22 @@
 import {test, expect, vi} from 'vitest'
-import {tryCatch} from '$src/functional'
+import {pipe, series, tryCatch} from '$src/functional'
 
 test('returns fn result on success', async () => {
   const wrapped = tryCatch(() => Promise.resolve(42))
   await expect(wrapped()).resolves.toBe(42)
 })
 
-test('returns null on error when no onError provided', async () => {
+test('returns undefined on error (the drop signal)', async () => {
   const wrapped = tryCatch(() => Promise.reject(new Error('boom')))
-  await expect(wrapped()).resolves.toBeNull()
+  await expect(wrapped()).resolves.toBeUndefined()
 })
 
-test('returns onError result on error', async () => {
+test('returns undefined on error even when onError is provided', async () => {
   const wrapped = tryCatch(
     () => Promise.reject(new Error('boom')),
+    {onError: () => 'recovered'},
   )
-  await expect(wrapped()).resolves.toBeNull()
+  await expect(wrapped()).resolves.toBeUndefined()
 })
 
 test('passes error to onError', async () => {
@@ -69,4 +70,31 @@ test('passes args through to fn', async () => {
 
 test('works with no options', async () => {
   await expect(tryCatch(() => Promise.resolve('ok'))()).resolves.toBe('ok')
+})
+
+test('composes with series: failed items are dropped', async () => {
+  const safe = tryCatch(n => {
+    if (n === 2)
+      throw new Error('boom')
+    return n
+  })
+
+  const {results, errors} = await series([1, 2, 3], safe)
+  expect(results).toEqual([1, 3])
+  expect(errors).toEqual([])
+})
+
+test('composes with pipe: failure short-circuits', async () => {
+  let ran = false
+  const safe = tryCatch(() => {
+    throw new Error('boom')
+  })
+
+  const result = await pipe(safe, () => {
+    ran = true
+    return 'next'
+  })(1)
+
+  expect(result).toBeUndefined()
+  expect(ran).toBe(false)
 })

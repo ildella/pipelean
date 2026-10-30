@@ -84,3 +84,13 @@ test('throw strategy throws without calling onError or onFailure', async () => {
   expect(onError).not.toHaveBeenCalled()
   expect(onFailure).not.toHaveBeenCalled()
 })
+
+test('storePartialResults is not public: scan keeps results', async () => {
+  const result = await scan(
+    [1, 2],
+    (acc, item) => acc + item,
+    0,
+    {storePartialResults: false},
+  )
+  expect(result.results).toEqual([1, 3])
+})

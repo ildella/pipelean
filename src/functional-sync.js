@@ -76,7 +76,8 @@ export const tryCatchSync = (fn, {
     } catch (error) {
       if (onError)
         onError(error)
-      return null
+      // undefined is the library-wide drop signal (see tryCatch).
+      return undefined
     } finally {
       if (onFinally)
         onFinally()
@@ -223,11 +224,11 @@ export const findSync = (...args) => {
   return immediate ? run(items) : run
 }
 
-// eslint-disable-next-line max-params
-export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
+const runScanSync = ({
+  iterable, scanner, initialValue, opts = {}, keepPartials,
+}) => {
   const {
     strategy = failFast, onError, onFailure, onSourceError,
-    storePartialResults = true,
   } = opts
   const results = []
   let acc = initialValue
@@ -238,7 +239,7 @@ export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
   const shape = ({
     results, errors, sourceErrors, failure,
   }) =>
-    storePartialResults
+    keepPartials
       ? {
         results, errors, sourceErrors, failure,
       }
@@ -249,7 +250,7 @@ export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
   const step = (item, index) => {
     try {
       acc = scanner(acc, item, index)
-      if (storePartialResults)
+      if (keepPartials)
         results.push(acc)
     } catch (error) {
       if (strategyName === 'throw')
@@ -281,22 +282,33 @@ export const scanSync = (iterable, scanner, initialValue, opts = {}) => {
   })
 }
 
-// Public API keeps the (iterable, scanner, initialValue, opts) signature.
 // eslint-disable-next-line max-params
-export const reduceSync = (iterable, scanner, initialValue, opts) => {
-  const merged = {...opts, storePartialResults: false}
-  return scanSync(iterable, scanner, initialValue, merged)
-}
+export const scanSync = (iterable, scanner, initialValue, opts = {}) =>
+  runScanSync({
+    iterable, scanner, initialValue, opts, keepPartials: true,
+  })
 
-export const scanReduceSync = reduceSync
+// eslint-disable-next-line max-params
+export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
+  runScanSync({
+    iterable, scanner, initialValue, opts, keepPartials: false,
+  })
 
-export const flowSync = (operations, opts = {}) => {
+/**
+ * Synchronous twin of `enrich`: fold one input through ordered steps, merging
+ * each returned patch into the accumulated state.
+ *
+ * @param {Array<(state) => object>} operations
+ * @param {{strategy?: StrategyFn, onError?, onFailure?}} opts
+ * @returns {(initialState) => {value, errors, failure}}
+ */
+export const enrichSync = (operations, opts = {}) => {
   if (!Array.isArray(operations))
-    throw new TypeError('flowSync() requires an array of operations')
+    throw new TypeError('enrichSync() requires an array of operations')
   for (const op of operations) {
     if (typeof op !== 'function') {
       throw new TypeError(
-        'flowSync() requires every operation to be a function',
+        'enrichSync() requires every operation to be a function',
       )
     }
   }
@@ -308,7 +320,7 @@ export const flowSync = (operations, opts = {}) => {
       typeof initialState !== 'object' ||
       Array.isArray(initialState)) {
       throw new TypeError(
-        'flowSync() requires initialState to be a non-null, non-array object',
+        'enrichSync() requires initialState to be a non-null, non-array object',
       )
     }
 

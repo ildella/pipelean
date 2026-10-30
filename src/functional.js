@@ -33,7 +33,9 @@ export const tryCatch = (fn, {
     } catch (error) {
       if (onError)
         await onError(error)
-      return null
+      // undefined is the library-wide drop signal: pipe() short-circuits and
+      // series() drops the item instead of keeping a null downstream.
+      return undefined
     } finally {
       if (onFinally)
         onFinally()
@@ -218,28 +220,25 @@ export const filter = (...args) => {
 }
 
 /**
- * Accumulate values while scanning an iterable.
+ * One fold engine for `scan` and `reduce`.
  *
- * By default `scan` behaves like the original implementation and returns a
- * `{ results, errors, failure }` object containing every intermediate result.
+ * `keepPartials: true` returns `{ results, errors, sourceErrors, failure }`
+ * with every intermediate accumulator; `false` returns
+ * `{ value, errors, sourceErrors, failure }` with the last one.
  *
- * When the caller only cares about the final accumulated value (e.g. using
- * `scan` as a pure reduce), set `storePartialResults: false`. In that mode the
- * function returns `{ value, errors, failure }`, where `value` is the last
- * successful accumulator.
- *
- * @param {AsyncIterable|Array} iterable - Source of values.
- * @param {(accumulator, item) => Promise<Accumulator>} scanner
- * @param {*} initialValue.
  * @param {{
- *  strategy?: StrategyFn, onError?, onFailure?, storePartialResults?: boolean
- * }} opts
+ *  iterable: AsyncIterable|Array,
+ *  scanner: (accumulator, item, index) => Promise<Accumulator>,
+ *  initialValue: *,
+ *  opts?: {strategy?: StrategyFn, onError?, onFailure?, onSourceError?},
+ *  keepPartials: boolean
+ * }} params
  */
-// eslint-disable-next-line max-params
-export const scan = (iterable, scanner, initialValue, opts = {}) => {
+const runScan = ({
+  iterable, scanner, initialValue, opts = {}, keepPartials,
+}) => {
   const {
     strategy = failFast, onError, onFailure, onSourceError,
-    storePartialResults = true,
   } = opts
   const results = []
   let acc = initialValue
@@ -250,7 +249,7 @@ export const scan = (iterable, scanner, initialValue, opts = {}) => {
   const shape = ({
     results, errors, sourceErrors, failure,
   }) =>
-    storePartialResults
+    keepPartials
       ? {
         results, errors, sourceErrors, failure,
       }
@@ -261,7 +260,7 @@ export const scan = (iterable, scanner, initialValue, opts = {}) => {
   const step = async (item, index) => {
     try {
       acc = await scanner(acc, item, index)
-      if (storePartialResults)
+      if (keepPartials)
         results.push(acc)
     } catch (error) {
       if (strategyName === 'throw')
@@ -293,19 +292,63 @@ export const scan = (iterable, scanner, initialValue, opts = {}) => {
   })
 }
 
-// Public API keeps the (iterable, scanner, initialValue, opts) signature.
+/**
+ * Fold over data items and keep every intermediate accumulator.
+ *
+ * Use when each item depends on the previous one AND every intermediate value
+ * is itself useful. Default strategy is `failFast` (a half-done fold is
+ * usually meaningless); note that `failFast` clears `results` on failure.
+ *
+ * @param {AsyncIterable|Array} iterable - Source of values.
+ * @param {(accumulator, item, index) => Promise<Accumulator>} scanner
+ * @param {*} initialValue
+ * @param {{strategy?: StrategyFn, onError?, onFailure?, onSourceError?}} opts
+ */
+// eslint-disable-next-line max-params
+export const scan = (iterable, scanner, initialValue, opts = {}) =>
+  runScan({
+    iterable, scanner, initialValue, opts, keepPartials: true,
+  })
+
+/**
+ * Fold over data items and keep only the final accumulator.
+ *
+ * Use when the last value is all you need: sums, counts, growing records, or a
+ * daemon loop built with `forever()` + `stopWhen()`.
+ *
+ * @param {AsyncIterable|Array} iterable - Source of values.
+ * @param {(accumulator, item, index) => Promise<Accumulator>} scanner
+ * @param {*} initialValue
+ * @param {{strategy?: StrategyFn, onError?, onFailure?, onSourceError?}} opts
+ */
 // eslint-disable-next-line max-params
 export const reduce = (iterable, scanner, initialValue, opts = {}) =>
-  scan(iterable, scanner, initialValue, {...opts, storePartialResults: false})
+  runScan({
+    iterable, scanner, initialValue, opts, keepPartials: false,
+  })
 
-export const scanReduce = reduce
-
-export const flow = (operations, opts = {}) => {
+/**
+ * Enrich one input through an ordered list of steps.
+ *
+ * `enrich` is literally `reduce` over your steps:
+ * `enrich(ops)(input) === reduce(ops, (s, op) => ({...s, ...op(s)}), input)`.
+ * In FP terms it is a fold over endomorphisms `State -> Patch` with a
+ * shallow `merge` combiner.
+ *
+ * Each operation receives the current state and returns an object patch that is
+ * shallow-merged in. The pipeline is built once and reused with different
+ * inputs; errors are reported per operation, named after the function.
+ *
+ * @param {Array<(state) => object>} operations
+ * @param {{strategy?: StrategyFn, onError?, onFailure?}} opts
+ * @returns {(initialState) => Promise<{value, errors, failure}>}
+ */
+export const enrich = (operations, opts = {}) => {
   if (!Array.isArray(operations))
-    throw new TypeError('flow() requires an array of operations')
+    throw new TypeError('enrich() requires an array of operations')
   for (const op of operations) {
     if (typeof op !== 'function')
-      throw new TypeError('flow() requires every operation to be a function')
+      throw new TypeError('enrich() requires every operation to be a function')
   }
 
   const {strategy = collect, onError, onFailure} = opts
@@ -315,7 +358,7 @@ export const flow = (operations, opts = {}) => {
       typeof initialState !== 'object' ||
       Array.isArray(initialState)) {
       throw new TypeError(
-        'flow() requires initialState to be a non-null, non-array object',
+        'enrich() requires initialState to be a non-null, non-array object',
       )
     }
 
@@ -364,7 +407,7 @@ const runBranch = (fn, key, index) =>
  * Every task starts immediately and `join` waits for all of them to settle —
  * there is no cancellation, no scheduler, and completion order never affects
  * the shape of the result. Errors are data, per branch, using the same error
- * strategies as `flow`:
+ * strategies as `enrich`:
  *
  * - `collect` (default) keeps the successful branches in `value` and the
  *   failed ones in `errors` as `{operation, error, index}`; `failure` is false.

@@ -1,6 +1,6 @@
 import {test, expect, vi} from 'vitest'
 import {
-  failLate, reduceSync, scanReduceSync, rethrow,
+  failLate, reduceSync, rethrow,
 } from '$src/index'
 
 test('returns final accumulated value', () => {
@@ -101,8 +101,4 @@ test('default strategy is failFast', () => {
 test('returns value synchronously not a promise', () => {
   const result = reduceSync([1, 2, 3], (acc, item) => acc + item, 0)
   expect(result).not.toBeInstanceOf(Promise)
-})
-
-test('scanReduceSync alias points to reduceSync', () => {
-  expect(scanReduceSync).toBe(reduceSync)
 })

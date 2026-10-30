@@ -42,7 +42,8 @@ const { results, failure } = await scan(
 
 // If Track 2 fails, execution stops immediately (Fail Fast).
 // 'failure' contains the track that broke the chain.
-// 'results' is empty — no partial results on failure.
+// Careful: 'results' is cleared on failFast. If partial progression matters,
+// use collect or failLate instead.
 ```
 
 Why not series?
@@ -131,12 +132,15 @@ const saveSettings = withErrorBoundary(
 await saveSettings(newSettings)
 ```
 
-#### Example: flow (Stateful Accumulation Across One Input)
+#### Example: enrich (fold over steps)
 
 Scenario: You have a raw album payload and want to derive `title`, `year`, and `artists` from it through a series of enrichment steps. Each step receives the **current accumulated state** and returns an **object patch** that gets shallow-merged in. The pipeline is defined once and reused with different inputs.
 
+`enrich` is a `reduce` whose collection is the steps, not the data:
+`enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), input)`.
+
 ```js
-import { flow } from 'pipelean'
+import { enrich } from 'pipelean'
 
 const prepareAlbum = state => ({
   title: state.rawTitle.trim(),
@@ -151,7 +155,7 @@ const extractArtists = state => ({
 })
 
 // 1) Define the pipeline once
-const processAlbum = flow([
+const processAlbum = enrich([
   prepareAlbum,
   extractYear,
   extractArtists,
@@ -167,16 +171,16 @@ const b = await processAlbum({rawTitle: '  Blue Train  ', rawYear: 1958, artists
 
 Why not `pipe()`?
 
-`pipe()` chains value-in / value-out. Each step transforms the previous step's return value. `flow()` chains state-patch-in / state-patch-out and accumulates state. With `flow()`, every step sees the full state built so far, and the result is structured: `{value, errors, failure}` — no need to thread a state object manually.
+`pipe()` chains value-in / value-out. Each step transforms the previous step's return value. `enrich()` chains state-patch-in / state-patch-out and accumulates state. With `enrich()`, every step sees the full state built so far, and the result is structured: `{value, errors, failure}` — no need to thread a state object manually.
 
-#### Example: flow with failFast + onFailure telemetry
+#### Example: enrich with failFast + onFailure telemetry
 
 Scenario: Some enrichment steps are critical (e.g., extracting the year from a date is required for cataloging). Stop the pipeline on first failure, but still notify the app layer through `onFailure`.
 
 ```js
-import { flow, failFast } from 'pipelean'
+import { enrich, failFast } from 'pipelean'
 
-const processAlbum = flow(
+const processAlbum = enrich(
   [prepareAlbum, extractYear, extractArtists],
   {strategy: failFast, onFailure: ({operation, error, index}) => {
     reportEnrichmentError({step: operation, error, index})
@@ -190,14 +194,14 @@ const {value, errors, failure} = await processAlbum(input)
 
 The error shape is normalized: `operation` is the function's `name` (e.g., `extractYear`) or `operation-${index}` for anonymous functions. `index` is the position in the pipeline. This makes error reports readable without writing string labels in the app layer.
 
-#### Example: flow with collect + onError per-step logging
+#### Example: enrich with collect + onError per-step logging
 
 Scenario: You want best-effort enrichment. If a step fails (e.g., `extractArtists` cannot parse the artists list), log it and continue.
 
 ```js
-import { flow, collect } from 'pipelean'
+import { enrich, collect } from 'pipelean'
 
-const processAlbum = flow(
+const processAlbum = enrich(
   [prepareAlbum, extractYear, extractArtists],
   {
     strategy: collect,
@@ -238,14 +242,14 @@ const {value, errors, failure} = await join({
 
 Use `strategy: failLate` when any branch failure should make the whole join a failure. Use p-map instead when you need a *concurrent map* over a homogeneous collection — `join()` is for a named set of different tasks.
 
-#### Example: flowSync for synchronous enrichment
+#### Example: enrichSync for synchronous enrichment
 
-Scenario: All your enrichment steps are pure synchronous functions (no I/O, no async dependencies). Use `flowSync` to avoid the `Promise` overhead and the `await` at the call site.
+Scenario: All your enrichment steps are pure synchronous functions (no I/O, no async dependencies). Use `enrichSync` to avoid the `Promise` overhead and the `await` at the call site.
 
 ```js
-import { flowSync } from 'pipelean'
+import { enrichSync } from 'pipelean'
 
-const processAlbumSync = flowSync([
+const processAlbumSync = enrichSync([
   state => ({title: state.rawTitle.trim()}),
   state => ({year: Number(state.rawYear)}),
   state => ({slug: `${state.year}-${state.title.toLowerCase().replace(/\s+/g, '-')}`}),
@@ -255,4 +259,4 @@ const {value} = processAlbumSync(rawAlbum)
 // value: {title, year, slug, rawTitle, rawYear}
 ```
 
-`flowSync` returns `{value, errors, failure}` directly. Same strategies, same `onError` / `onFailure` semantics, same normalized error shapes as `flow()`. Use it whenever all your data and operations are synchronous.
+`enrichSync` returns `{value, errors, failure}` directly. Same strategies, same `onError` / `onFailure` semantics, same normalized error shapes as `enrich()`. Use it whenever all your data and operations are synchronous.

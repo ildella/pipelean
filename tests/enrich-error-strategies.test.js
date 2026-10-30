@@ -1,10 +1,10 @@
 import {test, expect} from 'vitest'
 import {
-  failFast, failLate, flow, rethrow, skip,
+  failFast, failLate, enrich, rethrow, skip,
 } from '$src/functional'
 
 test('skip strategy ignores errors and continues', async () => {
-  const {value, errors, failure} = await flow([
+  const {value, errors, failure} = await enrich([
     () => ({a: 1}),
     () => {
       throw new Error('skip me')
@@ -18,7 +18,7 @@ test('skip strategy ignores errors and continues', async () => {
 })
 
 test('failFast stops and preserves partial value', async () => {
-  const {value, errors, failure} = await flow([
+  const {value, errors, failure} = await enrich([
     () => ({a: 1}),
     () => {
       throw new Error('stop')
@@ -36,7 +36,7 @@ test('failFast stops and preserves partial value', async () => {
 })
 
 test('failLate collects errors and signals failure at end', async () => {
-  const {value, errors, failure} = await flow([
+  const {value, errors, failure} = await enrich([
     () => ({a: 1}),
     () => {
       throw new Error('e1')
@@ -54,7 +54,7 @@ test('failLate collects errors and signals failure at end', async () => {
 
 test('rethrow throws the original error', async () => {
   await expect(
-    flow([
+    enrich([
       () => ({a: 1}),
       () => {
         throw new Error('kaboom')

@@ -1,12 +1,12 @@
 import {test, expect, vi} from 'vitest'
 import {
-  failFast, failLate, flow,
+  failFast, failLate, enrich,
 } from '$src/functional'
 
 test('onError callback receives normalized shape with total', async () => {
   const onError = vi.fn()
 
-  await flow([
+  await enrich([
     () => ({a: 1}),
     () => {
       throw new Error('e')
@@ -25,7 +25,7 @@ test('onError callback receives normalized shape with total', async () => {
 test('onFailure callback (failFast) receives normalized shape', async () => {
   const onFailure = vi.fn()
 
-  await flow([
+  await enrich([
     function stepOne () {
       throw new Error('fail')
     },
@@ -41,7 +41,7 @@ test('onFailure callback (failFast) receives normalized shape', async () => {
 test('onFailure callback (failLate) shape is normalized', async () => {
   const onFailure = vi.fn()
 
-  await flow([
+  await enrich([
     () => {
       throw new Error('e1')
     },
