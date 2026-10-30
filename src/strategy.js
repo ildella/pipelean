@@ -1,4 +1,14 @@
-export const seriesShape = ({
+export const failFast = Object.freeze({name: 'failFast'})
+export const collect = Object.freeze({name: 'collect'})
+export const failLate = Object.freeze({name: 'failLate'})
+export const skip = Object.freeze({name: 'skip'})
+export const rethrow = Object.freeze({name: 'throw'})
+
+// Aliases
+export const fail = failFast
+export const stopOnError = failFast
+
+const seriesShape = ({
   results, errors, sourceErrors, failure,
 }) =>
   ({

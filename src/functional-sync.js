@@ -1,12 +1,14 @@
 /* eslint-disable max-lines */
 
-import {getPlannedTotal, withTotal} from './shared.js'
+import {getPlannedTotal, parseCallArgs} from './shared.js'
 import {parseSearchArgs} from './search.js'
-import {collect, failFast} from './functional.js'
+import {prepareEnrich} from './enrich.js'
 import {
-  createRunState, failOnItem, failOnSource, normalizeFailure,
-  normalizeOperationError, settle, toResult,
+  collect, createRunState, failOnSource, settle, toResult,
 } from './strategy.js'
+import {
+  handleItemError, notifyProgress, planFold, planSeries,
+} from './run.js'
 
 const runSyncStrategy = ({
   state, items, take, step,
@@ -68,21 +70,16 @@ export const tryCatchSync = (fn, {
   }
 
 export const seriesSync = (...args) => {
-  const immediate = typeof args[0] !== 'function'
-  const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
+  const {
+    immediate, items, fn, opts,
+  } = parseCallArgs(args)
 
   const run = inputItems => {
-    const {
-      strategy = collect, total,
-      take, onProgress, onError, onFailure, onSourceError,
-    } = opts
-    const state = createRunState(strategy, {onFailure, onSourceError})
-    const plannedTotal = getPlannedTotal({items: inputItems, take, total})
+    const plan = planSeries(opts, inputItems)
 
     const runFn = (item, index) => {
       const result = fn(item, index)
-      if (onProgress && result !== undefined)
-        onProgress(withTotal({item, result, index}, plannedTotal))
+      notifyProgress(plan, {item, result, index})
       return result
     }
 
@@ -90,24 +87,18 @@ export const seriesSync = (...args) => {
       try {
         const result = runFn(item, index)
         if (result !== undefined)
-          state.results.push(result)
+          plan.state.results.push(result)
       } catch (error) {
-        if (state.strategyName === 'throw')
-          throw error
-
-        const errorContext = {item, error, index}
-
-        if (onError)
-          onError(withTotal(errorContext, plannedTotal))
-
-        return failOnItem(state, errorContext)
+        return handleItemError(
+          plan.state, {item, error, index}, plan,
+        )
       }
 
       return null
     }
 
     return runSyncStrategy({
-      state, items: inputItems, take, step,
+      state: plan.state, items: inputItems, take: plan.take, step,
     })
   }
 
@@ -135,7 +126,8 @@ export const findSync = (...args) => {
 
   const run = inputItems => {
     const {
-      strategy = collect, take, total, onError, onFailure, onSourceError,
+      strategy = collect, take, total,
+      onError, onFailure, onSourceError,
     } = opts
     const plannedTotal = getPlannedTotal({items: inputItems, take, total})
 
@@ -154,15 +146,9 @@ export const findSync = (...args) => {
           return {stop: true, result: toResult(state, settle(state))}
         }
       } catch (error) {
-        if (state.strategyName === 'throw')
-          throw error
-
-        const errorContext = {item, error, index}
-
-        if (onError)
-          onError(withTotal(errorContext, plannedTotal))
-
-        return failOnItem(state, errorContext)
+        return handleItemError(
+          state, {item, error, index}, {onError, total: plannedTotal},
+        )
       }
 
       return null
@@ -179,44 +165,28 @@ export const findSync = (...args) => {
 const runScanSync = ({
   iterable, scanner, initialValue, opts = {}, keepPartials,
 }) => {
-  const {
-    strategy = failFast, onError, onFailure, onSourceError,
-  } = opts
   let acc = initialValue
-  const plannedTotal = getPlannedTotal({items: iterable})
-  const shape = ({
-    results, errors, sourceErrors, failure,
-  }) =>
-    keepPartials
-      ? {
-        results, errors, sourceErrors, failure,
-      }
-      : {
-        value: acc, errors, sourceErrors, failure,
-      }
-  const state = createRunState(strategy, {onFailure, onSourceError, shape})
+  const plan = planFold(opts, {
+    items: iterable,
+    keepPartials,
+    readAcc: () => acc,
+  })
 
   const step = (item, index) => {
     try {
       acc = scanner(acc, item, index)
       if (keepPartials)
-        state.results.push(acc)
+        plan.state.results.push(acc)
     } catch (error) {
-      if (state.strategyName === 'throw')
-        throw error
-
-      const errorContext = {item, error, index}
-
-      if (onError)
-        onError(withTotal(errorContext, plannedTotal))
-
-      return failOnItem(state, errorContext)
+      return handleItemError(
+        plan.state, {item, error, index}, plan,
+      )
     }
 
     return null
   }
 
-  return runSyncStrategy({state, items: iterable, step})
+  return runSyncStrategy({state: plan.state, items: iterable, step})
 }
 
 // eslint-disable-next-line max-params
@@ -240,59 +210,24 @@ export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
  * @returns {(initialState) => {value, errors, failure}}
  */
 export const enrichSync = (operations, opts = {}) => {
-  if (!Array.isArray(operations))
-    throw new TypeError('enrichSync() requires an array of operations')
-  for (const op of operations) {
-    if (typeof op !== 'function') {
-      throw new TypeError(
-        'enrichSync() requires every operation to be a function',
-      )
-    }
-  }
-
-  const {strategy = collect, onError, onFailure} = opts
+  const {
+    scanner, reduceOpts, assertInitial, finish,
+  } = prepareEnrich({
+    operations,
+    opts,
+    label: 'enrichSync',
+    scannerFor: merge => (state, operation, index) =>
+      merge({
+        state, operation, index, patch: operation(state),
+      }),
+  })
 
   return initialState => {
-    if (initialState === null ||
-      typeof initialState !== 'object' ||
-      Array.isArray(initialState)) {
-      throw new TypeError(
-        'enrichSync() requires initialState to be a non-null, non-array object',
-      )
-    }
+    assertInitial(initialState)
 
-    const scanner = (state, operation, index) => {
-      const patch = operation(state)
-      if (patch === null ||
-        typeof patch !== 'object' ||
-        Array.isArray(patch)) {
-        const name = operation.name || `operation-${index}`
-        throw new TypeError(
-          `Operation ${name} must return a non-null, non-array object`,
-        )
-      }
-      return {...state, ...patch}
-    }
-
-    const reduceOpts = {
-      strategy,
-      ...onError
-        ? {onError: ctx => onError(normalizeOperationError(ctx))}
-        : {},
-      ...onFailure
-        ? {onFailure: ctx => onFailure(normalizeFailure(ctx))}
-        : {},
-    }
-
-    const result = reduceSync(
+    return finish(reduceSync(
       operations, scanner, initialState, reduceOpts,
-    )
-
-    return {
-      value: result.value,
-      errors: result.errors.map(normalizeOperationError),
-      failure: normalizeFailure(result.failure),
-    }
+    ))
   }
 }
 

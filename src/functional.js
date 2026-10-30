@@ -1,23 +1,19 @@
 /* eslint-disable max-lines */
 
-import {getPlannedTotal, withTotal} from './shared.js'
+import {parseCallArgs} from './shared.js'
 import {parseSearchArgs} from './search.js'
+import {prepareEnrich} from './enrich.js'
 import {
-  createRunState, failOnItem, failOnSource, normalizeFailure,
-  normalizeOperationError, settle, toResult,
+  collect, failOnSource, normalizeOperationError, settle, toResult,
 } from './strategy.js'
+import {
+  handleItemErrorAsync, notifyProgress, planFold, planSeries,
+} from './run.js'
 
 export {where} from './search.js'
-
-export const failFast = Object.freeze({name: 'failFast'})
-export const collect = Object.freeze({name: 'collect'})
-export const failLate = Object.freeze({name: 'failLate'})
-export const skip = Object.freeze({name: 'skip'})
-export const rethrow = Object.freeze({name: 'throw'})
-
-// Aliases
-export const fail = failFast
-export const stopOnError = failFast
+export {
+  collect, fail, failFast, failLate, rethrow, skip, stopOnError,
+} from './strategy.js'
 
 export const tryCatch = (fn, {
   onStart, onSuccess, onError, onFinally,
@@ -107,35 +103,29 @@ const runAsyncStrategy = async ({
 }
 
 export const series = (...args) => {
-  const immediate = typeof args[0] !== 'function'
-  const [items, fn, opts = {}] = immediate ? args : [null, args[0], args[1]]
+  const {
+    immediate, items, fn, opts,
+  } = parseCallArgs(args)
 
   const run = inputItems => {
-    const {
-      strategy = collect, total,
-      take, onProgress, onError, onFailure, onSourceError,
-      pause, pauseOnErrors = false,
-    } = opts
-    const state = createRunState(strategy, {onFailure, onSourceError})
-    const plannedTotal = getPlannedTotal({items: inputItems, take, total})
+    const plan = planSeries(opts, inputItems)
 
     const runFn = async (item, index) => {
       const result = await fn(item, index)
-      if (onProgress && result !== undefined)
-        await onProgress(withTotal({item, result, index}, plannedTotal))
+      await notifyProgress(plan, {item, result, index})
       return result
     }
 
     const waitForPause = async condition => {
       if (condition)
-        await delay(pause)
+        await delay(plan.pause)
     }
 
     const pauseAfterError = async outcome => {
       if (outcome === null)
-        await waitForPause(pause && pauseOnErrors)
+        await waitForPause(plan.pause && plan.pauseOnErrors)
       else if (outcome.skip)
-        await waitForPause(pause)
+        await waitForPause(plan.pause)
     }
 
     const step = async (item, index) => {
@@ -143,19 +133,13 @@ export const series = (...args) => {
         const result = await runFn(item, index)
         // undefined means "drop this item" (this is how filter() works).
         if (result !== undefined)
-          state.results.push(result)
+          plan.state.results.push(result)
 
-        await waitForPause(pause)
+        await waitForPause(plan.pause)
       } catch (error) {
-        if (state.strategyName === 'throw')
-          throw error
-
-        const errorContext = {item, error, index}
-
-        if (onError)
-          await onError(withTotal(errorContext, plannedTotal))
-
-        const outcome = failOnItem(state, errorContext)
+        const outcome = await handleItemErrorAsync(
+          plan.state, {item, error, index}, plan,
+        )
 
         await pauseAfterError(outcome)
         return outcome
@@ -165,7 +149,7 @@ export const series = (...args) => {
     }
 
     return runAsyncStrategy({
-      state, items: inputItems, take, step,
+      state: plan.state, items: inputItems, take: plan.take, step,
     })
   }
 
@@ -205,44 +189,28 @@ export const filter = (...args) => {
 const runScan = ({
   iterable, scanner, initialValue, opts = {}, keepPartials,
 }) => {
-  const {
-    strategy = failFast, onError, onFailure, onSourceError,
-  } = opts
   let acc = initialValue
-  const plannedTotal = getPlannedTotal({items: iterable})
-  const shape = ({
-    results, errors, sourceErrors, failure,
-  }) =>
-    keepPartials
-      ? {
-        results, errors, sourceErrors, failure,
-      }
-      : {
-        value: acc, errors, sourceErrors, failure,
-      }
-  const state = createRunState(strategy, {onFailure, onSourceError, shape})
+  const plan = planFold(opts, {
+    items: iterable,
+    keepPartials,
+    readAcc: () => acc,
+  })
 
   const step = async (item, index) => {
     try {
       acc = await scanner(acc, item, index)
       if (keepPartials)
-        state.results.push(acc)
+        plan.state.results.push(acc)
     } catch (error) {
-      if (state.strategyName === 'throw')
-        throw error
-
-      const errorContext = {item, error, index}
-
-      if (onError)
-        await onError(withTotal(errorContext, plannedTotal))
-
-      return failOnItem(state, errorContext)
+      return handleItemErrorAsync(
+        plan.state, {item, error, index}, plan,
+      )
     }
 
     return null
   }
 
-  return runAsyncStrategy({state, items: iterable, step})
+  return runAsyncStrategy({state: plan.state, items: iterable, step})
 }
 
 /**
@@ -297,56 +265,24 @@ export const reduce = (iterable, scanner, initialValue, opts = {}) =>
  * @returns {(initialState) => Promise<{value, errors, failure}>}
  */
 export const enrich = (operations, opts = {}) => {
-  if (!Array.isArray(operations))
-    throw new TypeError('enrich() requires an array of operations')
-  for (const op of operations) {
-    if (typeof op !== 'function')
-      throw new TypeError('enrich() requires every operation to be a function')
-  }
-
-  const {strategy = collect, onError, onFailure} = opts
+  const {
+    scanner, reduceOpts, assertInitial, finish,
+  } = prepareEnrich({
+    operations,
+    opts,
+    label: 'enrich',
+    scannerFor: merge => async (state, operation, index) =>
+      merge({
+        state, operation, index, patch: await operation(state),
+      }),
+  })
 
   return async initialState => {
-    if (initialState === null ||
-      typeof initialState !== 'object' ||
-      Array.isArray(initialState)) {
-      throw new TypeError(
-        'enrich() requires initialState to be a non-null, non-array object',
-      )
-    }
+    assertInitial(initialState)
 
-    const scanner = async (state, operation, index) => {
-      const patch = await operation(state)
-      if (patch === null ||
-        typeof patch !== 'object' ||
-        Array.isArray(patch)) {
-        const name = operation.name || `operation-${index}`
-        throw new TypeError(
-          `Operation ${name} must return a non-null, non-array object`,
-        )
-      }
-      return {...state, ...patch}
-    }
-
-    const reduceOpts = {
-      strategy,
-      ...onError
-        ? {onError: ctx => onError(normalizeOperationError(ctx))}
-        : {},
-      ...onFailure
-        ? {onFailure: ctx => onFailure(normalizeFailure(ctx))}
-        : {},
-    }
-
-    const result = await reduce(
+    return finish(await reduce(
       operations, scanner, initialState, reduceOpts,
-    )
-
-    return {
-      value: result.value,
-      errors: result.errors.map(normalizeOperationError),
-      failure: normalizeFailure(result.failure),
-    }
+    ))
   }
 }
 
