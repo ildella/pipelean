@@ -4,7 +4,7 @@
   },
   "project": {
     "workspaces": {
-      "pipelean": "08713331fe090f5dcc1c7a673f253d4b2003505b8dd252b315ac2a23a3d415835cb38bcd780616b7845b6969ce5c5813d307ed2e0e211e93964f4a21809aaf72"
+      "pipelean": "3e22ad672e48fe784bfaec7e2874c20b5418f5a936c9e82b508d2d6f77ccf42cd2e028c5260b39fb6ccf4aba00a1a2ca4570118099acb35637664cee23625d74"
     }
   },
   "entries": {
@@ -310,18 +310,18 @@
         "version": "1.1.1"
       }
     },
-    "@oxc-project/types@npm:=0.153.0": {
-      "checksum": "f7a24a771e8bda94df258be87f63672814d6d26e0eb971be40a73fb2bcddef6160dda1a06563a0e11e8c8dbcf00a42d11f98c4e2a87237721c4aa6d9859db58f",
+    "@oxc-project/types@npm:=0.156.0": {
+      "checksum": "afbaa4431c0b7798c14f2d37dccce16934145888541148e346307b6f0623df4e3da05bc4358aea004350cedd3831c2a60b8852c129a4e28dca866e987c87ce29",
       "resolution": {
-        "resolution": "@oxc-project/types@npm:0.153.0",
-        "version": "0.153.0"
+        "resolution": "@oxc-project/types@npm:0.156.0",
+        "version": "0.156.0"
       }
     },
-    "@rolldown/binding-android-arm-eabi@npm:1.2.13": {
+    "@rolldown/binding-android-arm-eabi@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-android-arm-eabi@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-android-arm-eabi@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "arm"
@@ -332,11 +332,11 @@
         }
       }
     },
-    "@rolldown/binding-android-arm64@npm:1.2.13": {
+    "@rolldown/binding-android-arm64@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-android-arm64@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-android-arm64@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "arm64"
@@ -347,11 +347,11 @@
         }
       }
     },
-    "@rolldown/binding-darwin-arm64@npm:1.2.13": {
+    "@rolldown/binding-darwin-arm64@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-darwin-arm64@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-darwin-arm64@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "arm64"
@@ -362,11 +362,11 @@
         }
       }
     },
-    "@rolldown/binding-darwin-x64@npm:1.2.13": {
+    "@rolldown/binding-darwin-x64@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-darwin-x64@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-darwin-x64@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "x64"
@@ -377,11 +377,11 @@
         }
       }
     },
-    "@rolldown/binding-freebsd-x64@npm:1.2.13": {
+    "@rolldown/binding-freebsd-x64@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-freebsd-x64@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-freebsd-x64@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "x64"
@@ -392,11 +392,11 @@
         }
       }
     },
-    "@rolldown/binding-linux-arm-gnueabihf@npm:1.2.13": {
+    "@rolldown/binding-linux-arm-gnueabihf@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-linux-arm-gnueabihf@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-linux-arm-gnueabihf@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "arm"
@@ -407,11 +407,11 @@
         }
       }
     },
-    "@rolldown/binding-linux-arm64-gnu@npm:1.2.13": {
+    "@rolldown/binding-linux-arm64-gnu@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-linux-arm64-gnu@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-linux-arm64-gnu@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "arm64"
@@ -425,11 +425,11 @@
         }
       }
     },
-    "@rolldown/binding-linux-arm64-musl@npm:1.2.13": {
+    "@rolldown/binding-linux-arm64-musl@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-linux-arm64-musl@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-linux-arm64-musl@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "arm64"
@@ -443,11 +443,11 @@
         }
       }
     },
-    "@rolldown/binding-linux-ppc64-gnu@npm:1.2.13": {
+    "@rolldown/binding-linux-ppc64-gnu@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-linux-ppc64-gnu@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-linux-ppc64-gnu@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "ppc64"
@@ -461,11 +461,11 @@
         }
       }
     },
-    "@rolldown/binding-linux-s390x-gnu@npm:1.2.13": {
+    "@rolldown/binding-linux-s390x-gnu@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-linux-s390x-gnu@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-linux-s390x-gnu@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "s390x"
@@ -479,11 +479,11 @@
         }
       }
     },
-    "@rolldown/binding-linux-x64-gnu@npm:1.2.13": {
+    "@rolldown/binding-linux-x64-gnu@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-linux-x64-gnu@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-linux-x64-gnu@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "x64"
@@ -497,11 +497,11 @@
         }
       }
     },
-    "@rolldown/binding-linux-x64-musl@npm:1.2.13": {
+    "@rolldown/binding-linux-x64-musl@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-linux-x64-musl@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-linux-x64-musl@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "x64"
@@ -515,11 +515,11 @@
         }
       }
     },
-    "@rolldown/binding-openharmony-arm64@npm:1.2.13": {
+    "@rolldown/binding-openharmony-arm64@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-openharmony-arm64@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-openharmony-arm64@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "arm64"
@@ -530,11 +530,11 @@
         }
       }
     },
-    "@rolldown/binding-win32-arm64-msvc@npm:1.2.13": {
+    "@rolldown/binding-win32-arm64-msvc@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-win32-arm64-msvc@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-win32-arm64-msvc@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "arm64"
@@ -545,11 +545,11 @@
         }
       }
     },
-    "@rolldown/binding-win32-x64-msvc@npm:1.2.13": {
+    "@rolldown/binding-win32-x64-msvc@npm:1.2.16": {
       "checksum": null,
       "resolution": {
-        "resolution": "@rolldown/binding-win32-x64-msvc@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "@rolldown/binding-win32-x64-msvc@npm:1.2.16",
+        "version": "1.2.16",
         "requirements": {
           "cpu": [
             "x64"
@@ -652,14 +652,14 @@
         "version": "7.0.15"
       }
     },
-    "@typescript-eslint/project-service@npm:8.58.0": {
-      "checksum": "2a5bd650cfb58ea5562e1e4c870d21bce53f20e9489a88284fb08f0e7e575015ed8fbf9d2dfe2797e6c1a2f713d131ed7653f5d251fa05a2dfb5b9cf17fb56ef",
+    "@typescript-eslint/project-service@npm:8.72.1": {
+      "checksum": "cef066de1e92491d02d7121499e85ed282c983e72145feeb92b5366ea5fea937641a7d7537a04135b9bcfdbee89edeaeca7c487fa561db31e967cf07daad1e72",
       "resolution": {
-        "resolution": "@typescript-eslint/project-service@npm:8.58.0",
-        "version": "8.58.0",
+        "resolution": "@typescript-eslint/project-service@npm:8.72.1",
+        "version": "8.72.1",
         "dependencies": {
-          "@typescript-eslint/tsconfig-utils": "^8.58.0",
-          "@typescript-eslint/types": "^8.58.0",
+          "@typescript-eslint/tsconfig-utils": "^8.72.1",
+          "@typescript-eslint/types": "^8.72.1",
           "debug": "^4.4.3"
         },
         "peerDependencies": {
@@ -667,32 +667,32 @@
         }
       }
     },
-    "@typescript-eslint/scope-manager@npm:8.58.0, @typescript-eslint/scope-manager@npm:^8.58.0": {
-      "checksum": "f472dcddb6d95d00da123e86b68e4e3f1d9ce8c8c9a44e3ed492f25d55e0cff8f312c867bfa611cacedbdc072a941c9085b090e6e43d49d2cf25f874eea89a60",
+    "@typescript-eslint/scope-manager@npm:8.72.1, @typescript-eslint/scope-manager@npm:^8.71.2": {
+      "checksum": "c9f3b8c24d658192c0e7b802d945957be66dbabcfdf1f7998d6b6f669a03ce601b6b4e65bf5f2ec9732f298efc6906a523960ab60f0653c84c93b94abda93491",
       "resolution": {
-        "resolution": "@typescript-eslint/scope-manager@npm:8.58.0",
-        "version": "8.58.0",
+        "resolution": "@typescript-eslint/scope-manager@npm:8.72.1",
+        "version": "8.72.1",
         "dependencies": {
-          "@typescript-eslint/types": "8.58.0",
-          "@typescript-eslint/visitor-keys": "8.58.0"
+          "@typescript-eslint/types": "8.72.1",
+          "@typescript-eslint/visitor-keys": "8.72.1"
         }
       }
     },
-    "@typescript-eslint/tsconfig-utils@npm:8.58.0, @typescript-eslint/tsconfig-utils@npm:^8.58.0": {
-      "checksum": "35c730450f40a695a0b00e76e9d1acaa1be3a5eb5140b717d0b910c46dd9499dce39d024655698f93268357a4874d81536e68c67e092461742431007e6755210",
+    "@typescript-eslint/tsconfig-utils@npm:8.72.1, @typescript-eslint/tsconfig-utils@npm:^8.72.1": {
+      "checksum": "e11519e4905a3c26774d3dbc4739d2c5d85c4574521214b9bfc920d6ab9e181d782e00ea7091f8eab91976194cb7f3fcdbea051e411104df343bf6699ffabaf4",
       "resolution": {
-        "resolution": "@typescript-eslint/tsconfig-utils@npm:8.58.0",
-        "version": "8.58.0",
+        "resolution": "@typescript-eslint/tsconfig-utils@npm:8.72.1",
+        "version": "8.72.1",
         "peerDependencies": {
           "typescript": ">=4.8.4 <6.1.0"
         }
       }
     },
-    "@typescript-eslint/types@npm:8.58.0, @typescript-eslint/types@npm:^8.58.0": {
-      "checksum": "e197b91381a6540cab4311d26d23f04ddded19efa2f80e51c9cc1d4306e9dbf2165174ea2d84a2d88ee3b03d6d4f2295320d7d01ba618f740be33133caeb18df",
+    "@typescript-eslint/types@npm:8.72.1, @typescript-eslint/types@npm:^8.72.1": {
+      "checksum": "d510a1a13975f82e5d9c4eb6ee9b2f71c0383adf03d6ab2baab01feb1bd7c09a00c50d32c9d9a96a96421524fa205688d9193a4efed72315e85bc041dfc5d63a",
       "resolution": {
-        "resolution": "@typescript-eslint/types@npm:8.58.0",
-        "version": "8.58.0"
+        "resolution": "@typescript-eslint/types@npm:8.72.1",
+        "version": "8.72.1"
       }
     },
     "@typescript-eslint/types@npm:^8.56.0": {
@@ -702,16 +702,16 @@
         "version": "8.67.0"
       }
     },
-    "@typescript-eslint/typescript-estree@npm:8.58.0": {
-      "checksum": "a3e0bd35808877e2e872ba6c204370f6b84fb221ec539ce310c8ee5957c0b1b2ec50fa09bc16067e3d9a10afb4f934c7325bf0a06983b1c7da5c69b9ba60ddc7",
+    "@typescript-eslint/typescript-estree@npm:8.72.1": {
+      "checksum": "7e1fcd07448df40bd791be91c4329962c8ab236f7cae1b5dee4771a42bfc98bb62148417081f768c7e522d770df27ae339d9e506d0814d80fa69c9cda0393622",
       "resolution": {
-        "resolution": "@typescript-eslint/typescript-estree@npm:8.58.0",
-        "version": "8.58.0",
+        "resolution": "@typescript-eslint/typescript-estree@npm:8.72.1",
+        "version": "8.72.1",
         "dependencies": {
-          "@typescript-eslint/project-service": "8.58.0",
-          "@typescript-eslint/tsconfig-utils": "8.58.0",
-          "@typescript-eslint/types": "8.58.0",
-          "@typescript-eslint/visitor-keys": "8.58.0",
+          "@typescript-eslint/project-service": "8.72.1",
+          "@typescript-eslint/tsconfig-utils": "8.72.1",
+          "@typescript-eslint/types": "8.72.1",
+          "@typescript-eslint/visitor-keys": "8.72.1",
           "debug": "^4.4.3",
           "minimatch": "^10.2.2",
           "semver": "^7.7.3",
@@ -723,16 +723,16 @@
         }
       }
     },
-    "@typescript-eslint/utils@npm:^8.58.0": {
-      "checksum": "1df0517802033e757b169d3727f73a52360b7f4dccf6925d88e6a6c13b063e9d2c9d25dad28f7fedccc49825b2b28c96e55b416298f65f3eae0c8656c5a45c34",
+    "@typescript-eslint/utils@npm:^8.71.2": {
+      "checksum": "d0856f5ab5941226b9452e2f95b8d8d4e6706ae42cf76e5456819eea619eb99a3e8de7734776e1bcc96a527351d3eb25af6e7a535d8b1272dac34497e8040e49",
       "resolution": {
-        "resolution": "@typescript-eslint/utils@npm:8.58.0",
-        "version": "8.58.0",
+        "resolution": "@typescript-eslint/utils@npm:8.72.1",
+        "version": "8.72.1",
         "dependencies": {
           "@eslint-community/eslint-utils": "^4.9.1",
-          "@typescript-eslint/scope-manager": "8.58.0",
-          "@typescript-eslint/types": "8.58.0",
-          "@typescript-eslint/typescript-estree": "8.58.0"
+          "@typescript-eslint/scope-manager": "8.72.1",
+          "@typescript-eslint/types": "8.72.1",
+          "@typescript-eslint/typescript-estree": "8.72.1"
         },
         "peerDependencies": {
           "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0",
@@ -740,22 +740,22 @@
         }
       }
     },
-    "@typescript-eslint/visitor-keys@npm:8.58.0": {
-      "checksum": "ff916c309d416323047523443de43405419f2622d5510e36710325b917ff8f76162adb0b073f3bf945ba979c50f4db37eaf021b7a2c38ce61bc4f7d178221386",
+    "@typescript-eslint/visitor-keys@npm:8.72.1": {
+      "checksum": "65e447b11a28845734f7c834953c79c39c363d57bfa845622ed6e94d6a6d4b45c6fc578b20f28bc7815e3b2bcd0fa6d28fad1a49b288e80d8abe612315bd1361",
       "resolution": {
-        "resolution": "@typescript-eslint/visitor-keys@npm:8.58.0",
-        "version": "8.58.0",
+        "resolution": "@typescript-eslint/visitor-keys@npm:8.72.1",
+        "version": "8.72.1",
         "dependencies": {
-          "@typescript-eslint/types": "8.58.0",
+          "@typescript-eslint/types": "8.72.1",
           "eslint-visitor-keys": "^5.0.0"
         }
       }
     },
-    "@vitest/coverage-v8@npm:5.0.4": {
-      "checksum": "a3c96dbdd839cde8be2e3dab2e1aa9fd7f7a6109fe9eb87c0e9f3cd361233aa0b6586d48648205727aea59394d6d6cdc1e98ef79e0f5ba535d0f9cfe1a20027e",
+    "@vitest/coverage-v8@npm:5.0.5": {
+      "checksum": "948e5cd31ab3f8b0df4156b641b125999150400e51612ad7cf1887206997ad048dccd5f4094cf1119ed5516303d2ccc0917bd766929d3d043e35c61d36dd35dc",
       "resolution": {
-        "resolution": "@vitest/coverage-v8@npm:5.0.4",
-        "version": "5.0.4",
+        "resolution": "@vitest/coverage-v8@npm:5.0.5",
+        "version": "5.0.5",
         "dependencies": {
           "@bcoe/v8-coverage": "^1.0.2",
           "@vitest/istanbul-lib-coverage": "^1.0.2",
@@ -767,27 +767,27 @@
           "tinyrainbow": "^3.2.0"
         },
         "peerDependencies": {
-          "@vitest/browser": "5.0.4",
-          "vitest": "5.0.4"
+          "@vitest/browser": "5.0.5",
+          "vitest": "5.0.5"
         },
         "optionalPeerDependencies": [
           "@vitest/browser"
         ]
       }
     },
-    "@vitest/eslint-plugin@npm:1.6.27": {
-      "checksum": "099f1d90cf6def2c3bf1c49796f97e59850a490a6dfd76ebc007bb135422c7e9488ddc9d75ea71a3331d8dfcec871e8a9fc0ae4de8bc1e029f17a18dd9a54885",
+    "@vitest/eslint-plugin@npm:1.6.28": {
+      "checksum": "435a4d8ce9894e0dfc7cea9055d513c70a3e04d34865e447f94df7b9db3082a1f66d8eaed089cc14c8ecdb89c07652c7dc8d5db48c12d0db784132bbb93810ee",
       "resolution": {
-        "resolution": "@vitest/eslint-plugin@npm:1.6.27",
-        "version": "1.6.27",
+        "resolution": "@vitest/eslint-plugin@npm:1.6.28",
+        "version": "1.6.28",
         "dependencies": {
-          "@typescript-eslint/scope-manager": "^8.58.0",
-          "@typescript-eslint/utils": "^8.58.0"
+          "@typescript-eslint/scope-manager": "^8.71.2",
+          "@typescript-eslint/utils": "^8.71.2"
         },
         "peerDependencies": {
           "@typescript-eslint/eslint-plugin": "*",
           "eslint": ">=8.57.0",
-          "typescript": ">=5.0.0",
+          "typescript": ">=6.0.0",
           "vitest": "*"
         },
         "optionalPeerDependencies": [
@@ -814,14 +814,14 @@
         }
       }
     },
-    "@vitest/mocker@npm:5.0.4": {
-      "checksum": "e04a7e35c8effed44477d1dca655ddc7a6f761f63285b1d192a0662aafa9380237a119d7176b2114b8f1ae04b0e3ac7abbb818b8657c9d4297787b4a214ca27a",
+    "@vitest/mocker@npm:5.0.5": {
+      "checksum": "bc4662d7c44dd9841006220d881b084c68a7600f974dee34b7ff30ccf1392851726ca273cba5039083183a1b70c0675852a5d0c5c7f78f3a8f367f5e7a2b4f10",
       "resolution": {
-        "resolution": "@vitest/mocker@npm:5.0.4",
-        "version": "5.0.4",
+        "resolution": "@vitest/mocker@npm:5.0.5",
+        "version": "5.0.5",
         "dependencies": {
           "@jridgewell/trace-mapping": "0.3.31",
-          "@vitest/spy": "5.0.4",
+          "@vitest/spy": "5.0.5",
           "estree-walker": "^3.0.3",
           "magic-string": "^1.4.3"
         },
@@ -835,11 +835,11 @@
         ]
       }
     },
-    "@vitest/spy@npm:5.0.4": {
-      "checksum": "7b2f28ce63d9e01618b905a1ba98618cf5e7ab5daaa6603d470f17227d70f579dcc68846957e9538b8f31cd7b1053cb870f2aaf1f1e257b9de1c9067a1e2f25f",
+    "@vitest/spy@npm:5.0.5": {
+      "checksum": "23dc04ee5c14164f099b1e7ba68a55ada16f8db7a65b9511dbd51a0ec88095354bde8906c86de0a323acdab5c70c3b1b864a0111d7eaf7e91a146e54ce649771",
       "resolution": {
-        "resolution": "@vitest/spy@npm:5.0.4",
-        "version": "5.0.4"
+        "resolution": "@vitest/spy@npm:5.0.5",
+        "version": "5.0.5"
       }
     },
     "abbrev@npm:^5.0.0": {
@@ -1092,11 +1092,11 @@
         "version": "4.0.0"
       }
     },
-    "eslint@npm:10.12.0": {
-      "checksum": "86b932476b50302c414d91b88fab29d179d77791ea5c4e0db7b58d47a3c9a125384d7e4860e3d225dd707f0d3f07d7f20b11ac833b72929bca138138874a00ed",
+    "eslint@npm:10.13.0": {
+      "checksum": "f67cc859ad5c5099baeab6e6a906fbb3518bf1713f357da042e43b0bb9611b3cd2f2b69dfff494ac9c8f20b671574334d4a44d34f72f8f8cf961f6dd26085516",
       "resolution": {
-        "resolution": "eslint@npm:10.12.0",
-        "version": "10.12.0",
+        "resolution": "eslint@npm:10.13.0",
+        "version": "10.13.0",
         "dependencies": {
           "@eslint-community/eslint-utils": "^4.8.0",
           "@eslint-community/regexpp": "^4.12.2",
@@ -1137,11 +1137,11 @@
         ]
       }
     },
-    "eslint-nostandard@npm:1.1.0": {
-      "checksum": "c758b979d4a169cf570a8dd5fb9d078595e1f7e5eaf09bb5073cbf8d069b581cc6d9c4b26580cd4fd5a631ea49568623e3f1cd9dcbadf97e58ef7a07f54dcc1d",
+    "eslint-nostandard@npm:1.4.1": {
+      "checksum": "22441a41d1c6c0da6ebf36adb47dbbc08664aa9d0816c1ecef4d285fd4160d2486ff7805eb8309d7b0dc61f57a90858f3a5fce6d89b467a542f9c3e0ed98bb30",
       "resolution": {
-        "resolution": "eslint-nostandard@npm:1.1.0",
-        "version": "1.1.0",
+        "resolution": "eslint-nostandard@npm:1.4.1",
+        "version": "1.4.1",
         "peerDependencies": {
           "@eslint/js": "^9.0.0 || ^10.0.0",
           "@stylistic/eslint-plugin": "^5.0.0",
@@ -1152,7 +1152,7 @@
           "eslint-plugin-playwright": "^2.10.0",
           "eslint-plugin-sonarjs": "^4.0.0",
           "eslint-plugin-svelte": "^3.23.0",
-          "eslint-plugin-unicorn": ">=60.0.0",
+          "eslint-plugin-unicorn": ">=74.0.0",
           "globals": "^16.0.0 || ^17.0.0"
         },
         "optionalPeerDependencies": [
@@ -1516,20 +1516,20 @@
         "version": "10.0.0"
       }
     },
-    "jscpd@npm:5.4.1": {
-      "checksum": "49db98b9f022b77b40e6f05c2a972e645b5720ee5261a3ee0a3f89d64c6e4eaefd4d01a05470230d23f6bcd9affb8a6b0ee2a2e08ce3475ea7f452ccd36dbd2e",
+    "jscpd@npm:5.4.2": {
+      "checksum": "45a944918b38d541e906669d7c88e66f079cd48d15bce6fe58269cef10b5377363e09e706eb5cf2397131c20f562b4527b89a48130c32cb6d0d719c98cb4035d",
       "resolution": {
-        "resolution": "jscpd@npm:5.4.1",
-        "version": "5.4.1",
+        "resolution": "jscpd@npm:5.4.2",
+        "version": "5.4.2",
         "dependencies": {
-          "jscpd-darwin-arm64": "5.4.1",
-          "jscpd-darwin-x64": "5.4.1",
-          "jscpd-linux-arm64-gnu": "5.4.1",
-          "jscpd-linux-arm64-musl": "5.4.1",
-          "jscpd-linux-x64-gnu": "5.4.1",
-          "jscpd-linux-x64-musl": "5.4.1",
-          "jscpd-windows-arm64-msvc": "5.4.1",
-          "jscpd-windows-x64-msvc": "5.4.1"
+          "jscpd-darwin-arm64": "5.4.2",
+          "jscpd-darwin-x64": "5.4.2",
+          "jscpd-linux-arm64-gnu": "5.4.2",
+          "jscpd-linux-arm64-musl": "5.4.2",
+          "jscpd-linux-x64-gnu": "5.4.2",
+          "jscpd-linux-x64-musl": "5.4.2",
+          "jscpd-windows-arm64-msvc": "5.4.2",
+          "jscpd-windows-x64-msvc": "5.4.2"
         },
         "optionalDependencies": [
           "jscpd-darwin-arm64",
@@ -1543,11 +1543,11 @@
         ]
       }
     },
-    "jscpd-darwin-arm64@npm:5.4.1": {
+    "jscpd-darwin-arm64@npm:5.4.2": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-darwin-arm64@npm:5.4.1",
-        "version": "5.4.1",
+        "resolution": "jscpd-darwin-arm64@npm:5.4.2",
+        "version": "5.4.2",
         "requirements": {
           "cpu": [
             "arm64"
@@ -1558,11 +1558,11 @@
         }
       }
     },
-    "jscpd-darwin-x64@npm:5.4.1": {
+    "jscpd-darwin-x64@npm:5.4.2": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-darwin-x64@npm:5.4.1",
-        "version": "5.4.1",
+        "resolution": "jscpd-darwin-x64@npm:5.4.2",
+        "version": "5.4.2",
         "requirements": {
           "cpu": [
             "x64"
@@ -1573,11 +1573,11 @@
         }
       }
     },
-    "jscpd-linux-arm64-gnu@npm:5.4.1": {
+    "jscpd-linux-arm64-gnu@npm:5.4.2": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-linux-arm64-gnu@npm:5.4.1",
-        "version": "5.4.1",
+        "resolution": "jscpd-linux-arm64-gnu@npm:5.4.2",
+        "version": "5.4.2",
         "requirements": {
           "cpu": [
             "arm64"
@@ -1591,11 +1591,11 @@
         }
       }
     },
-    "jscpd-linux-arm64-musl@npm:5.4.1": {
+    "jscpd-linux-arm64-musl@npm:5.4.2": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-linux-arm64-musl@npm:5.4.1",
-        "version": "5.4.1",
+        "resolution": "jscpd-linux-arm64-musl@npm:5.4.2",
+        "version": "5.4.2",
         "requirements": {
           "cpu": [
             "arm64"
@@ -1609,11 +1609,11 @@
         }
       }
     },
-    "jscpd-linux-x64-gnu@npm:5.4.1": {
+    "jscpd-linux-x64-gnu@npm:5.4.2": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-linux-x64-gnu@npm:5.4.1",
-        "version": "5.4.1",
+        "resolution": "jscpd-linux-x64-gnu@npm:5.4.2",
+        "version": "5.4.2",
         "requirements": {
           "cpu": [
             "x64"
@@ -1627,11 +1627,11 @@
         }
       }
     },
-    "jscpd-linux-x64-musl@npm:5.4.1": {
+    "jscpd-linux-x64-musl@npm:5.4.2": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-linux-x64-musl@npm:5.4.1",
-        "version": "5.4.1",
+        "resolution": "jscpd-linux-x64-musl@npm:5.4.2",
+        "version": "5.4.2",
         "requirements": {
           "cpu": [
             "x64"
@@ -1645,11 +1645,11 @@
         }
       }
     },
-    "jscpd-windows-arm64-msvc@npm:5.4.1": {
+    "jscpd-windows-arm64-msvc@npm:5.4.2": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-windows-arm64-msvc@npm:5.4.1",
-        "version": "5.4.1",
+        "resolution": "jscpd-windows-arm64-msvc@npm:5.4.2",
+        "version": "5.4.2",
         "requirements": {
           "cpu": [
             "arm64"
@@ -1660,11 +1660,11 @@
         }
       }
     },
-    "jscpd-windows-x64-msvc@npm:5.4.1": {
+    "jscpd-windows-x64-msvc@npm:5.4.2": {
       "checksum": null,
       "resolution": {
-        "resolution": "jscpd-windows-x64-msvc@npm:5.4.1",
-        "version": "5.4.1",
+        "resolution": "jscpd-windows-x64-msvc@npm:5.4.2",
+        "version": "5.4.2",
         "requirements": {
           "cpu": [
             "x64"
@@ -2020,7 +2020,7 @@
         "version": "2.1.3"
       }
     },
-    "nanoid@npm:^3.3.19": {
+    "nanoid@npm:^3.3.20": {
       "checksum": "a621892fd6f0dcbc855eaced073415c3a5928945da937211b1ab7b950d40e7070edd21f99756dcf5a4fbae6bdfb9ad4068cacf38bcf13dce079a1c427efadc30",
       "resolution": {
         "resolution": "nanoid@npm:3.3.20",
@@ -2147,13 +2147,13 @@
         "version": "4.0.7"
       }
     },
-    "postcss@npm:^8.5.29": {
-      "checksum": "642bc47ed554051cf3a265aef8cbcbda096f33d3919dc5db35b091cd8bcf752bbabacad5e57d7dd0e648b527808ce6d878dd0b0418107f19b7f0d30a761bcc3b",
+    "postcss@npm:^8.5.30": {
+      "checksum": "4197579176523d602af667ca8b94e94f29de5367ac3158b4e76f6fef95b67eb2ccc859bdb9b9defa1bf1c79532723f561a57e37b31f363acb3cbb450d56454fe",
       "resolution": {
-        "resolution": "postcss@npm:8.5.29",
-        "version": "8.5.29",
+        "resolution": "postcss@npm:8.5.32",
+        "version": "8.5.32",
         "dependencies": {
-          "nanoid": "^3.3.19",
+          "nanoid": "^3.3.20",
           "picocolors": "^1.1.1",
           "source-map-js": "^1.2.2"
         }
@@ -2190,28 +2190,28 @@
         }
       }
     },
-    "rolldown@npm:~1.2.12": {
-      "checksum": "1324773f33b64d916334c668677282ec46cdd0bd0f4ce42a71e576c93d11de8d30b1a89a4f83517bb3a7d5c2dbda9db06d443460c7df178260293e375ad9efb1",
+    "rolldown@npm:~1.2.14": {
+      "checksum": "a3284e94f519a94533cae992fc1549b4457d0d8b159adb07d8990c1f293ac1c09557b148e8cada7861b84088dae0e7886122872aea1e0d929cc44c9e1bc10a96",
       "resolution": {
-        "resolution": "rolldown@npm:1.2.13",
-        "version": "1.2.13",
+        "resolution": "rolldown@npm:1.2.16",
+        "version": "1.2.16",
         "dependencies": {
-          "@oxc-project/types": "=0.153.0",
-          "@rolldown/binding-android-arm-eabi": "1.2.13",
-          "@rolldown/binding-android-arm64": "1.2.13",
-          "@rolldown/binding-darwin-arm64": "1.2.13",
-          "@rolldown/binding-darwin-x64": "1.2.13",
-          "@rolldown/binding-freebsd-x64": "1.2.13",
-          "@rolldown/binding-linux-arm-gnueabihf": "1.2.13",
-          "@rolldown/binding-linux-arm64-gnu": "1.2.13",
-          "@rolldown/binding-linux-arm64-musl": "1.2.13",
-          "@rolldown/binding-linux-ppc64-gnu": "1.2.13",
-          "@rolldown/binding-linux-s390x-gnu": "1.2.13",
-          "@rolldown/binding-linux-x64-gnu": "1.2.13",
-          "@rolldown/binding-linux-x64-musl": "1.2.13",
-          "@rolldown/binding-openharmony-arm64": "1.2.13",
-          "@rolldown/binding-win32-arm64-msvc": "1.2.13",
-          "@rolldown/binding-win32-x64-msvc": "1.2.13",
+          "@oxc-project/types": "=0.156.0",
+          "@rolldown/binding-android-arm-eabi": "1.2.16",
+          "@rolldown/binding-android-arm64": "1.2.16",
+          "@rolldown/binding-darwin-arm64": "1.2.16",
+          "@rolldown/binding-darwin-x64": "1.2.16",
+          "@rolldown/binding-freebsd-x64": "1.2.16",
+          "@rolldown/binding-linux-arm-gnueabihf": "1.2.16",
+          "@rolldown/binding-linux-arm64-gnu": "1.2.16",
+          "@rolldown/binding-linux-arm64-musl": "1.2.16",
+          "@rolldown/binding-linux-ppc64-gnu": "1.2.16",
+          "@rolldown/binding-linux-s390x-gnu": "1.2.16",
+          "@rolldown/binding-linux-x64-gnu": "1.2.16",
+          "@rolldown/binding-linux-x64-musl": "1.2.16",
+          "@rolldown/binding-openharmony-arm64": "1.2.16",
+          "@rolldown/binding-win32-arm64-msvc": "1.2.16",
+          "@rolldown/binding-win32-x64-msvc": "1.2.16",
           "@rolldown/pluginutils": "^1.0.0"
         },
         "optionalDependencies": [
@@ -2427,22 +2427,22 @@
         }
       }
     },
-    "vite@npm:8.3.4": {
-      "checksum": "b3a82f3bacc253807d948dc8507552ed07f656b8f5602983e201e4a6f8bd44f74dabe30c179fa0b9e81aa616587ddf74a7706c90b51c63c736eeea265bc4e354",
+    "vite@npm:8.3.5": {
+      "checksum": "b2bba277c87f3dff68e229abdb57f6bd7ebf324c88141bd62183c841db2a8a2d244b4a383b67b2d44979724bcda9cfe3a0f9d359030b079456bb7a7690eec394",
       "resolution": {
-        "resolution": "vite@npm:8.3.4",
-        "version": "8.3.4",
+        "resolution": "vite@npm:8.3.5",
+        "version": "8.3.5",
         "dependencies": {
           "fsevents": "~2.3.3",
           "lightningcss": "^1.33.0",
           "picomatch": "^4.0.7",
-          "postcss": "^8.5.29",
-          "rolldown": "~1.2.12",
+          "postcss": "^8.5.30",
+          "rolldown": "~1.2.14",
           "tinyglobby": "^0.2.17"
         },
         "peerDependencies": {
           "@types/node": "^20.19.0 || >=22.12.0",
-          "@vitejs/devtools": "^0.7.1",
+          "@vitejs/devtools": "^0.7.1 || ^0.8.0",
           "esbuild": "^0.27.0 || ^0.28.0",
           "jiti": ">=1.21.0",
           "less": "^4.0.0",
@@ -2473,14 +2473,14 @@
         ]
       }
     },
-    "vitest@npm:5.0.4": {
-      "checksum": "28710e427d4abc537bba7ed6fa91dd10b61d246323230701a7ad4360048511488fc69dff1093b1095d283ce9513680e6e2828d30ed9014638298520caec006e8",
+    "vitest@npm:5.0.5": {
+      "checksum": "c76701d22e7a52a7e97e5a7e7ddec95ba871ef9bca6498ee5e7ca9edf7e05c0c4972703bc07bfbe70b47b7cb930f489336ee9ad96acd070258ac826d86a769f2",
       "resolution": {
-        "resolution": "vitest@npm:5.0.4",
-        "version": "5.0.4",
+        "resolution": "vitest@npm:5.0.5",
+        "version": "5.0.5",
         "dependencies": {
           "@types/chai": "^5.2.2",
-          "@vitest/mocker": "5.0.4",
+          "@vitest/mocker": "5.0.5",
           "chai": "^6.3.0",
           "es-module-lexer": "^2.3.2",
           "expect-type": "^1.4.0",
@@ -2497,12 +2497,12 @@
           "@edge-runtime/vm": "*",
           "@opentelemetry/api": "^1.9.0",
           "@types/node": "^22.0.0 || >=24.0.0",
-          "@vitest/browser-playwright": "5.0.4",
-          "@vitest/browser-preview": "5.0.4",
+          "@vitest/browser-playwright": "5.0.5",
+          "@vitest/browser-preview": "5.0.5",
           "@vitest/browser-webdriverio": "^5.0.0-beta.5 || >=5.0.0",
-          "@vitest/coverage-istanbul": "5.0.4",
-          "@vitest/coverage-v8": "5.0.4",
-          "@vitest/ui": "5.0.4",
+          "@vitest/coverage-istanbul": "5.0.5",
+          "@vitest/coverage-v8": "5.0.5",
+          "@vitest/ui": "5.0.5",
           "happy-dom": "*",
           "jsdom": "*",
           "vite": "^6.4.0 || ^7.0.0 || ^8.0.0"

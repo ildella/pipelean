@@ -15,7 +15,7 @@ export default [
   ...nostandard.recommended,
   vitest,
   {
-    name: 'My new library',
+    name: 'Pipelean',
     ignores,
     plugins: {},
     languageOptions: {
@@ -29,6 +29,7 @@ export default [
       'max-statements': ['warn', 25],
       'max-lines-per-function': ['warn', 80],
       'no-undefined': 'off',
+      'nostandard/max-destructured-properties': ['warn', {max: 5}],
     },
   },
   {

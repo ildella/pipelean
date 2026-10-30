@@ -52,8 +52,6 @@ We believe Pipelean is a pragmatic middle path: sequential by design, with built
 
 Pipelean focuses on sequential workflows: compose operations, process collections one item at a time, carry state when needed, and control failures with built-in retry and error policies. `join()` is the deliberate exception: a small fork/join over named branches, not a concurrency runtime. No scheduler, no cancellation — the branches start together and you get one structured result.
 
-Need the full reference for `join()`? See [Fork/join: `join()`](#forkjoin-join) below and [docs/reference.md](docs/reference.md#join).
-
 ## ESLint Plugin
 
 Pipelean ships a small ESLint plugin that flags `.forEach()`, `.reduce()`, `.map(async ...)`, non-generator loops, and `Promise.*` static combinators, suggesting pipelean equivalents. It is a separate entry point — importing it does not pull in the runtime library.
