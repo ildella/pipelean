@@ -4,13 +4,12 @@ import {getPlannedTotal, withTotal} from './shared.js'
 import {parseSearchArgs} from './search.js'
 import {collect, failFast} from './functional.js'
 import {
-  aggregateFailure, handleItemError, handleSourceError, normalizeFailure,
-  normalizeOperationError, seriesShape,
+  createRunState, failOnItem, failOnSource, normalizeFailure,
+  normalizeOperationError, settle, toResult,
 } from './strategy.js'
 
 const runSyncStrategy = ({
-  items, take, strategyName, onSourceError, onFailure,
-  results, errors, sourceErrors, shape, step,
+  state, items, take, step,
 }) => {
   let index = 0
 
@@ -38,28 +37,12 @@ const runSyncStrategy = ({
     if (stop)
       return stop
   } catch (error) {
-    const handled = handleSourceError({
-      error,
-      index,
-      strategyName,
-      onSourceError,
-      onFailure,
-      results,
-      errors,
-      sourceErrors,
-      shape,
-    })
+    const handled = failOnSource(state, {error, index})
     if (handled)
       return handled
   }
 
-  const failure = aggregateFailure({
-    strategyName, onFailure, errors, sourceErrors,
-  })
-
-  return shape({
-    results, errors, sourceErrors, failure,
-  })
+  return toResult(state, settle(state))
 }
 
 export const tryCatchSync = (fn, {
@@ -93,12 +76,8 @@ export const seriesSync = (...args) => {
       strategy = collect, total,
       take, onProgress, onError, onFailure, onSourceError,
     } = opts
-    const results = []
-    const errors = []
-    const sourceErrors = []
-    const strategyName = strategy.name ?? strategy
+    const state = createRunState(strategy, {onFailure, onSourceError})
     const plannedTotal = getPlannedTotal({items: inputItems, take, total})
-    const shape = seriesShape
 
     const runFn = (item, index) => {
       const result = fn(item, index)
@@ -111,9 +90,9 @@ export const seriesSync = (...args) => {
       try {
         const result = runFn(item, index)
         if (result !== undefined)
-          results.push(result)
+          state.results.push(result)
       } catch (error) {
-        if (strategyName === 'throw')
+        if (state.strategyName === 'throw')
           throw error
 
         const errorContext = {item, error, index}
@@ -121,25 +100,14 @@ export const seriesSync = (...args) => {
         if (onError)
           onError(withTotal(errorContext, plannedTotal))
 
-        return handleItemError(errorContext, {
-          strategyName, onFailure, errors, sourceErrors, shape,
-        })
+        return failOnItem(state, errorContext)
       }
 
       return null
     }
 
     return runSyncStrategy({
-      items: inputItems,
-      take,
-      strategyName,
-      onSourceError,
-      onFailure,
-      results,
-      errors,
-      sourceErrors,
-      shape,
-      step,
+      state, items: inputItems, take, step,
     })
   }
 
@@ -230,11 +198,7 @@ const runScanSync = ({
   const {
     strategy = failFast, onError, onFailure, onSourceError,
   } = opts
-  const results = []
   let acc = initialValue
-  const errors = []
-  const sourceErrors = []
-  const strategyName = strategy.name ?? strategy
   const plannedTotal = getPlannedTotal({items: iterable})
   const shape = ({
     results, errors, sourceErrors, failure,
@@ -246,14 +210,15 @@ const runScanSync = ({
       : {
         value: acc, errors, sourceErrors, failure,
       }
+  const state = createRunState(strategy, {onFailure, onSourceError, shape})
 
   const step = (item, index) => {
     try {
       acc = scanner(acc, item, index)
       if (keepPartials)
-        results.push(acc)
+        state.results.push(acc)
     } catch (error) {
-      if (strategyName === 'throw')
+      if (state.strategyName === 'throw')
         throw error
 
       const errorContext = {item, error, index}
@@ -261,25 +226,13 @@ const runScanSync = ({
       if (onError)
         onError(withTotal(errorContext, plannedTotal))
 
-      return handleItemError(errorContext, {
-        strategyName, onFailure, errors, sourceErrors, shape,
-      })
+      return failOnItem(state, errorContext)
     }
 
     return null
   }
 
-  return runSyncStrategy({
-    items: iterable,
-    strategyName,
-    onSourceError,
-    onFailure,
-    results,
-    errors,
-    sourceErrors,
-    shape,
-    step,
-  })
+  return runSyncStrategy({state, items: iterable, step})
 }
 
 // eslint-disable-next-line max-params

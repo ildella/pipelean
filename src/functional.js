@@ -3,8 +3,8 @@
 import {getPlannedTotal, withTotal} from './shared.js'
 import {parseSearchArgs} from './search.js'
 import {
-  aggregateFailure, handleItemError, handleSourceError, normalizeFailure,
-  normalizeOperationError, seriesShape,
+  createRunState, failOnItem, failOnSource, normalizeFailure,
+  normalizeOperationError, settle, toResult,
 } from './strategy.js'
 
 export {where} from './search.js'
@@ -70,8 +70,7 @@ export const assign = (property, parse) => state => {
 }
 
 const runAsyncStrategy = async ({
-  items, take, strategyName, onSourceError, onFailure,
-  results, errors, sourceErrors, shape, step,
+  state, items, take, step,
 }) => {
   let index = 0
 
@@ -99,28 +98,12 @@ const runAsyncStrategy = async ({
     if (stop)
       return stop
   } catch (error) {
-    const handled = handleSourceError({
-      error,
-      index,
-      strategyName,
-      onSourceError,
-      onFailure,
-      results,
-      errors,
-      sourceErrors,
-      shape,
-    })
+    const handled = failOnSource(state, {error, index})
     if (handled)
       return handled
   }
 
-  const failure = aggregateFailure({
-    strategyName, onFailure, errors, sourceErrors,
-  })
-
-  return shape({
-    results, errors, sourceErrors, failure,
-  })
+  return toResult(state, settle(state))
 }
 
 export const series = (...args) => {
@@ -133,12 +116,8 @@ export const series = (...args) => {
       take, onProgress, onError, onFailure, onSourceError,
       pause, pauseOnErrors = false,
     } = opts
-    const results = []
-    const errors = []
-    const sourceErrors = []
-    const strategyName = strategy.name ?? strategy
+    const state = createRunState(strategy, {onFailure, onSourceError})
     const plannedTotal = getPlannedTotal({items: inputItems, take, total})
-    const shape = seriesShape
 
     const runFn = async (item, index) => {
       const result = await fn(item, index)
@@ -164,11 +143,11 @@ export const series = (...args) => {
         const result = await runFn(item, index)
         // undefined means "drop this item" (this is how filter() works).
         if (result !== undefined)
-          results.push(result)
+          state.results.push(result)
 
         await waitForPause(pause)
       } catch (error) {
-        if (strategyName === 'throw')
+        if (state.strategyName === 'throw')
           throw error
 
         const errorContext = {item, error, index}
@@ -176,9 +155,7 @@ export const series = (...args) => {
         if (onError)
           await onError(withTotal(errorContext, plannedTotal))
 
-        const outcome = handleItemError(errorContext, {
-          strategyName, onFailure, errors, sourceErrors, shape,
-        })
+        const outcome = failOnItem(state, errorContext)
 
         await pauseAfterError(outcome)
         return outcome
@@ -188,16 +165,7 @@ export const series = (...args) => {
     }
 
     return runAsyncStrategy({
-      items: inputItems,
-      take,
-      strategyName,
-      onSourceError,
-      onFailure,
-      results,
-      errors,
-      sourceErrors,
-      shape,
-      step,
+      state, items: inputItems, take, step,
     })
   }
 
@@ -240,11 +208,7 @@ const runScan = ({
   const {
     strategy = failFast, onError, onFailure, onSourceError,
   } = opts
-  const results = []
   let acc = initialValue
-  const errors = []
-  const sourceErrors = []
-  const strategyName = strategy.name ?? strategy
   const plannedTotal = getPlannedTotal({items: iterable})
   const shape = ({
     results, errors, sourceErrors, failure,
@@ -256,14 +220,15 @@ const runScan = ({
       : {
         value: acc, errors, sourceErrors, failure,
       }
+  const state = createRunState(strategy, {onFailure, onSourceError, shape})
 
   const step = async (item, index) => {
     try {
       acc = await scanner(acc, item, index)
       if (keepPartials)
-        results.push(acc)
+        state.results.push(acc)
     } catch (error) {
-      if (strategyName === 'throw')
+      if (state.strategyName === 'throw')
         throw error
 
       const errorContext = {item, error, index}
@@ -271,25 +236,13 @@ const runScan = ({
       if (onError)
         await onError(withTotal(errorContext, plannedTotal))
 
-      return handleItemError(errorContext, {
-        strategyName, onFailure, errors, sourceErrors, shape,
-      })
+      return failOnItem(state, errorContext)
     }
 
     return null
   }
 
-  return runAsyncStrategy({
-    items: iterable,
-    strategyName,
-    onSourceError,
-    onFailure,
-    results,
-    errors,
-    sourceErrors,
-    shape,
-    step,
-  })
+  return runAsyncStrategy({state, items: iterable, step})
 }
 
 /**
