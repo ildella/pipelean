@@ -72,6 +72,69 @@ test('works with no options', async () => {
   await expect(tryCatch(() => Promise.resolve('ok'))()).resolves.toBe('ok')
 })
 
+test('propagates an error thrown by onError, not the fn error', async () => {
+  const fnError = new Error('fn failed')
+  const onErrorError = new Error('onError failed')
+  const onFinally = vi.fn()
+  const wrapped = tryCatch(
+    () => Promise.reject(fnError),
+    {
+      onError: () => {
+        throw onErrorError
+      },
+      onFinally,
+    },
+  )
+
+  await expect(wrapped()).rejects.toBe(onErrorError)
+  expect(onFinally).toHaveBeenCalledOnce()
+})
+
+test('propagates a rejection returned by onError', async () => {
+  const onErrorError = new Error('async onError failed')
+  const onFinally = vi.fn()
+  const wrapped = tryCatch(
+    () => Promise.reject(new Error('fn failed')),
+    {
+      onError: () => Promise.reject(onErrorError),
+      onFinally,
+    },
+  )
+
+  await expect(wrapped()).rejects.toBe(onErrorError)
+  expect(onFinally).toHaveBeenCalledOnce()
+})
+
+test('onError can augment the original error and rethrow it', async () => {
+  const original = new Error('charge failed')
+  const onFinally = vi.fn()
+  const wrapped = tryCatch(
+    () => Promise.reject(original),
+    {
+      onError: error => {
+        throw Object.assign(error, {operation: 'charge'})
+      },
+      onFinally,
+    },
+  )
+
+  const thrown = await wrapped().catch(error => error)
+  expect(thrown).toBe(original)
+  expect(thrown.operation).toBe('charge')
+  expect(onFinally).toHaveBeenCalledOnce()
+})
+
+test('does not call onSuccess when fn throws', async () => {
+  const onSuccess = vi.fn()
+  const wrapped = tryCatch(
+    () => Promise.reject(new Error('boom')),
+    {onSuccess},
+  )
+
+  await wrapped()
+  expect(onSuccess).not.toHaveBeenCalled()
+})
+
 test('composes with series: failed items are dropped', async () => {
   const safe = tryCatch(n => {
     if (n === 2)
