@@ -224,11 +224,12 @@ export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
  */
 export const enrichSync = (operations, opts = {}) => {
   const {
-    scanner, reduceOpts, assertInitial, finish,
+    steps, scanner, reduceOpts, assertInitial, finish,
   } = prepareEnrich({
     operations,
     opts,
     label: 'enrichSync',
+    sync: true,
     scannerFor: merge => (state, operation, index) =>
       merge({
         state, operation, index, patch: operation(state),
@@ -239,7 +240,7 @@ export const enrichSync = (operations, opts = {}) => {
     assertInitial(initialState)
 
     return finish(reduceSync(
-      operations, scanner, initialState, reduceOpts,
+      steps, scanner, initialState, reduceOpts,
     ))
   }
 }
