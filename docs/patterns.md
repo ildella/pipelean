@@ -39,7 +39,7 @@ that awaits the result and never inspects it — a scheduler, a script, a startu
 job — can stop silently. `assertOk` is the guard for that gap:
 
 ```javascript
-import {assertOk, series} from 'pipelean'
+import {assertOk, failFast, series} from 'pipelean'
 
 const result = assertOk(await series(jobs, importJob, {strategy: failFast}))
 // truthy failure → throws with `cause` and `failure`; no failure → same object
@@ -55,6 +55,8 @@ The hand-rolled version is easy to get wrong, and it breaks on aggregates:
 
 ```js
 // Before: reads the wrong field, and throws `undefined` under failLate
+import {failLate, series} from 'pipelean'
+
 const result = await series(jobs, importJob, {strategy: failLate})
 if (result.failure)
   throw result.failure.error        // failLate failure is {errors}, so error is undefined
@@ -62,7 +64,7 @@ if (result.failure)
 
 ```js
 // After: one guard, correct for failFast and aggregates
-import {assertOk} from 'pipelean'
+import {assertOk, failLate, series} from 'pipelean'
 
 const result = assertOk(
   await series(jobs, importJob, {strategy: failLate}),
@@ -141,27 +143,29 @@ the library.
 
 ```js
 // Before: ~30 lines of manual folding, merging and status updates
-const state = {...input}
-for (let index = 0; index < ops.length; index++) {
-  const op = ops[index]
-  ui.start(op.name, index, ops.length)
-  try {
-    const patch = await op(state)
-    if (patch === null || typeof patch !== 'object' || Array.isArray(patch))
-      throw new TypeError(`step ${op.name} did not return a patch`)
-    Object.assign(state, patch)
-    ui.success(op.name, patch, index)
-  } catch (error) {
-    ui.error(op.name, error)
-    if (isCritical(op)) break
+async function applyOps(input) {
+  const state = {...input}
+  for (let index = 0; index < ops.length; index++) {
+    const op = ops[index]
+    ui.start(op.name, index, ops.length)
+    try {
+      const patch = await op(state)
+      if (patch === null || typeof patch !== 'object' || Array.isArray(patch))
+        throw new TypeError(`step ${op.name} did not return a patch`)
+      Object.assign(state, patch)
+      ui.success(op.name, patch, index)
+    } catch (error) {
+      ui.error(op.name, error)
+      if (isCritical(op)) break
+    }
   }
+  return state
 }
-return state
 ```
 
 ```js
 // After: the pipeline declares its status behaviour
-import {enrich} from 'pipelean'
+import {collect, enrich} from 'pipelean'
 
 const processAlbum = enrich([prepare, extractYear, extractArtists, slug], {
   strategy: collect,                        // keep going past a bad step
@@ -204,6 +208,8 @@ await saveSettings(settings)   // undefined on failure; the command does not cra
 of throwing, and the failure is part of it.
 
 ```js
+import {tryCatch} from 'pipelean'
+
 const withOutcome = fn => {
   let failure = null
   const wrapped = tryCatch(fn, {
@@ -228,6 +234,8 @@ but the boundary wants to add context. A throwing `onError` propagates (it is
 awaited inside the `catch`) and `onFinally` still runs:
 
 ```js
+import {tryCatch} from 'pipelean'
+
 const chargeWithContext = tryCatch(
   () => gateway.charge(order),
   {

@@ -36,6 +36,7 @@ If you find yourself writing nested spreads to thread state through a chain of e
 - Returns `{value, errors, failure}` — never throws on handled errors.
 - Uses the same strategies (`collect` by default, `failFast`, `failLate`, `skip`, `rethrow`) as `series` and `scan`.
 - Shallow-merges patches (`{...state, ...patch}`) — top-level keys are overwritten, nested objects are not deep-merged.
+- Step hooks: `onStepStart({operation, index, total})` before each step, `onStepSuccess({operation, patch, index, total})` after validation and merge; errors stay on `onError`.
 
 ```js
 import { enrich } from 'pipelean'

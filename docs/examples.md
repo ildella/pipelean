@@ -189,7 +189,7 @@ Scenario: a script with `failFast` where nobody inspects the result. The run
 stops as data, and the process exits 0. `assertOk` turns that into an exception:
 
 ```js
-import {assertOk, series} from 'pipelean'
+import {assertOk, failFast, series} from 'pipelean'
 
 const {results} = assertOk(
   await series(jobs, importJob, {strategy: failFast}),

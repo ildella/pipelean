@@ -429,7 +429,7 @@ nobody reads the result, a critical job can stop silently. `assertOk` is the
 guard for that footgun:
 
 ```js
-import {assertOk, series} from 'pipelean'
+import {assertOk, failFast, series} from 'pipelean'
 
 const result = assertOk(await series(jobs, importJob, {strategy: failFast}))
 console.log(result.results)

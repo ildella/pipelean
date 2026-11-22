@@ -50,6 +50,8 @@ Use `foldSync` when the fold is **pure and synchronous** and a throw means a bug
 
 ```js
 // Before
+import {rethrow, series} from 'pipelean'
+
 const rows = (await series(items, fn, {strategy: rethrow})).results
 ```
 

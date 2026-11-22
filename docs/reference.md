@@ -405,7 +405,7 @@ This is the answer to "map these items one at a time, and if any one fails the w
 
 **Parameters**:
 - `items`: An iterable (array, async iterable, generator). `mapSeriesSync` accepts sync iterables only.
-- `fn(item, index)`: The mapper. Sync or async for `mapSeries`, sync only for `mapSeriesSync`. Returning `undefined` drops the item.
+- `fn(item, index)`: The mapper. Sync or async for `mapSeries`. `mapSeriesSync` does not reject an async mapper: it is **not awaited**, so the returned Promise is stored as the value. Returning `undefined` drops the item.
 - `opts` (optional): every `series` / `seriesSync` option except a conflicting `strategy`. `take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and `signal` pass through untouched (`mapSeriesSync` rejects `pause`, `pauseOnErrors` and `signal` like the other sync variants). `recover` is not supported (it is fold-only).
 
 **Strategy lock**: `mapSeries` always rethrows. Passing `strategy: rethrow`, `strategy: 'throw'`, or omitting it is fine. Passing any other strategy is a configuration mistake and throws a `TypeError` at build time (`'mapSeries() always rethrows on the first error; remove the "collect" strategy'`) instead of being silently overridden.

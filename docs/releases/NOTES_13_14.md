@@ -89,6 +89,8 @@ it:
   validated and merged. `patch` is the object the operation returned, pre-merge.
 
 ```js
+import {enrich} from 'pipelean'
+
 const processAlbum = enrich([prepare, extractYear, extractArtists], {
   onStepStart: ({operation, index, total}) => ui.start(operation, index, total),
   onStepSuccess: ({operation, patch}) => ui.done(operation, patch),
@@ -115,6 +117,8 @@ throwing (or rejecting) `onError` **propagates**: it replaces the original error
 as the rejection, and `onFinally` still runs.
 
 ```js
+import {tryCatch} from 'pipelean'
+
 const wrapped = tryCatch(fn, {
   onError: error => {
     throw Object.assign(error, {operation: 'charge'})
@@ -183,8 +187,6 @@ The same rewrite in the map shape:
   normalized `{operation, error, index, total}` shape.
 - **No `allowWhenNoErrorStrategy` option.** "This cannot throw" is not decidable
   statically, and a flag that promises it would be a lie.
-- **No new `no-fold-rethrow` lint rule yet.** Advice lands in the docs first;
-  the rule is future work.
 
 ## Unchanged on purpose
 
