@@ -80,7 +80,7 @@ to do — `if (failure) throw failure.error` — plus the two parts the hand-rol
 gets wrong: it picks `failure.errors[0].error` for a `failLate` aggregate, and it
 attaches `.failure`. Because it throws the **original** error rather than a
 wrapper, existing `catch` clauses, message checks and `instanceof` branches keep
-working. Only throw values that cannot carry the property — primitives, frozen
+working. Throw values that cannot carry the property — primitives, frozen
 or otherwise non-extensible errors, and objects that reject the `.failure`
 attachment (non-writable property, setter-less accessor, or a throwing Proxy
 trap) — fall back to
