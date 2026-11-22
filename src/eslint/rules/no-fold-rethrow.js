@@ -21,22 +21,25 @@
  * `foldSync(...).value` would read a property it does not have.
  *
  * Everything else is reported without a suggestion: any other report shape,
- * destructuring the result (variable declarator, assignment target or
- * parameter default), writing through `.value` (assignment, update, delete,
- * for-in/for-of or a destructuring pattern), and calls with more than four
- * arguments.
+ * destructuring the result, writing through `.value` (assignment, update,
+ * delete, for-in/for-of or a destructuring pattern) and calls with more than
+ * four arguments. The pattern-host set is complete for ESTree: an assignment
+ * left, a variable id, a for-in/of left, a catch param, function params and an
+ * assignment pattern are the only places a pattern can be written into, so a
+ * `.value` nested in any of those reports without a suggestion.
  *
  * Residual evasion, out of scope by design: a member access not directly on
- * the call (`const r = reduceSync(...); r.value`), and pattern wrappers
- * outside the set the helper walks.
+ * the call (`const r = reduceSync(...); r.value`).
  *
  * `foldSync` is resolved against every `pipelean` import. An existing plain
  * or aliased binding is reused (the call uses its local name and nothing is
  * inserted); otherwise it is appended to a named import, preferring the one
  * binding `reduceSync`. `reduceSync` is never removed (it may be used
- * elsewhere). With only namespace/default imports the import edit is skipped
- * and the call is rewritten alone, leaving the callee unresolved until the
- * author adds it. Opt-in on purpose: import edits make blind `--fix` unsafe.
+ * elsewhere). A default or namespace import bound as `foldSync` occupies the
+ * name and cannot be verified or reused, so the suggestion is withheld. With
+ * only namespace/default imports the import edit is skipped and the call is
+ * rewritten alone, leaving the callee unresolved until the author adds it.
+ * Opt-in on purpose: import edits make blind `--fix` unsafe.
  */
 import {reportOnly, suggestionFixes} from './no-fold-rethrow-suggestion.js'
 
@@ -104,7 +107,7 @@ export default {
           return
 
         const report = {node, messageId: 'preferFoldSync'}
-        if (reportOnly(node)) {
+        if (reportOnly(node, sourceCode)) {
           context.report(report)
           return
         }

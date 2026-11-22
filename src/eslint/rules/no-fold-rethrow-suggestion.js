@@ -5,6 +5,7 @@
 import {
   calleeReplacement,
   foldSyncImportInsert,
+  foldSyncNameOccupied,
 } from './no-fold-rethrow-import.js'
 
 const VALUE_PROPERTY = 'value'
@@ -97,6 +98,9 @@ const isPatternWrite = member => {
   if (parent.type === 'CatchClause')
     return parent.param === root
 
+  if (isForInOrOf(parent))
+    return parent.left === root
+
   if (FUNCTION_TYPES.has(parent.type))
     return parent.params.includes(root)
 
@@ -108,8 +112,8 @@ const isWriteTarget = member =>
 
 const hasExtraArgument = node => node.arguments.length > 4
 
-const reportOnly = node => {
-  if (hasExtraArgument(node))
+const reportOnly = (node, sourceCode) => {
+  if (hasExtraArgument(node) || foldSyncNameOccupied(sourceCode))
     return true
 
   const member = memberAccess(node)

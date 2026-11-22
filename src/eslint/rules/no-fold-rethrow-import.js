@@ -1,8 +1,8 @@
 /**
  * Import resolution for no-fold-rethrow suggestions. The policy (reuse an
  * existing plain or aliased binding, append to the named import that binds
- * reduceSync, skip namespace/default-only imports) is documented in the
- * rule header.
+ * reduceSync, withhold when a default/namespace import occupies the name,
+ * skip namespace/default-only imports) is documented in the rule header.
  */
 const FOLD_SYNC = 'foldSync'
 const REDUCE_SYNC = 'reduceSync'
@@ -29,6 +29,17 @@ const findFoldSyncSpecifier = declarations => {
 
   return null
 }
+
+const isOccupiedFoldSync = ({type, local}) =>
+  (type === 'ImportDefaultSpecifier' || type === 'ImportNamespaceSpecifier') &&
+  local.name === FOLD_SYNC
+
+// A default or namespace import bound as foldSync occupies the name: it may
+// not be the named export and is not callable, so no suggestion is offered.
+const foldSyncNameOccupied = sourceCode =>
+  pipeleanImports(sourceCode).some(
+    declaration => declaration.specifiers.some(isOccupiedFoldSync)
+  )
 
 // An existing (possibly aliased) foldSync binding wins.
 const calleeReplacement = sourceCode => {
@@ -62,4 +73,4 @@ const foldSyncImportInsert = (fixer, sourceCode) => {
   return fixer.insertTextAfter(anchor, `, ${FOLD_SYNC}`)
 }
 
-export {calleeReplacement, foldSyncImportInsert}
+export {calleeReplacement, foldSyncImportInsert, foldSyncNameOccupied}
