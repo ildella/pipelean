@@ -13,6 +13,8 @@ const capture = fn => {
   return undefined
 }
 
+class AppError extends Error {}
+
 test('returns the same result object when there is no failure', async () => {
   const result = await series([1, 2], x => x * 2)
 
@@ -35,6 +37,7 @@ test('rejects an un-awaited Promise', async () => {
 test('rejects undefined and non-result values', () => {
   const thrownUndefined = capture(() => assertOk(undefined))
   const thrownPlain = capture(() => assertOk({}))
+  const thrownNull = capture(() => assertOk(null))
 
   expect(thrownUndefined).toBeInstanceOf(TypeError)
   expect(thrownUndefined.message).toBe(
@@ -42,6 +45,8 @@ test('rejects undefined and non-result values', () => {
   )
   expect(thrownPlain).toBeInstanceOf(TypeError)
   expect(thrownPlain.message).toBe('assertOk() expects a pipelean result')
+  expect(thrownNull).toBeInstanceOf(TypeError)
+  expect(thrownNull.message).toBe('assertOk() expects a pipelean result')
 })
 
 test('returns a reduce result unchanged', async () => {
@@ -51,8 +56,8 @@ test('returns a reduce result unchanged', async () => {
   expect(result.value).toBe(6)
 })
 
-test('failFast throws with cause and the failure object', async () => {
-  const bang = new Error('bang')
+test('failFast throws the original error, identity and all', async () => {
+  const bang = new AppError('bang')
   const result = await series([1, 2], x => {
     if (x === 2)
       throw bang
@@ -61,14 +66,16 @@ test('failFast throws with cause and the failure object', async () => {
 
   const thrown = capture(() => assertOk(result))
 
-  expect(thrown).toBeInstanceOf(Error)
-  expect(thrown.message).toBe('pipelean: operation failed')
-  expect(thrown.cause).toBe(bang)
+  expect(thrown).toBe(bang)
+  expect(thrown).toBeInstanceOf(AppError)
+  expect(thrown.message).toBe('bang')
+  expect(thrown.stack).toBe(bang.stack)
+  expect(thrown.cause).toBeUndefined()
   expect(thrown.failure).toBe(result.failure)
   expect(thrown.failure).toEqual({item: 2, error: bang, index: 1})
 })
 
-test('a failLate aggregate uses the first error as cause', async () => {
+test('a failLate aggregate throws the first error', async () => {
   const first = new Error('first')
   const second = new Error('second')
   const result = await series([1, 2, 3], x => {
@@ -81,11 +88,14 @@ test('a failLate aggregate uses the first error as cause', async () => {
 
   const thrown = capture(() => assertOk(result))
 
-  expect(thrown.cause).toBe(first)
+  expect(thrown).toBe(first)
   expect(thrown.failure).toBe(result.failure)
+  expect(thrown.failure.errors).toHaveLength(2)
+  expect(thrown.failure.errors[0].error).toBe(first)
+  expect(thrown.failure.errors[1].error).toBe(second)
 })
 
-test('a reduce failure keeps its value and throws', async () => {
+test('a reduce failure keeps its value and throws the original', async () => {
   const bang = new Error('bang')
   const result = await reduce([1, 2], (acc, item) => {
     if (item === 2)
@@ -96,7 +106,8 @@ test('a reduce failure keeps its value and throws', async () => {
   expect(result.value).toBe(1)
 
   const thrown = capture(() => assertOk(result))
-  expect(thrown.cause).toBe(bang)
+  expect(thrown).toBe(bang)
+  expect(thrown.failure).toBe(result.failure)
 })
 
 test('works on a synchronous result', () => {
@@ -106,7 +117,8 @@ test('works on a synchronous result', () => {
   }, {strategy: failFast})
 
   const thrown = capture(() => assertOk(result))
-  expect(thrown.cause).toBe(bang)
+  expect(thrown).toBe(bang)
+  expect(thrown.failure).toBe(result.failure)
 })
 
 test('collect with errors does not throw: failure, not errors', async () => {
@@ -121,7 +133,7 @@ test('collect with errors does not throw: failure, not errors', async () => {
   expect(assertOk(result)).toBe(result)
 })
 
-test('a source-error failure works', async () => {
+test('a source-error failure throws the original source error', async () => {
   const sourceBoom = new Error('source boom')
 
   async function * dying () {
@@ -134,7 +146,7 @@ test('a source-error failure works', async () => {
   expect(result.failure).toEqual({error: sourceBoom, index: 1})
 
   const thrown = capture(() => assertOk(result))
-  expect(thrown.cause).toBe(sourceBoom)
+  expect(thrown).toBe(sourceBoom)
   expect(thrown.failure).toBe(result.failure)
 })
 
@@ -148,6 +160,37 @@ test('works on a join failLate aggregate', async () => {
   }, {strategy: failLate})
 
   const thrown = capture(() => assertOk(result))
-  expect(thrown.cause).toBe(bang)
+  expect(thrown).toBe(bang)
   expect(thrown.failure).toBe(result.failure)
+})
+
+test.each([
+  ['string', 'boom'],
+  ['number', 42],
+  ['undefined', undefined],
+  ['null', null],
+])('%s throw value falls back to the wrapped error', (_, value) => {
+  const failure = {item: 1, error: value, index: 0}
+  const result = {failure}
+
+  const thrown = capture(() => assertOk(result))
+
+  expect(thrown).toBeInstanceOf(Error)
+  expect(thrown.message).toBe('pipelean: operation failed')
+  expect(thrown.cause).toBe(value)
+  expect(thrown.failure).toBe(failure)
+})
+
+test('a frozen error object falls back to the wrapped error', () => {
+  const bang = Object.freeze(new Error('frozen bang'))
+  const failure = {item: 1, error: bang, index: 0}
+
+  const thrown = capture(() => assertOk({failure}))
+
+  expect(thrown).not.toBe(bang)
+  expect(thrown).toBeInstanceOf(Error)
+  expect(thrown.message).toBe('pipelean: operation failed')
+  expect(thrown.cause).toBe(bang)
+  expect(thrown.failure).toBe(failure)
+  expect(bang.failure).toBeUndefined()
 })

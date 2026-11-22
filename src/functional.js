@@ -74,14 +74,36 @@ const isThenable = value =>
   (typeof value === 'object' || typeof value === 'function') &&
   typeof value.then === 'function'
 
+const isExtensibleObject = value =>
+  value !== null &&
+  typeof value === 'object' &&
+  Object.isExtensible(value)
+
+const withFailure = (error, failure) => {
+  error.failure = failure
+  return error
+}
+
 /**
  * Throw when a structured result carries a truthy `failure`.
  *
  * The `failFast` default can stop a run "silently" if the caller ignores the
  * returned object: the failure is data, not an exception. `assertOk` turns an
- * ignored outcome into a thrown `Error` whose `cause` is the underlying error
- * (the first error for a `failLate` aggregate) and whose `failure` property is
- * the structured failure object.
+ * ignored outcome into a thrown error, preserving the original error whenever
+ * it can: for a `failFast` failure that is `failure.error`, for a `failLate`
+ * aggregate the FIRST error in `failure.errors`. The thrown value is the same
+ * object the operation threw, so its identity, message, stack and class
+ * (`instanceof`) survive. Its `failure` property is the structured failure
+ * object (the `{errors}` aggregate for `failLate`).
+ *
+ * Attaching `failure` MUTATES the original error. An error object reused
+ * across results keeps only the latest `.failure`.
+ *
+ * When the underlying throw value cannot carry a property, `assertOk` falls
+ * back to a new `Error('pipelean: operation failed')` with `cause` set to the
+ * underlying value and `failure` attached. That covers primitive throw values
+ * (string, number, `undefined`, `null`) and frozen or otherwise non-extensible
+ * error objects.
  *
  * It expects an **awaited** Pipelean result. A thenable is rejected with a
  * `TypeError` (an un-awaited `series()` call would otherwise be returned as a
@@ -95,6 +117,9 @@ const isThenable = value =>
  *
  * @param {{failure: false|object}} result An awaited Pipelean result.
  * @returns {*} The same result object when `failure` is falsy.
+ * @throws {*} The original underlying error with `.failure` attached, or the
+ *   wrapped fallback described above when the underlying value cannot carry
+ *   the property.
  */
 export const assertOk = result => {
   if (isThenable(result))
@@ -107,12 +132,15 @@ export const assertOk = result => {
     return result
 
   const {failure} = result
-  const error = new Error('pipelean: operation failed', {
-    cause: failureCause(failure),
-  })
-  error.failure = failure
+  const underlying = failureCause(failure)
 
-  throw error
+  if (isExtensibleObject(underlying))
+    throw withFailure(underlying, failure)
+
+  throw withFailure(
+    new Error('pipelean: operation failed', {cause: underlying}),
+    failure,
+  )
 }
 
 export const assign = (property, parse) => state => {
