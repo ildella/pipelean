@@ -10,11 +10,11 @@
         "version": "7.29.7"
       }
     },
-    "@babel/helper-string-parser@npm:^8.0.6": {
-      "checksum": "723d6e86c323dd6588dc9d2a20a0e88ed514852217402d715d47db6cd83e747c5e0512b6ac02f8f36ce662b2f84def6afa9354433eb5907786bb8486dbbb61c6",
+    "@babel/helper-string-parser@npm:^8.1.3": {
+      "checksum": "c71f293fd959e8afccae28252b89874664a3a1d61ba93d801d08210b4f0bc420e179dce6ee8f543ff68b45623b2a6d3511a381bc5057dfa6ea71e001e98edb21",
       "resolution": {
-        "resolution": "@babel/helper-string-parser@npm:8.0.6",
-        "version": "8.0.6"
+        "resolution": "@babel/helper-string-parser@npm:8.1.3",
+        "version": "8.1.3"
       }
     },
     "@babel/helper-validator-identifier@npm:^7.29.7": {
@@ -41,13 +41,13 @@
         }
       }
     },
-    "@babel/parser@npm:^8.0.0-beta.0": {
-      "checksum": "93825f9fdd4889137a5a6115ce35bbdf8b03da0e418092e4075cd81880999c4d5faf1914ec76a348254f7e76a3365b9b332fb87c1310dda8e7fdc78c11c35987",
+    "@babel/parser@npm:^8.1.2": {
+      "checksum": "6a2ad61e5ec2f4798c276cc310ca99ffcf03f2451078f0f56b5a819cdd84e98091de342779b165a6f816c8b1df83a91aca5759abb57d1c66dc78b828f784f015",
       "resolution": {
-        "resolution": "@babel/parser@npm:8.0.6",
-        "version": "8.0.6",
+        "resolution": "@babel/parser@npm:8.1.3",
+        "version": "8.1.3",
         "dependencies": {
-          "@babel/types": "^8.0.6"
+          "@babel/types": "^8.1.3"
         }
       }
     },
@@ -62,13 +62,13 @@
         }
       }
     },
-    "@babel/types@npm:^8.0.6": {
-      "checksum": "d41238541672bd9da63b92e10b1f016be61f966650cc6cee3f6b437b577dd2b674ba69645b65e13a28d65ad34f322a138348011ced186273150b8434480ce782",
+    "@babel/types@npm:^8.1.3": {
+      "checksum": "fc76cf0aa790c3adedce9d6339fa99a39ee36598a19cc4210e4c3142d1b3cdf96f9823f783da0c37d2a953f3241a60aacaddc50195b9bc47fad79386e0cdb697",
       "resolution": {
-        "resolution": "@babel/types@npm:8.0.6",
-        "version": "8.0.6",
+        "resolution": "@babel/types@npm:8.1.3",
+        "version": "8.1.3",
         "dependencies": {
-          "@babel/helper-string-parser": "^8.0.6",
+          "@babel/helper-string-parser": "^8.1.3",
           "@babel/helper-validator-identifier": "^8.0.6"
         }
       }
@@ -202,15 +202,15 @@
         ]
       }
     },
-    "@eslint/config-array@npm:^0.23.5": {
-      "checksum": "2bce91fc62ee67c491d71171a5a5f8aadf6372c9dae4ffc9d83fec7daecf820fb118c0a046447827dd42102d0dc252fc3c40ab9e9817c61789bc2eb4aaec4676",
+    "@eslint/config-array@npm:^0.23.6": {
+      "checksum": "fe3954e30ef05cbb17a0c5d614e95c271a24c7bcc8b90bed7867a0b1a5bfcba15732f3b1a9b3af30355b7e6dcb1875ad3f21b7264bd165414eff7b1cf967ec7e",
       "resolution": {
-        "resolution": "@eslint/config-array@npm:0.23.5",
-        "version": "0.23.5",
+        "resolution": "@eslint/config-array@npm:0.23.6",
+        "version": "0.23.6",
         "dependencies": {
           "@eslint/object-schema": "^3.0.5",
           "debug": "^4.3.1",
-          "minimatch": "^10.2.4"
+          "minimatch": "^11.0.5"
         }
       }
     },
@@ -316,6 +316,13 @@
         "dependencies": {
           "minipass": "^7.0.4"
         }
+      }
+    },
+    "@isaacs/nonrecursive-glob-match@npm:^1.1.0": {
+      "checksum": "b060c5ad67d261b471b7cd3c76dca76200c2396c7d2a4b853a998a4a1da6380d3204ad171a9469221b3706bf549977b4821ca7783ecde7cd3352c780ac41a9b7",
+      "resolution": {
+        "resolution": "@isaacs/nonrecursive-glob-match@npm:1.1.0",
+        "version": "1.1.0"
       }
     },
     "@jridgewell/resolve-uri@npm:^3.1.0": {
@@ -1459,11 +1466,11 @@
         }
       }
     },
-    "@vitest/coverage-v8@npm:5.1.0": {
-      "checksum": "898ae067edd0fcea611dede6d18d97782d2db456e6eb1278b8666b34989ddc2117b802f56692fa8015e230e7a307ac11517682837f507d78cfd378f7bdde4cbb",
+    "@vitest/coverage-v8@npm:5.1.1": {
+      "checksum": "7442a57030ee21d20b734ed6d6051a8ca75f7f019806669eebdbce4910474adce596a850a13fda4f9e0e681d21a14207cdef54cfa28a9c5a275821763676eb51",
       "resolution": {
-        "resolution": "@vitest/coverage-v8@npm:5.1.0",
-        "version": "5.1.0",
+        "resolution": "@vitest/coverage-v8@npm:5.1.1",
+        "version": "5.1.1",
         "dependencies": {
           "@bcoe/v8-coverage": "^1.0.2",
           "@vitest/istanbul-lib-coverage": "^2.1.0",
@@ -1475,8 +1482,8 @@
           "tinyrainbow": "^3.2.0"
         },
         "peerDependencies": {
-          "@vitest/browser": "5.1.0",
-          "vitest": "5.1.0"
+          "@vitest/browser": "5.1.1",
+          "vitest": "5.1.1"
         },
         "optionalPeerDependencies": [
           "@vitest/browser"
@@ -1522,16 +1529,16 @@
         }
       }
     },
-    "@vitest/mocker@npm:5.1.0": {
-      "checksum": "e5ed603de56ebf7d501b1d755487e7d22dfa986c930a82dc2e35ee36b88a0d5913785bbcfcab11f35ba5b611eb51ba4a1fb0bab37754e05e42ccb9fdd6ad4f6f",
+    "@vitest/mocker@npm:5.1.1": {
+      "checksum": "f03191813bafeebea98cfe83447a8896462bf2de9090e346e63ee618c53b6f45a223756900f3f717a6694d40b701fabf7009193417bc53d40ab9082ff65d10ef",
       "resolution": {
-        "resolution": "@vitest/mocker@npm:5.1.0",
-        "version": "5.1.0",
+        "resolution": "@vitest/mocker@npm:5.1.1",
+        "version": "5.1.1",
         "dependencies": {
           "@jridgewell/trace-mapping": "0.3.31",
-          "@vitest/spy": "5.1.0",
+          "@vitest/spy": "5.1.1",
           "estree-walker": "^3.0.3",
-          "magic-string": "^1.4.3"
+          "magic-string": "^1.4.5"
         },
         "peerDependencies": {
           "msw": "^2.4.9 || ^3.0.0",
@@ -1543,11 +1550,11 @@
         ]
       }
     },
-    "@vitest/spy@npm:5.1.0": {
-      "checksum": "2cfe75667050a06fe5eb9cdc8fd5cffd6549dfb9aace02547bf9eab367323c00aa1f2a086ba5c517a8ac8845c0f48ab84b5074e81958b7d512846e53c71452c9",
+    "@vitest/spy@npm:5.1.1": {
+      "checksum": "7212fad7da37ff95f8211b2ef8c76d5b2fcd28764fecb99531a257ef6e35c764e3fd20311542d99987dd2ce0b5b03537a1cd718bdd8ef832943b252f5c4389ee",
       "resolution": {
-        "resolution": "@vitest/spy@npm:5.1.0",
-        "version": "5.1.0"
+        "resolution": "@vitest/spy@npm:5.1.1",
+        "version": "5.1.1"
       }
     },
     "abbrev@npm:^5.0.0": {
@@ -1623,21 +1630,21 @@
         "version": "4.0.4"
       }
     },
-    "brace-expansion@npm:^5.0.2": {
-      "checksum": "0bdc14f2c896924535fa2db013494b286c23587d7f1a4437961b38bf07f702c527c4e903f195836333f62a04e7d5e1722f3e1c6dd881d9b32df3f57e3f649fbc",
+    "brace-expansion@npm:^5.0.12": {
+      "checksum": "7f15f3405c1bb267562b08a8320c07643bf66c456104e1fd77e76d2cfc2b271bb403cfc44c41f847969987734383df3bf4a839f93c2735c5d2a573a0f2015368",
       "resolution": {
-        "resolution": "brace-expansion@npm:5.0.4",
-        "version": "5.0.4",
+        "resolution": "brace-expansion@npm:5.0.13",
+        "version": "5.0.13",
         "dependencies": {
           "balanced-match": "^4.0.2"
         }
       }
     },
-    "brace-expansion@npm:^5.0.8": {
-      "checksum": "c42e1a90d23f92621561e89b017ed825cc3db54df57859cc2698611c8c34a88648e0df5caff7f3789b5106542e5b582cd41c44378a73dbd4647fc380b14cbae6",
+    "brace-expansion@npm:^5.0.2": {
+      "checksum": "0bdc14f2c896924535fa2db013494b286c23587d7f1a4437961b38bf07f702c527c4e903f195836333f62a04e7d5e1722f3e1c6dd881d9b32df3f57e3f649fbc",
       "resolution": {
-        "resolution": "brace-expansion@npm:5.0.9",
-        "version": "5.0.9",
+        "resolution": "brace-expansion@npm:5.0.4",
+        "version": "5.0.4",
         "dependencies": {
           "balanced-match": "^4.0.2"
         }
@@ -1793,15 +1800,15 @@
         "version": "4.0.0"
       }
     },
-    "eslint@npm:10.14.0": {
-      "checksum": "10ef779d61e6b6c9658ab19571dc568eeaa51b3718ddc46398c2764375c0db2c683b655ddceef020daaa17085761cac630f34438fb9bf4b55f25325ec8089bdb",
+    "eslint@npm:10.15.0": {
+      "checksum": "8d5c17138075f53a1dbb154a3f30d9fd936a7ba4840ff442c723fe9fe5c936e7c9170070f50cd1ef8d094a0dd24406894d85108c10d40c82946a43fe90371393",
       "resolution": {
-        "resolution": "eslint@npm:10.14.0",
-        "version": "10.14.0",
+        "resolution": "eslint@npm:10.15.0",
+        "version": "10.15.0",
         "dependencies": {
           "@eslint-community/eslint-utils": "^4.8.0",
           "@eslint-community/regexpp": "^4.12.2",
-          "@eslint/config-array": "^0.23.5",
+          "@eslint/config-array": "^0.23.6",
           "@eslint/config-helpers": "^0.7.0",
           "@eslint/core": "^1.2.1",
           "@eslint/plugin-kit": "^0.7.3",
@@ -1826,7 +1833,7 @@
           "imurmurhash": "^0.1.4",
           "is-glob": "^4.0.0",
           "json-stable-stringify-without-jsonify": "^1.0.1",
-          "minimatch": "^10.2.6",
+          "minimatch": "^11.0.5",
           "natural-compare": "^1.4.0",
           "optionator": "^0.9.3"
         },
@@ -1838,11 +1845,11 @@
         ]
       }
     },
-    "eslint-nostandard@npm:1.5.1": {
-      "checksum": "e20441744c1862952d3935ea0c019b06353870dbde0168610f8bbfa1604fedfc3dfef69ca3fed421a4bb13a5989472f9c2d5e5d15d7fb243fd08e69c92ed7423",
+    "eslint-nostandard@npm:1.5.3": {
+      "checksum": "ddda4db5111622b3e42943ad72304818207300f4fd928759e1b10bb8c9bdf1b425b9c3d0ae1669e2b2419d1b419bcd0c5c6e664d5607c09eb9a687a2160c165c",
       "resolution": {
-        "resolution": "eslint-nostandard@npm:1.5.1",
-        "version": "1.5.1",
+        "resolution": "eslint-nostandard@npm:1.5.3",
+        "version": "1.5.3",
         "peerDependencies": {
           "@eslint/js": "^9.0.0 || ^10.0.0",
           "@stylistic/eslint-plugin": "^5.0.0",
@@ -2035,13 +2042,6 @@
         "dependencies": {
           "flat-cache": "^6.1.23"
         }
-      }
-    },
-    "filepaths@npm:^0.3.0": {
-      "checksum": "58930ce258608f925f311cba1105f8faab7d2ce184f69389dcd6ee60f590f98ed0face88b7a86444da67f0ddf13bea7dc75baddc8157f52394b5abdde8574979",
-      "resolution": {
-        "resolution": "filepaths@npm:0.3.0",
-        "version": "0.3.0"
       }
     },
     "find-up@npm:^5.0.0": {
@@ -2395,16 +2395,15 @@
         }
       }
     },
-    "jsinspect-plus@npm:3.1.3": {
-      "checksum": "62ef43b66482f8baeb33e073ffda57d20e1b76a178524ca5e5cf8810ed624c2bf09e580b409dc088a789b04fe7b479462fb608da3578a0f6458e266fdc0ccece",
+    "jsinspect-plus@npm:3.2.0": {
+      "checksum": "dd728a4d5d6a88b3cadf066ae057a42794aaf5108ad3a1bf805539ada85cab89e63b4411029d87834a512eabe7849eb6b30a572973add18cfe657c13696930a1",
       "resolution": {
-        "resolution": "jsinspect-plus@npm:3.1.3",
-        "version": "3.1.3",
+        "resolution": "jsinspect-plus@npm:3.2.0",
+        "version": "3.2.0",
         "dependencies": {
-          "@babel/parser": "^8.0.0-beta.0",
+          "@babel/parser": "^8.1.2",
           "chalk": "^2.4.2",
           "commander": "^2.20.0",
-          "filepaths": "^0.3.0",
           "stable": "^0.1.8",
           "strip-indent": "^3.0.0",
           "strip-json-comments": "^3.1.1"
@@ -2435,11 +2434,11 @@
         }
       }
     },
-    "knip@npm:6.45.1": {
-      "checksum": "3eb5e140ce48a52514a28cb8ec38a76ca1d1645bdf5ae6ee2136e9ac658f08c81945484a4d0074e66c1972213cefcffbd0eeb76394bd76032678ef26ffec4833",
+    "knip@npm:6.47.0": {
+      "checksum": "f3aae1d843ec628288784392128bd24d2a50c724cc594c645b26e9b6025f71832a6c400e782479c8857d86ce9c6f46de1f3cb1934a2c93dbd238bc744eb87b72",
       "resolution": {
-        "resolution": "knip@npm:6.45.1",
-        "version": "6.45.1",
+        "resolution": "knip@npm:6.47.0",
+        "version": "6.47.0",
         "dependencies": {
           "formatly": "^0.11.4",
           "get-tsconfig": "4.14.3",
@@ -2687,11 +2686,11 @@
         }
       }
     },
-    "magic-string@npm:^1.4.3": {
-      "checksum": "557735de3e622f4e72171f3ec78b8df3db0bce3b3356aef99e96d802abc8929e27c0f337a07ec218bc94d4f92bd376070b0f7a17e83d7dd9acdce330e7b3766b",
+    "magic-string@npm:^1.4.5": {
+      "checksum": "56e53fe589225cb185bfee4b79cb6fc688035d2d73dab523dbd45a54c0f86b080174203326c6771634611c6f29b63cf9525850afab9aebbaa84f4dd58b56fbcc",
       "resolution": {
-        "resolution": "magic-string@npm:1.4.3",
-        "version": "1.4.3",
+        "resolution": "magic-string@npm:1.4.5",
+        "version": "1.4.5",
         "dependencies": {
           "@jridgewell/sourcemap-codec": "^1.6.0"
         }
@@ -2726,13 +2725,14 @@
         }
       }
     },
-    "minimatch@npm:^10.2.4, minimatch@npm:^10.2.6": {
-      "checksum": "bccae7851c0808d3ddcf35370b858eee6a2b3299b97d41d4e4675c08c9cba8c461c7e4b2a29774f3006435122c88996e3b9520f625b7f5a83535c817f0baf5a1",
+    "minimatch@npm:^11.0.5": {
+      "checksum": "5bdfaaf4a8454b1c342b0d5f6d6c01e04efea609c371754a130e59043d5fc34e51d34072d5be06e9a6141f8ff71b19841b128ecaa71dc38104c84b42f4d6cd73",
       "resolution": {
-        "resolution": "minimatch@npm:10.2.6",
-        "version": "10.2.6",
+        "resolution": "minimatch@npm:11.0.9",
+        "version": "11.0.9",
         "dependencies": {
-          "brace-expansion": "^5.0.8"
+          "@isaacs/nonrecursive-glob-match": "^1.1.0",
+          "brace-expansion": "^5.0.12"
         }
       }
     },
@@ -3002,17 +3002,17 @@
           "@eslint/compat": "2.1.1",
           "@eslint/js": "10.0.1",
           "@stylistic/eslint-plugin": "5.10.0",
-          "@vitest/coverage-v8": "5.1.0",
+          "@vitest/coverage-v8": "5.1.1",
           "@vitest/eslint-plugin": "1.6.28",
-          "eslint": "10.14.0",
-          "eslint-nostandard": "1.5.1",
+          "eslint": "10.15.0",
+          "eslint-nostandard": "1.5.3",
           "globals": "17.14.0",
           "jscpd": "5.4.3",
-          "jsinspect-plus": "3.1.3",
-          "knip": "6.45.1",
+          "jsinspect-plus": "3.2.0",
+          "knip": "6.47.0",
           "typescript": "5.9.3",
           "vite": "8.3.8",
-          "vitest": "5.1.0"
+          "vitest": "5.1.1"
         }
       }
     },
@@ -3225,11 +3225,11 @@
         }
       }
     },
-    "tinybench@npm:^6.2.2": {
-      "checksum": "79b02a9df686a62d74eea905b5aaaae1b6d1212ebd2ff375f565f599a619bb7ac98cf53deb1b51cdd7ac36afe282c9d5ffb7e3a117d35ed556acdee7d501a178",
+    "tinybench@npm:^6.2.3": {
+      "checksum": "6529a1afc1906be4afbb743887196a4696abd20834d2be23cc8ec5a4a3db71b2314e4eb1b22a05a1478993548f2a5ef2c93d02dd466eae43a275ad57a9dfab0b",
       "resolution": {
-        "resolution": "tinybench@npm:6.2.2",
-        "version": "6.2.2"
+        "resolution": "tinybench@npm:6.2.4",
+        "version": "6.2.4"
       }
     },
     "tinyexec@npm:^1.3.1": {
@@ -3379,22 +3379,22 @@
         ]
       }
     },
-    "vitest@npm:5.1.0": {
-      "checksum": "c0f23454604f72437df5e045080ab1855dea3c5fe85be84ed19c52863306d7af539299e5df01d7e52b888ac6a14b00db6597ecd8ab6129ffb40bdf66f7bed2fb",
+    "vitest@npm:5.1.1": {
+      "checksum": "95260c9467a9865917a7ed3fe95a1284984821da32060dfe5c4ce8939d04fbbfb78a2dc3bc084c5d07bf911317b04c1489bb51a97f54c199310b5211487e548b",
       "resolution": {
-        "resolution": "vitest@npm:5.1.0",
-        "version": "5.1.0",
+        "resolution": "vitest@npm:5.1.1",
+        "version": "5.1.1",
         "dependencies": {
           "@types/chai": "^5.2.2",
-          "@vitest/mocker": "5.1.0",
+          "@vitest/mocker": "5.1.1",
           "chai": "^6.3.0",
           "es-module-lexer": "^2.3.2",
           "expect-type": "^1.4.0",
-          "magic-string": "^1.4.3",
+          "magic-string": "^1.4.5",
           "obug": "^3.0.0",
           "picomatch": "^4.0.7",
           "std-env": "^4.3.0",
-          "tinybench": "^6.2.2",
+          "tinybench": "^6.2.3",
           "tinyexec": "^1.3.1",
           "tinyglobby": "^0.2.17",
           "why-is-node-running": "3.2.1"
@@ -3403,12 +3403,12 @@
           "@edge-runtime/vm": "*",
           "@opentelemetry/api": "^1.9.0",
           "@types/node": "^22.0.0 || >=24.0.0",
-          "@vitest/browser-playwright": "5.1.0",
-          "@vitest/browser-preview": "5.1.0",
+          "@vitest/browser-playwright": "5.1.1",
+          "@vitest/browser-preview": "5.1.1",
           "@vitest/browser-webdriverio": "^5.0.0-beta.5 || >=5.0.0",
-          "@vitest/coverage-istanbul": "5.1.0",
-          "@vitest/coverage-v8": "5.1.0",
-          "@vitest/ui": "5.1.0",
+          "@vitest/coverage-istanbul": "5.1.1",
+          "@vitest/coverage-v8": "5.1.1",
+          "@vitest/ui": "5.1.1",
           "happy-dom": "*",
           "jsdom": "*",
           "vite": "^6.4.0 || ^7.0.0 || ^8.0.0"
