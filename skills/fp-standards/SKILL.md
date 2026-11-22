@@ -26,7 +26,7 @@ description: "General Functional Programming principles and patterns. Use this s
 
 If step N depends on step N-1's output you are folding: many inputs → `scan`/`reduce` (managed) or `foldSync` (pure sync); one input with many enrichments → `enrich`.
 
-**Hard rule: never use `{strategy: rethrow}` to extract a value from a fold.** A pure sync fold is `foldSync(items, reducer, initial)` — it returns the value directly. If you already have a managed result, use `assertOk(result).value`. `rethrow` is for async I/O and bugs, and it bypasses every callback, so `onError` next to it is dead configuration. The `no-fold-rethrow` ESLint rule flags `reduceSync(..., {strategy: rethrow})` and points at `foldSync`; a `recover` in the same options is exempt (managed telemetry).
+**Hard rule: never use `{strategy: rethrow}` to extract a value from a fold.** A pure sync fold is `foldSync(items, reducer, initial)` — it returns the value directly. If you already have a managed result, use `assertOk(result).value`. `rethrow` is for async I/O and bugs, and it bypasses every callback, so `onError` next to it is dead configuration. The `no-fold-rethrow` ESLint rule flags `reduceSync(..., {strategy: rethrow})` and points at `foldSync`; a `recover` in the same options is exempt (managed telemetry). It also offers the rewrite as an opt-in editor suggestion (`--fix` never applies it); shapes it cannot rewrite safely stay report-only flags.
 
 ## Prefer `enrich()` over hand-rolled spreads
 

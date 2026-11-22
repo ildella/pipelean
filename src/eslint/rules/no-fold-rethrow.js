@@ -29,7 +29,10 @@
  * `.value` nested in any of those reports without a suggestion.
  *
  * Residual evasion, out of scope by design: a member access not directly on
- * the call (`const r = reduceSync(...); r.value`).
+ * the call (`const r = reduceSync(...); r.value`), and a `foldSync` name taken
+ * by a non-pipelean import or a local declaration. No scope analysis checks the
+ * latter, so the suggestion is still offered and its call rewrite or import
+ * insertion collides; the editor preview shows it, and the fix is opt-in.
  *
  * `foldSync` is resolved against every `pipelean` import. An existing plain
  * or aliased binding is reused (the call uses its local name and nothing is

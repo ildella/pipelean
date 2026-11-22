@@ -139,7 +139,10 @@ clauses and `instanceof` checks keep working.
 
 The ESLint rule `no-fold-rethrow` flags the related smell,
 `reduceSync(items, reducer, initial, {strategy: rethrow})`, and points at
-`foldSync`; a `recover` in the options is exempt (managed telemetry).
+`foldSync`; a `recover` in the options is exempt (managed telemetry). It also
+offers an opt-in editor suggestion that rewrites the call and fixes the import —
+`--fix` never applies it; a write-target `.value` or an occupied `foldSync` name
+gets the report only.
 
 ## Which fold? (read this before writing state)
 
