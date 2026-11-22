@@ -2,6 +2,24 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.15.1: `no-fold-rethrow` suggestion fixer
+
+No behavior changes; no migration required. The `no-fold-rethrow` rule gained an
+**opt-in editor suggestion** that performs the 0.15.0 fold codemod mechanically:
+it rewrites the call to an existing plain or aliased `foldSync` binding (or to
+`foldSync`), drops the `.value` read and, only when no named `foldSync` binding
+exists, appends it to a named `pipelean` import; with namespace/default-only
+imports (or none) that insertion is skipped, so the callee may need a manual
+import. `eslint --fix` never applies it.
+
+Limits: report only when the result is destructured, `.value` is a write target,
+the result is read through any other member (`.failure`, `['value']`), the call
+has more than four arguments, or a pipelean default/namespace import occupies the
+local name `foldSync`. Aliased `reduceSync` imports and member calls still evade
+the rule. A non-pipelean import or local declaration named `foldSync` is not
+detected: the suggestion is still offered, and the editor preview shows the
+collision its rewrite or import insert would produce.
+
 ## 0.15.0: `assertOk` throws the original error
 
 0.15 carries **behavior changes** in two places and one new lint rule. They are
@@ -137,7 +155,8 @@ const total = foldSync(tracks, (sum, {duration}) => sum + duration, 0)
 A `recover` in the same options object is **exempt**: there `onError`
 legitimately fires before the recovery seam, and `foldSync` would silently drop
 recovery. Keep `reduceSync` in that case. The rule is deliberately narrow:
-aliased imports and member calls are not detected.
+aliased imports and member calls are not detected. Since 0.15.1 the rewrite is
+also available as an opt-in editor suggestion on the report.
 
 ### 4. `enrichSync` async hooks are not observed
 

@@ -548,9 +548,20 @@ Flags `.forEach()`, `.reduce()`, `.map(async ...)`, non-generator loops and
 place of `.reduce()`. A dedicated `no-fold-rethrow` rule flags
 `reduceSync(items, reducer, initial, {strategy: rethrow})` and points at
 `foldSync`; a `recover` in the same options is exempt, because that is a managed
-use where `onError` legitimately fires. The rule is deliberately narrow: aliased
-imports and member calls are not resolved. Separate entry point — importing it
-does not pull in the runtime.
+use where `onError` legitimately fires. It also offers an editor suggestion — one
+keystroke — that rewrites the call to an existing plain or aliased `foldSync`
+binding (or to `foldSync` itself), drops a `.value` read and, only when no named
+`foldSync` binding exists, appends it to a named `pipelean` import; with
+namespace/default-only imports (or none) that insertion is skipped, so the callee
+may need a manual import. The suggestion is opt-in: `eslint --fix` never applies
+it. Shapes it cannot rewrite safely (a destructured or written `.value`, a read
+through another member such as `.failure` or `['value']`, more than four
+arguments, a pipelean default/namespace import already binding the name
+`foldSync`) get the report only; other bindings of that name (a non-pipelean
+import, a local declaration) are not scope-analyzed and may still get a
+colliding suggestion, which the opt-in preview shows. The rule is deliberately
+narrow: aliased `reduceSync` imports and member calls are not resolved. Separate
+entry point — importing it does not pull in the runtime.
 
 ```js
 import pipeleanConfig from 'pipelean/eslint/config'
