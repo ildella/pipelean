@@ -1,6 +1,16 @@
 import {test, expect} from 'vitest'
 import {foldSync} from '$src/index'
 
+const captureError = fn => {
+  try {
+    fn()
+  } catch (error) {
+    return error
+  }
+
+  return undefined
+}
+
 test('folds values and passes the index to the reducer', () => {
   const indices = []
 
@@ -40,9 +50,11 @@ test('folds a sync generator', () => {
 test('propagates the original reducer error', () => {
   const bang = new Error('bang')
 
-  expect(() => foldSync([1, 2, 3], () => {
+  const error = captureError(() => foldSync([1, 2, 3], () => {
     throw bang
-  }, 0)).toThrow(bang)
+  }, 0))
+
+  expect(error).toBe(bang)
 })
 
 test('propagates the original iterable error', () => {
@@ -52,7 +64,11 @@ test('propagates the original iterable error', () => {
     throw boom
   }
 
-  expect(() => foldSync(source(), (acc, item) => acc + item, 0)).toThrow(boom)
+  const error = captureError(
+    () => foldSync(source(), (acc, item) => acc + item, 0),
+  )
+
+  expect(error).toBe(boom)
 })
 
 test('rejects a non-function reducer', () => {
@@ -63,6 +79,19 @@ test('rejects a fourth argument instead of ignoring options', () => {
   expect(() => foldSync([1, 2, 3], (acc, item) => acc + item, 0, {
     strategy: 'throw',
   })).toThrow(TypeError)
+})
+
+test('rejects a fourth argument before pulling from the source', () => {
+  let pulls = 0
+  const source = function * () {
+    pulls++
+    yield 1
+  }
+
+  expect(() => foldSync(
+    source(), (acc, item) => acc + item, 0, {strategy: 'throw'},
+  )).toThrow(TypeError)
+  expect(pulls).toBe(0)
 })
 
 test('rejects an async iterable and points at reduce()', () => {

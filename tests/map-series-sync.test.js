@@ -1,5 +1,5 @@
 import {test, expect, vi} from 'vitest'
-import {mapSeriesSync, rethrow} from '$src/index'
+import {collect, mapSeriesSync, rethrow} from '$src/index'
 
 const captureError = fn => {
   try {
@@ -78,6 +78,10 @@ test('passes take and onProgress through untouched', () => {
       item: 2, result: 20, index: 1, total: 2,
     },
   ])
+})
+
+test('rejects a conflicting strategy at build time', () => {
+  expect(() => mapSeriesSync(x => x, {strategy: collect})).toThrow(TypeError)
 })
 
 test('rejects a conflicting strategy instead of overriding it', () => {

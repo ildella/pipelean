@@ -1,5 +1,5 @@
 import {test, expect, vi} from 'vitest'
-import {mapSeries, rethrow} from '$src/index'
+import {collect, mapSeries, rethrow} from '$src/index'
 
 const captureError = async fn => {
   try {
@@ -86,18 +86,46 @@ test('passes take and onProgress through untouched', async () => {
   ])
 })
 
-test('passes signal and pause through untouched', async () => {
-  const controller = new AbortController()
+test('passes pause through untouched', async () => {
   const start = Date.now()
 
-  const result = await mapSeries([1], x => Promise.resolve(x), {
-    signal: controller.signal,
-    pause: 5,
-  })
+  const result = await mapSeries([1], x => Promise.resolve(x), {pause: 5})
   const elapsed = Date.now() - start
 
   expect(result).toEqual([1])
   expect(elapsed).toBeGreaterThanOrEqual(4)
+})
+
+test('honors a mid-run abort and resolves the partial results', async () => {
+  const controller = new AbortController()
+
+  const result = await mapSeries([1, 2, 3], x => Promise.resolve(x * 10), {
+    signal: controller.signal,
+    onProgress: ({index}) => {
+      if (index === 0)
+        controller.abort()
+    },
+  })
+
+  expect(result).toEqual([10])
+})
+
+test('an already-aborted signal resolves to an empty array', async () => {
+  const controller = new AbortController()
+  controller.abort()
+
+  const mapper = vi.fn(x => Promise.resolve(x))
+  const result = await mapSeries([1, 2, 3], mapper, {
+    signal: controller.signal,
+  })
+
+  expect(result).toEqual([])
+  expect(mapper).not.toHaveBeenCalled()
+})
+
+test('rejects a conflicting strategy at build time', () => {
+  expect(() => mapSeries(x => Promise.resolve(x), {strategy: collect}))
+    .toThrow(TypeError)
 })
 
 test('rejects a conflicting strategy instead of overriding it', () => {
