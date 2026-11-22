@@ -10,15 +10,30 @@ keep**.
 | fold over **items** (many inputs) | `scan` | `reduce` |
 | fold over **steps** (one input) | — | `enrich` |
 
+A pure sync fold with no report to inspect is `foldSync` — see
+[Which fold?](#which-fold) below.
+
 Outside the table:
 
 - **`series`** — many items, no dependency between them (map + drop, with
   progress, pause and take).
+- **`mapSeries` / `mapSeriesSync`** — the sequential map with the strategy
+  locked to `rethrow`: a bare array or a thrown original error.
 - **`pipe`** — one value through ordered steps, value in / value out.
 - **`join`** — a few named, different tasks running at the same time.
 
 So: if step N needs step N-1's output you are folding; count the inputs. Many
-inputs → `scan` / `reduce`. One input, many enrichments → `enrich`.
+inputs → `scan` / `reduce`. One input, many enrichments → `enrich`. A pure sync
+fold → `foldSync`.
+
+### Which fold?
+
+| tool | folds | keeps | returns |
+|---|---|---|---|
+| `foldSync` | items, sync, raw | the final value | the value (any throw propagates) |
+| `reduce` | items | the final value | `{value, errors, sourceErrors, failure}` |
+| `scan` | items | every intermediate | `{results, errors, sourceErrors, failure}` |
+| `enrich` | steps (one input) | the final state | `{value, errors, failure}` |
 
 `scan` and `reduce` are one engine with two result shapes. `enrich` is a `reduce`
 over **operations** rather than items:
@@ -33,19 +48,22 @@ enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), in
 2. `filter` — many items, selection (keep/drop)
 3. `scan` — many items, stateful fold, every intermediate result
 4. `reduce` — many items, stateful fold, final value only
-5. `pipe` — one item, composition of value-in/value-out steps
-6. `enrich` — one item, stateful accumulation of object patches
-7. `join` — named concurrent tasks, one structured outcome
-8. `stopWhen` / `forever` — source adapters (predicate stop, unbounded ticks)
-9. `signal` — cancellation option on every async iterator
-10. `assign` — helper for building `enrich` steps
-11. `where`, `findSync` — search helpers
-12. `assertOk` — guard a result whose failure would otherwise be ignored
+5. `foldSync` — many items, pure sync fold, the value itself (raw)
+6. `pipe` — one item, composition of value-in/value-out steps
+7. `enrich` — one item, stateful accumulation of object patches
+8. `mapSeries` / `mapSeriesSync` — many items, sequential map, throw on failure
+9. `join` — named concurrent tasks, one structured outcome
+10. `stopWhen` / `forever` — source adapters (predicate stop, unbounded ticks)
+11. `signal` — cancellation option on every async iterator
+12. `assign` — helper for building `enrich` steps
+13. `where`, `findSync` — search helpers
+14. `assertOk` — guard a result whose failure would otherwise be ignored
 
 > **Sync variants** — the iteration functions also have synchronous
 > counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`,
-> `reduceSync`, `stopWhenSync`; `pipeSync`, `enrichSync` and `tryCatchSync`
-> exist too. Same strategies and shapes, direct return instead of a `Promise`.
+> `reduceSync`, `stopWhenSync`; `pipeSync`, `enrichSync`, `mapSeriesSync` and
+> `tryCatchSync` exist too. Same strategies and shapes, direct return instead of
+> a `Promise`. `foldSync` is the raw sync fold: no options, no report.
 > `signal`, `pause` and `pauseOnErrors` are async-only: passing them to a sync
 > variant throws a `TypeError`.
 
@@ -62,8 +80,15 @@ strategies:
 **rethrow** (strategy name is `'throw'`)
 - Throws the error on first failure
 - Does NOT return a structured result on failure
-- Does NOT call `onError` or `onFailure`
-- Useful for "let it crash" / fail-early patterns where the caller handles errors externally
+- Does NOT call `onError`, `onFailure` or `onSourceError`
+- **Raw async mode, not a value extractor.** Use it when a thrown error is a
+  *bug or an infrastructure failure* and the caller handles it outside: async I/O
+  with no meaningful partial report, a daemon loop that must exit, "let it
+  crash". Do not use it to turn a fold into a value-returning expression — that
+  is `foldSync` for a pure sync fold, or `assertOk(result)` for a managed result.
+  If your thrown errors are *data* (one bad record among many), use a collecting
+  strategy instead: `rethrow` bypasses all callbacks, so `onError` next to it is
+  dead configuration.
 
 **failLate**
 - Collects all errors in `errors` array
@@ -214,6 +239,38 @@ details.
 * **Order guarantee**
   - Execution is sequential, so output order strictly matches input order.
 
+#### Sequential map: mapSeries / mapSeriesSync
+
+`series` is the default and returns a report. When a sequential map's only
+acceptable outcome is success — one failure must reject the whole run — use
+`mapSeries`, which locks the strategy to `rethrow` and unwraps `.results`:
+
+```js
+import {mapSeries, mapSeriesSync} from 'pipelean'
+
+const rows = await mapSeries(files, file => parseFile(file))
+// a throw rejects with the ORIGINAL error; no report object to inspect
+
+const cached = mapSeriesSync(paths, path => cache.get(path))
+// same contract, returns directly
+
+// Both call forms:
+const parseAll = mapSeries(file => parseFile(file))
+await parseAll(files)
+```
+
+Every other option passes through (`take`, `total`, `onProgress`, `pause`,
+`signal`), so it is still a *sequential* map with progress and pacing. A
+`strategy` other than `rethrow` / `'throw'` is a `TypeError` rather than a silent
+override. Two inherited behaviors matter: returning `undefined` **drops** the
+item (this is not `Array.prototype.map`), and under `rethrow` the failure throws
+before any callback, so `onError` / `onFailure` never fire.
+
+Reach for plain `series` when a failure is data you want to collect; reach for
+`mapSeries` when a failure is a bug that must surface. An async fold keeps
+`reduce` + `strategy: rethrow` — there is no async `foldSync`, because async
+folds need `recover`, `signal` and `pause`.
+
 #### Composition: pipe
 
 Compose ordered steps into a single reusable function for `series()`:
@@ -273,8 +330,23 @@ const {value: totalDuration} = await reduce(
 )
 ```
 
-`scan` defaults to `failFast`, and under `failFast` the `results` array is
-cleared on failure. Use `collect`/`failLate` when partial progress matters.
+A fold with no failure policy to decide — a pure sync `foldl` where a throw is a
+bug — is `foldSync`, which returns the value itself:
+
+```js
+import {foldSync} from 'pipelean'
+
+const totalDuration = foldSync(
+  tracks, (total, {duration}) => total + duration, 0,
+)
+```
+
+`foldSync` takes exactly three arguments (a fourth is a `TypeError`), throws the
+original error, and keeps `undefined` as a legal accumulator. Use `reduce` when
+the fold's input can be bad as data, or when you need `recover`, `signal` or
+`pause`. `scan` and `reduce` default to `failFast`. Under `failFast` the
+`results` array is cleared on failure (the `value` of a `reduce` survives: only
+`results` is cleared), so use `collect`/`failLate` when partial progress matters.
 Both folds support `pause`, `pauseOnErrors`, `signal` and the fold-only
 `recover` seam; `take` and `onProgress` remain `series`-only.
 
@@ -312,6 +384,35 @@ const {value, errors, failure} = await processAlbum(input)
 `enrich` returns `{value, errors, failure}` — no `results` array, no
 `sourceErrors` (the steps are a fixed array, so a source error is impossible).
 The default strategy is `collect`.
+
+##### Per-step hooks: `onStepStart` / `onStepSuccess`
+
+`enrich` and `enrichSync` accept two optional telemetry hooks, so a UI can show
+progress without hand-rolling the fold:
+
+- `onStepStart({operation, index, total})` fires **before** `operation(state)`.
+- `onStepSuccess({operation, patch, index, total})` fires **after** the patch is
+  validated and merged. `patch` is what the operation returned, pre-merge.
+
+```js
+import {enrich} from 'pipelean'
+
+const processAlbum = enrich([prepareAlbum, extractYear, extractArtists], {
+  onStepStart: ({operation, index, total}) =>
+    ui.setStep(`running ${operation}`, index + 1, total),
+  onStepSuccess: ({operation, patch}) => ui.done(operation, patch),
+  onError: ({operation, error}) => ui.fail(operation, error),
+})
+
+const {value, errors, failure} = await processAlbum(input)
+```
+
+Errors stay on `onError` — there is no `onStepError`. A hook that throws is a
+failed step and flows into the strategy like a throwing operation (so `failFast`
+stops later hooks, `collect` keeps going). `enrich` **awaits** its hooks;
+`enrichSync` calls them fire-and-forget, consistent with its other callbacks.
+Options bind at build time, and hooks fire on every run of the returned
+pipeline.
 
 ##### Conditional property assignment with `assign`
 
@@ -400,7 +501,9 @@ functions**. They compose with `pipe` and `series`.
   `onError`, `onFinally`. Returns `undefined` on failure — the same drop signal
   used everywhere else — so a failed step short-circuits `pipe` and drops the
   item in `series`. Ideal for centralized error reporting even outside
-  pipelines.
+  pipelines. An `onError` that throws (or rejects) **propagates**: it replaces the
+  original error, and `onFinally` still runs, so you can augment-and-rethrow from
+  the hook.
 
 - **`retry(fn, options?)`**
   Automatic retries: `attempts` (default 3), `delay` in ms (default 0). Re-throws
@@ -423,7 +526,12 @@ Neither wrapper is an error strategy: strategies belong to the iterators.
    errors unless you pick `rethrow`. `value` is the last successful state.
 7. **Patches are shallow-merged in `enrich()`**: top-level keys are overwritten;
    nested objects are not deep-merged. Return `{}` (not `undefined`) for a no-op.
-8. **`undefined` is the drop signal** in `series`, `filter` and `pipe`; it is not
-   a valid value to map to.
+8. **`undefined` is the drop signal** in `series`, `filter`, `pipe`, `mapSeries`
+   and `mapSeriesSync`; it is not a valid value to map to.
+9. **Bug or data?** A thrown error that means "this cannot happen" belongs in
+   `foldSync`, `mapSeries` / `mapSeriesSync`, or `rethrow`. A thrown error that
+   means "this record is bad" is data: use `reduce` / `scan` / `series` with a
+   strategy. To get the value out of a managed result, use `assertOk(result)`,
+   never `{strategy: rethrow}`.
 
 Check out [patterns.md](./patterns.md).

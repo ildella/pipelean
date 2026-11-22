@@ -378,8 +378,23 @@ export const reduce = (iterable, scanner, initialValue, opts = {}) =>
  * shallow-merged in. The pipeline is built once and reused with different
  * inputs; errors are reported per operation, named after the function.
  *
+ * Two optional hooks expose the fold step by step, for progress UIs:
+ *
+ * - `onStepStart({operation, index, total})` runs before `operation(state)`.
+ * - `onStepSuccess({operation, patch, index, total})` runs only after the patch
+ *   has been validated and merged; `patch` is what the operation returned,
+ *   before the merge.
+ *
+ * `operation` is `fn.name` or `operation-${index}`, the same normalization used
+ * by `onError`. Errors stay on `onError`; there is no `onStepError`. This
+ * function awaits both hooks (the sync twin does not), and a hook that throws
+ * is treated as a failed step: it flows into the strategy like a throwing
+ * operation, so `failFast` stops later hooks and a throwing `onStepSuccess`
+ * leaves its patch uncommitted.
+ *
  * @param {Array<(state) => object>} operations
- * @param {{strategy?: StrategyFn, onError?, onFailure?}} opts
+ * @param {{strategy?: StrategyFn, onError?, onFailure?, onStepStart?,
+ *   onStepSuccess?}} opts
  * @returns {(initialState) => Promise<{value, errors, failure}>}
  */
 export const enrich = (operations, opts = {}) => {

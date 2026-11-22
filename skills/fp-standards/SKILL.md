@@ -11,18 +11,22 @@ description: "General Functional Programming principles and patterns. Use this s
 ## Coding Rules
 - **No `Array.prototype.forEach`**: ForEach swallows promises and doesn't handle async errors correctly. Use `series` instead.
 - **No raw `Promise` combinators**: Use `series` for positional collections, or `join` for named concurrent tasks, instead of `Promise.all` / `Promise.allSettled`. The `no-promise-combinators` rule flags them.
-- **No `Array.prototype.reduce`**: Reduce is often unreadable and mixes state with iteration. Use `reduce` for simple reduction (sums, counts), `scan` for dependent stateful transformation where intermediate values matter.
+- **No `Array.prototype.reduce`**: Reduce is often unreadable and mixes state with iteration. Use `foldSync` for a pure sync fold (sums, counts, indexes), `reduce` when you need the report, and `scan` for dependent stateful transformation where intermediate values matter.
+- **No `Array.prototype.map` with async callbacks**: Use `series` for a map over independent items, or `mapSeries` / `mapSeriesSync` when the map must throw on the first failure and return a bare array. Do not use `series(..., {strategy: rethrow}).results` by hand: that is `mapSeries`.
 - **Eager Execution**: Reach for `series`/`pipe`/`scan`/`enrich` first — you get a structured report `{ results, errors, sourceErrors, failure }` back immediately. When you genuinely need a lazy producer (e.g. a generator that streams progress events), that is a supported escape hatch: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` rule allows loops only inside a generator that yields.
 - **Undefined Short-Circuit**: When composing operations (via `pipe`), returning `undefined` signals dropping the item (selection/filtering).
 
-## State accumulation: `scan` vs `reduce` vs `enrich`
+## State accumulation: `foldSync` vs `scan` vs `reduce` vs `enrich`
 
 |  | keep every intermediate | keep only the final |
 |---|---|---|
-| fold over **items** (many inputs) | `scan` | `reduce` |
+| fold over **items** (many inputs), managed | `scan` | `reduce` |
+| fold over **items**, pure sync, raw | — | `foldSync` |
 | fold over **steps** (one input) | — | `enrich` |
 
-If step N depends on step N-1's output you are folding: many inputs → `scan`/`reduce`; one input with many enrichments → `enrich`.
+If step N depends on step N-1's output you are folding: many inputs → `scan`/`reduce` (managed) or `foldSync` (pure sync); one input with many enrichments → `enrich`.
+
+**Hard rule: never use `{strategy: rethrow}` to extract a value from a fold.** A pure sync fold is `foldSync(items, reducer, initial)` — it returns the value directly. If you already have a managed result, use `assertOk(result).value`. `rethrow` is for async I/O and bugs, and it bypasses every callback, so `onError` next to it is dead configuration.
 
 ## Prefer `enrich()` over hand-rolled spreads
 
