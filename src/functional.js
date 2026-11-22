@@ -384,7 +384,7 @@ export const reduce = (iterable, scanner, initialValue, opts = {}) =>
  */
 export const enrich = (operations, opts = {}) => {
   const {
-    scanner, reduceOpts, assertInitial, finish,
+    steps, scanner, reduceOpts, assertInitial, finish,
   } = prepareEnrich({
     operations,
     opts,
@@ -399,7 +399,7 @@ export const enrich = (operations, opts = {}) => {
     assertInitial(initialState)
 
     return finish(await reduce(
-      operations, scanner, initialState, reduceOpts,
+      steps, scanner, initialState, reduceOpts,
     ))
   }
 }
