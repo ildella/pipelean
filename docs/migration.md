@@ -6,12 +6,16 @@ How to replace common imperative and error-prone patterns with pipelean equivale
 
 No behavior changes; no migration required. The `no-fold-rethrow` rule gained an
 **opt-in editor suggestion** that performs the 0.15.0 fold codemod mechanically:
-it rewrites the call to `foldSync(...)`, drops the `.value` read and adds
-`foldSync` to the `pipelean` import. `eslint --fix` never applies it.
+it rewrites the call to an existing plain or aliased `foldSync` binding (or to
+`foldSync`), drops the `.value` read and, only when no named `foldSync` binding
+exists, appends it to a named `pipelean` import; with namespace/default-only
+imports (or none) that insertion is skipped, so the callee may need a manual
+import. `eslint --fix` never applies it.
 
 Limits: report only when the result is destructured, `.value` is a write target,
-the call has more than four arguments, or a pipelean default/namespace import
-occupies the local name `foldSync`. Aliased imports and member calls still evade
+the result is read through any other member (`.failure`, `['value']`), the call
+has more than four arguments, or a pipelean default/namespace import occupies the
+local name `foldSync`. Aliased `reduceSync` imports and member calls still evade
 the rule. A non-pipelean import or local declaration named `foldSync` is not
 detected: the suggestion is still offered, and the editor preview shows the
 collision its rewrite or import insert would produce.

@@ -140,9 +140,11 @@ clauses and `instanceof` checks keep working.
 The ESLint rule `no-fold-rethrow` flags the related smell,
 `reduceSync(items, reducer, initial, {strategy: rethrow})`, and points at
 `foldSync`; a `recover` in the options is exempt (managed telemetry). It also
-offers an opt-in editor suggestion that rewrites the call and fixes the import —
-`--fix` never applies it; a write-target `.value` or an occupied `foldSync` name
-gets the report only.
+offers an opt-in editor suggestion that rewrites the call and updates the import
+when it can — `--fix` never applies it; destructuring, a written or non-`.value`
+member read, >4 arguments, or a pipelean default/namespace import already binding
+`foldSync` gets the report only — other bindings of that name are not
+scope-analyzed, so a colliding suggestion is still possible.
 
 ## Which fold? (read this before writing state)
 
