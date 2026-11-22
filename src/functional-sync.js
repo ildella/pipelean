@@ -1,7 +1,8 @@
 /* eslint-disable max-lines */
 
 import {
-  assertRethrowStrategy, getPlannedTotal, parseCallArgs,
+  assertNoErrorCallbacks, assertRethrowStrategy, getPlannedTotal,
+  parseCallArgs,
 } from './shared.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
@@ -343,9 +344,12 @@ export const foldSync = (iterable, reducer, initialValue, ...rest) => {
  *
  * - A mapper returning `undefined` DROPS the item, so the result can be shorter
  *   than the input. This is not `Array.prototype.map`.
- * - Under `rethrow` a failed item throws before any callback, so `onError` and
- *   `onFailure` never fire (dead configuration here, parity with
- *   `seriesSync(..., {strategy: rethrow})`).
+ * - Under `rethrow` a failed item throws before any callback, so `onError`
+ *   and `onFailure` can never fire: passing either (or `onSourceError`) is
+ *   rejected with a `TypeError` instead of being silently ignored.
+ *
+ * Sync only, like `foldSync`: an async iterable is rejected with a `TypeError`
+ * pointing at `mapSeries()`.
  *
  * @param {Iterable} items - Sync source of values.
  * @param {(item, index) => any} fn - Sequential mapper.
@@ -357,9 +361,16 @@ export const mapSeriesSync = (...args) => {
     immediate, items, fn, opts,
   } = parseCallArgs(args)
   assertRethrowStrategy(opts.strategy, 'mapSeriesSync')
+  assertNoErrorCallbacks(opts, 'mapSeriesSync')
 
-  const run = inputItems =>
-    seriesSync(inputItems, fn, {...opts, strategy: rethrow}).results
+  const run = inputItems => {
+    if (isAsyncIterable(inputItems))
+      throw new TypeError(
+        'mapSeriesSync() does not support async iterables; use mapSeries()',
+      )
+
+    return seriesSync(inputItems, fn, {...opts, strategy: rethrow}).results
+  }
 
   return immediate ? run(items) : run
 }

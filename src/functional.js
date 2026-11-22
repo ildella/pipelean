@@ -1,6 +1,8 @@
 /* eslint-disable max-lines */
 
-import {assertRethrowStrategy, parseCallArgs} from './shared.js'
+import {
+  assertNoErrorCallbacks, assertRethrowStrategy, parseCallArgs,
+} from './shared.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
 import {
@@ -551,9 +553,9 @@ export const pipe = (...fns) => input =>
  *
  * - A mapper returning `undefined` DROPS the item, so the result can be shorter
  *   than the input. This is not `Array.prototype.map`.
- * - Under `rethrow` a failed item throws before any callback, so `onError` and
- *   `onFailure` never fire (dead configuration here, parity with
- *   `series(..., {strategy: rethrow})`).
+ * - Under `rethrow` a failed item throws before any callback, so `onError`
+ *   and `onFailure` can never fire: passing either (or `onSourceError`) is
+ *   rejected with a `TypeError` instead of being silently ignored.
  *
  * @param {AsyncIterable|Array} items - Source of values.
  * @param {(item, index) => any} fn - Sequential mapper.
@@ -566,6 +568,7 @@ export const mapSeries = (...args) => {
     immediate, items, fn, opts,
   } = parseCallArgs(args)
   assertRethrowStrategy(opts.strategy, 'mapSeries')
+  assertNoErrorCallbacks(opts, 'mapSeries')
 
   const run = async inputItems =>
     (await series(inputItems, fn, {...opts, strategy: rethrow})).results
