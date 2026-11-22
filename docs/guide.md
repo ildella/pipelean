@@ -80,7 +80,8 @@ strategies:
 **rethrow** (strategy name is `'throw'`)
 - Throws the error on first failure
 - Does NOT return a structured result on failure
-- Does NOT call `onError`, `onFailure` or `onSourceError`
+- Does NOT call `onError`, `onFailure` or `onSourceError` (a fold item error
+  with `recover` present is the exception: `onError` fires before the seam)
 - **Raw async mode, not a value extractor.** Use it when a thrown error is a
   *bug or an infrastructure failure* and the caller handles it outside: async I/O
   with no meaningful partial report, a daemon loop that must exit, "let it

@@ -62,11 +62,11 @@ Tools outside the table:
 | a few named tasks, at the same time | `join` |
 
 Rule of thumb: if step N needs step N-1's output, you are **folding**. Count
-your inputs: many inputs → `scan` or `reduce`; one input with many enrichments →
-`enrich`. Then ask whether a thrown error is a **bug or data**: a bug (an
-impossible state, a broken invariant) belongs in `foldSync`, `mapSeries` or
-`rethrow`; data belongs in a strategy. The full litmus is in
-[the guide](docs/guide.md#which-fold).
+your inputs: many inputs → `scan` or `reduce` (or `foldSync` when the fold is
+pure, sync and cannot fail as data); one input with many enrichments → `enrich`.
+Then ask whether a thrown error is a **bug or data**: a bug (an impossible state,
+a broken invariant) belongs in `foldSync`, `mapSeries` or `rethrow`; data belongs
+in a strategy. The full litmus is in [the guide](docs/guide.md#which-fold).
 
 ---
 
@@ -472,11 +472,12 @@ you mean.
 never changes control flow.
 
 `rethrow` is **raw async mode**: it exists so a hard failure escapes to the
-caller, not so you can extract a value from a result. It bypasses every callback
+caller, not so you can extract a value from a result. It bypasses the callbacks
 (`onError`, `onFailure`, `onSourceError`), so a `rethrow` run that also passes
-`onError` has dead configuration. If you want "the value or throw" for a local,
-sync, pure fold, that is `foldSync`; if you want to guard a finished result, that
-is `assertOk(result)`.
+`onError` has dead configuration — the one exception is a fold item error when
+`recover` is present, where `onError` fires before the seam. If you want "the
+value or throw" for a local, sync, pure fold, that is `foldSync`; if you want to
+guard a finished result, that is `assertOk(result)`.
 
 ## Result shapes
 
@@ -486,6 +487,8 @@ is `assertOk(result)`.
 | `reduce` | `{value, errors, sourceErrors, failure}` |
 | `enrich`, `join` | `{value, errors, failure}` |
 | `findSync` | `{result, errors, sourceErrors, failure}` |
+| `mapSeries`, `mapSeriesSync` | the mapped `Array`, or throws the original error |
+| `foldSync` | the final accumulator, or throws the original error |
 
 `enrich` and `join` fold a known list of steps/branches, so a "source error" is
 impossible there and the field is not returned.

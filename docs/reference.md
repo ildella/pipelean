@@ -1369,5 +1369,5 @@ operations and inputs are synchronous.
 ## Related Documentation
 
 - **[README.md](../README.md)** - Project overview and philosophy
-- **[guide.md](../guide.md)** - Comprehensive development guide with examples
-- **[examples.md](../examples.md)** - Practical usage examples for all functions
+- **[guide.md](guide.md)** - Comprehensive development guide with examples
+- **[examples.md](examples.md)** - Practical usage examples for all functions

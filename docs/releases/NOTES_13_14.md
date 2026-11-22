@@ -132,10 +132,10 @@ on it keep working. A plain `onError` still swallows and returns `undefined`.
   `scan`, which keeps every intermediate and is the wrong replacement. It now
   advises `foldSync(items, reducer, initial)` for a pure sync fold, or `reduce`
   when the report is needed. The rule still flags every `.reduce`.
-- **A misnamed test.** `tests/reduce-sync.test.js` described a `failFast` fold as
-  preserving the "value" while its name suggested otherwise; the test now says
-  what it pins: `failFast` stops on the first error and **preserves the last
-  accumulator** (only `results` is cleared).
+- **A misnamed test.** A test in `tests/reduce-sync.test.js` was named as if a
+  `failFast` failure discarded the accumulator, while it actually pins the
+  opposite: the fold stops on the first error and **preserves the last
+  accumulator** (only `results` is cleared). Renamed to say what it asserts.
 
 ## Migration: two textual codemods
 
