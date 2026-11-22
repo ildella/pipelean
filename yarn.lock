@@ -2997,7 +2997,7 @@
       "checksum": null,
       "resolution": {
         "resolution": "pipelean@workspace:pipelean",
-        "version": "0.15.0",
+        "version": "0.14.0",
         "dependencies": {
           "@eslint/compat": "2.1.1",
           "@eslint/js": "10.0.1",
