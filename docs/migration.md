@@ -2,6 +2,130 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.14.0: `foldSync`, `mapSeries`, per-step `enrich` hooks
+
+Everything here is **additive**: no strategy default changes, no result-shape
+changes, no rename. Existing calls keep working. Three rewrites are optional, and
+only one of them carries a behavior change.
+
+New tools:
+
+- `foldSync(iterable, reducer, initialValue)`: a **raw** sync fold that returns
+  the value directly and throws the original error. No options, no report.
+- `mapSeries` / `mapSeriesSync`: `series` with the strategy locked to `rethrow`
+  and the report unwrapped — a bare array or the original error.
+- `enrich` / `enrichSync` accept `onStepStart` and `onStepSuccess` for per-step
+  telemetry.
+
+The rule of thumb for the whole release: **is a thrown error a bug or data?**
+Bug/impossible → `foldSync` (sync fold), `mapSeries` / `mapSeriesSync`
+(sequential map), or `rethrow` (async fold with options). Data →
+`reduce` / `scan` / `series` with a strategy. Need the value from a managed
+result → `assertOk(result).value`.
+
+### 1. Pure fold: `reduceSync(..., {strategy: rethrow}).value` → `foldSync`
+
+Behavior-identical, a pure textual rewrite.
+
+```js
+// Before
+import {reduceSync, rethrow} from 'pipelean'
+
+const total = reduceSync(
+  tracks, (sum, {duration}) => sum + duration, 0, {strategy: rethrow},
+).value
+```
+
+```js
+// After
+import {foldSync} from 'pipelean'
+
+const total = foldSync(tracks, (sum, {duration}) => sum + duration, 0)
+```
+
+Use `foldSync` when the fold is **pure and synchronous** and a throw means a bug.
+`foldSync` rejects an async iterable with a `TypeError` naming `reduce()`.
+
+### 2. Sequential map: `series(..., {strategy: rethrow}).results` → `mapSeries`
+
+```js
+// Before
+import {rethrow, series} from 'pipelean'
+
+const rows = (await series(items, fn, {strategy: rethrow})).results
+```
+
+```js
+// After
+import {mapSeries} from 'pipelean'
+
+const rows = await mapSeries(items, fn)
+```
+
+`mapSeries` keeps every other option (`take`, `onProgress`, `pause`, `signal`),
+accepts the curried form, and rejects any non-`rethrow` strategy with a
+`TypeError`. The sync twin is `mapSeriesSync`.
+
+### 3. Per-step UI status: hand-rolled fold → `enrich` + hooks
+
+```js
+// Before: manual index, merge, validation and try/catch
+const state = {...input}
+for (let index = 0; index < ops.length; index++) {
+  ui.start(ops[index].name, index, ops.length)
+  try {
+    Object.assign(state, await ops[index](state))
+    ui.success(ops[index].name, index)
+  } catch (error) {
+    ui.error(ops[index].name, error)
+  }
+}
+```
+
+```js
+// After
+import {enrich} from 'pipelean'
+
+const process = enrich(ops, {
+  onStepStart: ({operation, index, total}) => ui.start(operation, index, total),
+  onStepSuccess: ({operation, patch, index}) => ui.success(operation, patch, index),
+  onError: ({operation, error}) => ui.error(operation, error),
+})
+const {value, errors, failure} = await process(input)
+```
+
+`onStepSuccess` fires only after the patch is validated and merged. Errors stay
+on `onError` (there is no `onStepError`). A throwing hook flows into the strategy;
+`failFast` stops later hooks. `enrich` awaits hooks, `enrichSync` does not.
+
+### Optional codemod with a behavior delta
+
+If you also rewrite folds that relied on the default `failFast` and read
+`.value`:
+
+```diff
+-const total = reduceSync(tracks, addDuration, 0).value
++const total = foldSync(tracks, addDuration, 0)
+```
+
+**Warning**: this changes behavior. Under the old form a `failFast` failure was
+ignored — the run stopped, `.value` kept the last accumulator, nothing threw.
+`foldSync` throws. Apply it only where the reducer cannot fail; otherwise keep
+`reduceSync` and inspect `failure` (or wrap with `assertOk`).
+
+### Lint advice changed
+
+`no-array-reduce` still flags every `.reduce()`, but its advice is now
+`foldSync(items, reducer, initial)` for a pure sync fold, or `reduce` when you
+need the report. It no longer suggests `scan`, which keeps every intermediate and
+was the wrong replacement.
+
+### Nothing else changes
+
+Strategy defaults, result shapes and `undefined`-drops-the-item are unchanged.
+`rethrow` remains supported and recommended for async I/O; only *extracting a
+value* from a managed fold moved to `foldSync` / `assertOk`.
+
 ## 0.13.0: signals, pause policy, fold `recover`, `assertOk`
 
 Everything here is **additive**: no strategy default changes, no result-shape

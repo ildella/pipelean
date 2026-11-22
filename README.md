@@ -48,17 +48,25 @@ step, or only the last?**
 | fold over **items** (many inputs) | `scan` | `reduce` |
 | fold over **steps** (one input) | — | `enrich` |
 
-Three tools sit outside the table:
+A pure sync fold with no report to inspect is `foldSync(items, reducer,
+initial)`: it returns the value directly and throws the original error. Reach for
+it whenever the reducer cannot legitimately fail (sums, counts, lookups by key).
+
+Tools outside the table:
 
 | need | tool |
 |---|---|
 | items are independent | `series` |
+| items are independent and any failure must throw | `mapSeries` / `mapSeriesSync` |
 | value in → value out, one item | `pipe` |
 | a few named tasks, at the same time | `join` |
 
 Rule of thumb: if step N needs step N-1's output, you are **folding**. Count
-your inputs: many inputs → `scan` or `reduce`; one input with many enrichments →
-`enrich`.
+your inputs: many inputs → `scan` or `reduce` (or `foldSync` when the fold is
+pure, sync and cannot fail as data); one input with many enrichments → `enrich`.
+Then ask whether a thrown error is a **bug or data**: a bug (an impossible state,
+a broken invariant) belongs in `foldSync`, `mapSeries` or `rethrow`; data belongs
+in a strategy. The full litmus is in [the guide](docs/guide.md#which-fold).
 
 ---
 
@@ -149,11 +157,12 @@ not plain composition as in Ramda or fp-ts `flow`.
 
 ---
 
-## Stateful accumulation: two folds, not three
+## Stateful accumulation: folds with a report, plus one raw fold
 
-There is no third accumulation primitive. `scan` folds **items** and keeps every
-step, `reduce` folds **items** and keeps the last, and `enrich` folds **steps**
-over one input:
+There are two managed folds and one raw one. `scan` folds **items** and keeps
+every step, `reduce` folds **items** and keeps the last, and `enrich` folds
+**steps** over one input. All three return a structured result. `foldSync` is the
+raw sync fold: same `foldl` shape as `reduce`, no result object, no strategies.
 
 ```js
 enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), input)
@@ -161,6 +170,36 @@ enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), in
 
 So: `enrich` **is** a `reduce` over your operations. `scan` and `reduce` share
 one engine and differ only in what they return.
+
+### `foldSync()` — items, raw sync fold
+
+`foldSync(iterable, reducer, initialValue)` returns the last accumulator
+directly. It is **raw**: no options, no strategy, no report, no `onError`. A
+fourth argument is a `TypeError`, so a leftover `{strategy: rethrow}` fails
+loudly instead of being ignored.
+
+**Use when** the fold is pure and sync, and a throw means a bug: sums, counts,
+grouping, building an index. It is behavior-identical to
+`reduceSync(items, reducer, initial, {strategy: rethrow}).value`, minus the
+unwrapping and the engine.
+
+```js
+import {foldSync} from 'pipelean'
+
+const totalDuration = foldSync(tracks, (total, {duration}) => total + duration, 0)
+const byArtist = foldSync(tracks, (index, track) => {
+  index[track.artist] = [...(index[track.artist] ?? []), track]
+  return index
+}, {})
+```
+
+**Don't use when** the reducer can fail as *data* (a bad record you want to
+report and skip): that is `reduce` with a strategy. It is sync-only — an async
+iterable is a `TypeError` naming `reduce()` — and it does not await the reducer,
+so an async reducer produces a Promise accumulator.
+
+**Gotchas** — errors propagate unchanged, with no wrapping and no callbacks. The
+result is the value, not `{value, errors, failure}`.
 
 ### `scan()` — items, every intermediate
 
@@ -190,8 +229,12 @@ independent (`series`), or the collection being folded is your operation list
 
 ### `reduce()` — items, final value only
 
-**Use when** the last value is all you need: sums, counts, concatenation, folding
-into a growing record, or a daemon loop built with `forever()` + `signal`.
+**Use when** you need the last value **plus the report**: the accumulator, the
+errors, and a failure policy for a fold whose input can be bad (a price that is
+missing, a record that fails validation). For a pure sync fold with none of
+that, use [`foldSync`](#foldsync--items-raw-sync-fold) instead — sums and counts
+belong there. A daemon loop built with `forever()` + `signal` also belongs here:
+it needs the policy even though the value is data.
 
 ```js
 import {reduce} from 'pipelean'
@@ -386,7 +429,7 @@ nobody reads the result, a critical job can stop silently. `assertOk` is the
 guard for that footgun:
 
 ```js
-import {assertOk, series} from 'pipelean'
+import {assertOk, failFast, series} from 'pipelean'
 
 const result = assertOk(await series(jobs, importJob, {strategy: failFast}))
 console.log(result.results)
@@ -428,6 +471,14 @@ you mean.
 `onError` is a **callback**, not a strategy. It fires for handled item errors and
 never changes control flow.
 
+`rethrow` is **raw async mode**: it exists so a hard failure escapes to the
+caller, not so you can extract a value from a result. It bypasses the callbacks
+(`onError`, `onFailure`, `onSourceError`), so a `rethrow` run that also passes
+`onError` has dead configuration — the one exception is a fold item error when
+`recover` is present, where `onError` fires before the seam. If you want "the
+value or throw" for a local, sync, pure fold, that is `foldSync`; if you want to
+guard a finished result, that is `assertOk(result)`.
+
 ## Result shapes
 
 | function | returns |
@@ -436,15 +487,23 @@ never changes control flow.
 | `reduce` | `{value, errors, sourceErrors, failure}` |
 | `enrich`, `join` | `{value, errors, failure}` |
 | `findSync` | `{result, errors, sourceErrors, failure}` |
+| `mapSeries`, `mapSeriesSync` | the mapped `Array`, or throws the original error |
+| `foldSync` | the final accumulator, or throws the original error |
 
 `enrich` and `join` fold a known list of steps/branches, so a "source error" is
 impossible there and the field is not returned.
 
 ## Synchronous variants
 
-`seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `enrichSync`,
-`pipeSync` and `tryCatchSync` mirror the async API with the same strategies,
-shapes and callbacks — they just return directly instead of a `Promise`.
+`seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `mapSeriesSync`,
+`enrichSync`, `pipeSync` and `tryCatchSync` mirror the async API with the same
+strategies, shapes and callbacks — they just return directly instead of a
+`Promise`. `foldSync` is the raw sync fold, with no options and no report.
+
+`mapSeries` and `mapSeriesSync` are the sequential map with the strategy locked
+to `rethrow`: they resolve to a bare array (or throw the original error), accept
+both call forms, and pass every other option through. They inherit the
+`undefined` drop signal, so the output can be shorter than the input.
 
 ## Coming from Elixir, Scala/cats, or Haskell?
 
@@ -469,8 +528,10 @@ only `undefined` is a drop), and iterators return records rather than an
 ### ESLint plugin
 
 Flags `.forEach()`, `.reduce()`, `.map(async ...)`, non-generator loops and
-`Promise.*` combinators, suggesting pipelean equivalents. Separate entry point —
-importing it does not pull in the runtime.
+`Promise.*` combinators, suggesting pipelean equivalents — including
+`foldSync(items, reducer, initial)` (or `reduce` when you need the report) in
+place of `.reduce()`. Separate entry point — importing it does not pull in the
+runtime.
 
 ```js
 import pipeleanConfig from 'pipelean/eslint/config'
@@ -511,6 +572,8 @@ Worth knowing before you adopt it:
   Keep intra-item cancellation (`fetch(..., {signal})`) in your own operation.
   `stopWhen()` remains the source-level predicate stop.
 - **`undefined` is the drop sentinel**, so you cannot map an item to `undefined`.
+  This also holds for `mapSeries` / `mapSeriesSync`: they are sequential maps
+  with throw semantics, not `Array.prototype.map`.
 - **Error tools are not layers.** Strategies own the run's policy; the
   fold-only `recover` seam turns one scanner error into the next accumulator;
   `retry` / `tryCatch` wrap a single function; `assertOk` guards a result that

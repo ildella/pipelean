@@ -27,8 +27,10 @@
 **Horizontal**
 
 - [series](#series) - Stateless Sequential Execution
+- [mapSeries / mapSeriesSync](#mapseries--mapseriessync) - Sequential map with locked `rethrow`
 - [scan](#scan) - Stateful Sequential Transformation
 - [reduce](#reduce) - Pure Reduction
+- [foldSync](#foldsync) - Raw Synchronous Fold
 - [recover](#recover) - Fold-Only Error Recovery (`scan` / `reduce`)
 - [filter](#filter) - Stateless Selection
 - [stopWhen](#stopwhen) - Source Adapter for Predicate-Based Early Exit (alias of sorts: the `while` you don't need)
@@ -61,9 +63,19 @@
 | fold over **items** (many inputs) | `scan` | `reduce` |
 | fold over **steps** (one input) | — | `enrich` |
 
+- `foldSync` — many items, pure **sync** fold, returns the value directly.
+- `mapSeries` / `mapSeriesSync` — many items, sequential map that throws on the
+  first failure and returns a bare array.
 - `series` — many items, independent work per item.
 - `pipe` — one value, value-in / value-out composition.
 - `join` — a few named tasks, at the same time.
+
+**Bug or data?** `foldSync`, `mapSeries` / `mapSeriesSync` and `rethrow` are for
+errors that are bugs or infrastructure failures: the run must not continue and
+the caller handles the throw. `reduce` / `scan` / `series` with a strategy are
+for errors that are data: record them, keep what worked, report at the end. To
+recover the value from a managed result, use `assertOk(result)`; `rethrow` is raw
+async mode, not a value extractor.
 
 `enrich(ops)(input)` is `reduce(ops, (state, op) => ({...state, ...op(state)}), input)`.
 
@@ -107,12 +119,15 @@ const result = await series([1, 2, 3], async item => {
 
 **Purpose**: Error strategy identifier that throws the error immediately on the first failure. Does NOT return a structured result on failure.
 
-**Use when**: "Let it crash" / fail-early patterns where the caller is expected to handle errors externally (e.g. via try/catch).
+**Use when**: "Let it crash" / fail-early patterns where the caller is expected to handle errors externally (e.g. via try/catch) — async I/O with no meaningful partial report, a daemon loop that must exit, an error that is a bug rather than data.
+
+**Not for**: extracting a value from a fold. For a pure sync fold use `foldSync`; for a managed result you must not ignore use `assertOk(result)`. `rethrow` bypasses every callback, so `onError`, `onFailure` and `onSourceError` on a `rethrow` run never fire (with `recover`, `onError` fires before the seam — see [recover](#recover)).
 
 **Behavior**:
 - Throws the error on first failure
 - Does NOT call `onFailure`
 - Does NOT call `onError` in `series`
+- Does NOT call `onSourceError`
 
 **Return Format**: On success: `{results, errors: [], sourceErrors: [], failure: false}`
 
@@ -375,6 +390,62 @@ Cleanup follows native generator semantics: the generator's own `finally` runs d
 
 ---
 
+### mapSeries / mapSeriesSync
+
+**Purpose**: Sequential map whose failure policy is fixed. `mapSeries` is `series` with the strategy locked to `rethrow` and the report unwrapped: it resolves to a bare array of results, or rejects with the **original** error. `mapSeriesSync` is the synchronous twin.
+
+This is the answer to "map these items one at a time, and if any one fails the whole thing must fail". It is still sequential, and it still inherits the `undefined` drop signal — it is **not** `Array.prototype.map`.
+
+**Type**:
+
+- `mapSeries(items, fn, opts?) => Promise<Array>` — immediate
+- `mapSeries(fn, opts?) => (items) => Promise<Array>` — curried, reusable
+- `mapSeriesSync(items, fn, opts?) => Array` — immediate, sync iterable only
+- `mapSeriesSync(fn, opts?) => (items) => Array` — curried
+
+**Parameters**:
+- `items`: An iterable (array, async iterable, generator). `mapSeriesSync` accepts sync iterables only.
+- `fn(item, index)`: The mapper. Sync or async for `mapSeries`. `mapSeriesSync` does not reject an async mapper: it is **not awaited**, so the returned Promise is stored as the value. Returning `undefined` drops the item.
+- `opts` (optional): every `series` / `seriesSync` option except a conflicting `strategy`. `take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and `signal` pass through untouched (`mapSeriesSync` rejects `pause`, `pauseOnErrors` and `signal` like the other sync variants). `recover` is not supported (it is fold-only).
+
+**Strategy lock**: `mapSeries` always rethrows. Passing `strategy: rethrow`, `strategy: 'throw'`, or omitting it is fine. Passing any other strategy is a configuration mistake and throws a `TypeError` at build time (`'mapSeries() always rethrows on the first error; remove the "collect" strategy'`) instead of being silently overridden.
+
+**Return**: `Promise<Array>` / `Array` of the kept mapped values, in input order.
+
+**Inherited behavior — read these two**:
+- **`undefined` drops the item.** A mapper that returns `undefined` produces no entry, so the result can be shorter than the input.
+- **The rethrow is silent.** A failed item throws before any callback runs, exactly as in `series(..., {strategy: rethrow})`. `onError`, `onFailure` and `onSourceError` are accepted but never fire: configuring them here is dead configuration. If you need per-item error telemetry, use `series` with a collecting strategy.
+
+**Stops at the first failure**: no later item runs, and the error is the original throw (identity preserved). An abort via `signal` is not a failure: it resolves with the results completed so far.
+
+**Usage Example**:
+```javascript
+import {mapSeries, mapSeriesSync} from 'pipelean'
+
+// All-or-nothing sequential map
+const parsed = await mapSeries(files, file => parseFile(file))
+// any parseFile throw rejects with that original error
+
+// Reusable pipeline, options still apply
+const fetchAll = mapSeries(id => api.get(id), {
+  pause: 100,
+  onProgress: ({index, total}) => updateBar(index + 1, total),
+})
+const records = await fetchAll(ids)
+
+// Selection still works: undefined drops
+const adults = await mapSeries(users, user => user.age >= 18 ? user : undefined)
+
+// Sync twin
+const rows = mapSeriesSync(records, record => toRow(record))
+```
+
+**When to use `mapSeries` vs `series`**: use `mapSeries` when a failure must surface as an exception and the caller wants no report. Use `series` when a failure is data to collect, count or report per item. For a *concurrent* map, neither: use p-map.
+
+**When to use `reduce` + `rethrow` instead**: when the step needs the previous step's accumulated value (a fold, not a map), and the run is async. There is no async raw fold: async folds need `recover`, `signal` and `pause`, which is the managed API.
+
+---
+
 ### scan
 
 **Purpose**: Fold over data items, keeping every intermediate accumulator. Use it when each item depends on the previous one **and** the intermediate values are themselves useful. Use `reduce` when only the last value matters.
@@ -480,6 +551,58 @@ const {value: totalDuration} = await reduce(
 
 **When to use `scan` instead**:
 - When you need every intermediate accumulator value (e.g. dependent sequential operations where each step's output is meaningful)
+
+**`value` survives `failFast`.** On the first error `results` is cleared (irrelevant here) but the last successful accumulator is kept: `{value, errors: [], failure: {item, error, index}}`. That preserved partial value is **not** a reason to use `rethrow` to get it: `rethrow` still throws and gives you no result. If the value is all you need and the fold is pure sync, `foldSync` returns it directly; if the value plus report is what you want, inspect `value` here.
+
+---
+
+### foldSync
+
+**Purpose**: A raw synchronous fold. `foldSync(iterable, reducer, initialValue)` returns the last accumulator directly — no options, no strategy, no report, no callbacks. For a pure fold it is behavior-identical to `reduceSync(items, reducer, initial, {strategy: rethrow}).value`, with nothing to unwrap.
+
+**Type**: `(iterable, reducer, initialValue) => value` (synchronous)
+
+**Parameters**:
+- `iterable`: A **sync** iterable — array, `Set`, generator, any object with `Symbol.iterator`. An async iterable is rejected.
+- `reducer(accumulator, item, index)`: The fold function. It is **not awaited**: an async reducer produces a Promise accumulator.
+- `initialValue`: The starting accumulator. `undefined` is a legal accumulator — folds never drop.
+
+**Return**: the final accumulator, whatever type it is.
+
+**Errors**: thrown by the reducer or by the iterable propagate **unchanged** — same identity, no wrapping, no strategy consulted, no callback. This is the point: a throw here is a bug, and a bug should not be collected as data.
+
+**Validation (all `TypeError`, before iteration)**:
+- a fourth argument: `foldSync() takes 3 arguments; it accepts no options` — a stray `{strategy: rethrow}` fails loudly instead of being ignored;
+- a non-function reducer: `foldSync() requires a reducer function`;
+- an async iterable: `foldSync() does not support async iterables; use reduce()`;
+- a non-iterable (including `null` / `undefined`): `foldSync() requires a sync iterable`.
+
+**Sync only**: like `findSync`, there is no async twin. Async folds need `recover`, `signal` and `pause`, so their home is `reduce`. There is deliberately no async `fold`.
+
+**Usage Example**:
+```javascript
+import {foldSync} from 'pipelean'
+
+const totalDuration = foldSync(
+  tracks,
+  (total, {duration}, index) => total + duration,
+  0,
+)
+
+// Build an index in one pass
+const byArtist = foldSync(tracks, (index, track) => {
+  index[track.artist] = [...(index[track.artist] ?? []), track]
+  return index
+}, {})
+
+// Empty input returns the initial value; a Set or generator is fine
+foldSync(new Set([1, 2, 3]), (acc, n) => acc + n, 0) // 6
+foldSync([], (acc, n) => acc + n, 42)                // 42
+```
+
+**When to use it**: the fold is pure and synchronous and a throw means an impossible state, a broken invariant or a programmer mistake. **When not to**: the input can contain bad records you want to report and continue past (`reduce` with `collect` / `failLate`), the run needs `recover` / `signal` / `pause` (async `reduce`), or you are folding steps over one input (`enrich`).
+
+**Migration**: a pure `reduceSync(items, reducer, initial, {strategy: rethrow}).value` becomes `foldSync(items, reducer, initial)` — a textual rewrite with identical behavior. `reduceSync(items, reducer, initial).value` also becomes `foldSync(...)`, but with a behavior delta: a `failFast` failure that was previously ignored now throws. See [migration](migration.md#0140-foldsync-mapseries-per-step-enrich-hooks).
 
 ---
 
@@ -734,6 +857,8 @@ The difference is ergonomics and reporting: `enrich` fixes the fold step (shallo
   - `strategy`: Error strategy (default: `collect`). `failFast`, `collect`, `failLate`, `skip`, `rethrow`.
   - `onError({operation, error, index, total})`: Called for each handled operation error. Receives a normalized shape where `operation` is the function's `name` (or `operation-${index}` for anonymous functions) and `total` is the operation count.
   - `onFailure(failure)`: Called when `failure` is truthy. Receives `{operation, error, index}` for `failFast` and `{errors}` for `failLate` — both normalized.
+  - `onStepStart({operation, index, total})`: Called **before** each operation runs. Same `operation` normalization and `total` as `onError`.
+  - `onStepSuccess({operation, patch, index, total})`: Called **after** the patch is validated and merged. `patch` is the object the operation returned, pre-merge.
   - `recover`: **not** supported. `enrich` uses `reduce` internally but rejects `recover` explicitly; use `reduce` if you need fold recovery.
 
 **Return**: A function `(initialState) => Promise<{value, errors, failure}>`.
@@ -801,6 +926,55 @@ const album2 = await processAlbum(rawAlbum2)
 - `onError({operation, error, index, total})` — `operation` is the function's `name` if set, otherwise `operation-${index}`. `total` is the operations array length.
 - `onFailure({operation, error, index})` for `failFast`.
 - `onFailure({errors})` for `failLate`, where each entry is `{operation, error, index}`.
+
+#### Per-step hooks (`onStepStart` / `onStepSuccess`)
+
+Two telemetry hooks let a caller follow the fold step by step — enough to drive a
+per-step UI status without hand-rolling the accumulation. They are options of the
+pipeline, bound at `enrich(operations, opts)`, and they fire on **every** run of
+the returned function.
+
+| hook | when | payload |
+|---|---|---|
+| `onStepStart(context)` | before `operation(state)` | `{operation, index, total}` |
+| `onStepSuccess(context)` | after patch validation + merge | `{operation, patch, index, total}` |
+
+- `operation` is the function's `name`, or `operation-${index}` for an anonymous
+  operation — the same normalization as `onError`.
+- `patch` is the object the operation returned, **before** the merge. The other
+  fields identify the step; `total` is `operations.length`.
+- Timing: `enrich` **awaits** both hooks before moving on; `enrichSync` calls
+  them and moves on (fire-and-forget), consistent with its other callbacks.
+- `onStepSuccess` fires only when the patch was valid and merged. A throwing
+  operation, or an invalid patch (`null`, an array, a primitive), goes to
+  `onError` and fires **no** success hook.
+- Errors stay on `onError`: there is deliberately no `onStepError`.
+- A hook that throws is treated like a throwing step and flows into the
+  strategy: `failFast` stops (so later hooks never fire), `collect` / `failLate`
+  record it and continue, `skip` drops it, `rethrow` throws it. A throwing
+  `onStepSuccess` fails the step, so its patch is **not** committed.
+- With `failFast`, the step that fails stops the run before later hooks. With
+  `collect`, every step's hooks run.
+
+```javascript
+import {enrich} from 'pipelean'
+
+const processAlbum = enrich(
+  [prepareAlbum, extractYear, extractArtists],
+  {
+    onStepStart: ({operation, index, total}) =>
+      status.update({phase: 'running', operation, index, total}),
+    onStepSuccess: ({operation, patch, index, total}) =>
+      history.append({operation, patch, index, total}),
+    onError: ({operation, error, index}) => report(operation, error, index),
+  },
+)
+
+const {value, errors, failure} = await processAlbum(input)
+```
+
+`enrichSync` accepts the same two options with the same payloads and the same
+strategy path; only the dispatch differs (sync, not awaited).
 
 ---
 
@@ -1057,6 +1231,13 @@ const result = await robust()
 - Comprehensive lifecycle: onStart → onSuccess/onError → onFinally
 - Deep telemetry support for debugging
 - Composes with `pipe` (short-circuit) and `series` (drop) through the `undefined` return
+- **A throwing (or rejecting) `onError` propagates.** It is awaited inside the
+  `catch`, so an `onError` that throws replaces the original error as the
+  rejection, and `onFinally` still runs. This is how you augment-and-rethrow:
+  `onError: error => { throw Object.assign(error, {operation: 'charge'}) }`
+  rejects with the *original* object, now carrying extra fields. A plain
+  `onError` (logs, returns) still swallows and returns `undefined`.
+  `tryCatchSync` has the same contract.
 
 **Usage Example**:
 ```javascript
@@ -1082,9 +1263,9 @@ const data = await safeFetch('https://api.example.com')
 
 ## Sync Functions
 
-`seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `pipeSync`,
-`enrichSync`, and `tryCatchSync` are synchronous counterparts of the core
-functions.
+`seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `mapSeriesSync`,
+`pipeSync`, `enrichSync`, and `tryCatchSync` are synchronous counterparts of the
+core functions.
 
 They use the same error strategies and structured return conventions as the
 async iteration functions, but return values directly instead of wrapped in a
@@ -1096,8 +1277,10 @@ want Pipelean's structured error collection.
 - `seriesSync` returns `{results, errors, sourceErrors, failure}` directly
 - `filterSync` returns `{results, errors, sourceErrors, failure}` directly
 - `findSync` returns `{result, errors, sourceErrors, failure}` directly and stops at the first match
+- `mapSeriesSync` returns a bare `Array` directly, or throws the original error (strategy locked to `rethrow`)
 - `scanSync` returns `{results, errors, sourceErrors, failure}` directly
 - `reduceSync` returns `{value, errors, sourceErrors, failure}` directly
+- `foldSync` returns the accumulated value directly; raw, no options, no report
 - `pipeSync` composes synchronous functions left-to-right
 - `enrichSync` returns `{value, errors, failure}` directly and runs a state-enrichment pipeline synchronously
 - `tryCatchSync` wraps a synchronous function with lifecycle hooks
@@ -1177,12 +1360,14 @@ const {value, errors, failure} = processAlbumSync(input)
 
 `enrichSync` mirrors `enrich()` exactly but executes synchronously. Same
 strategies, same `onError` / `onFailure` semantics, same normalized error
-shapes. Use it when your operations and inputs are synchronous.
+shapes, and the same per-step hooks (`onStepStart` / `onStepSuccess`) — except
+that the hooks are called fire-and-forget rather than awaited. Use it when your
+operations and inputs are synchronous.
 
 ---
 
 ## Related Documentation
 
 - **[README.md](../README.md)** - Project overview and philosophy
-- **[guide.md](../guide.md)** - Comprehensive development guide with examples
-- **[examples.md](../examples.md)** - Practical usage examples for all functions
+- **[guide.md](guide.md)** - Comprehensive development guide with examples
+- **[examples.md](examples.md)** - Practical usage examples for all functions

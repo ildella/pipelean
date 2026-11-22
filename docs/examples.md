@@ -74,6 +74,68 @@ const {value: totalDuration} = await reduce(
 // totalDuration = 22 — no .at(-1), no fallback
 ```
 
+#### Example: foldSync (pure synchronous fold)
+
+Scenario: a pure sum or an index built from an in-memory array. There is no
+failure policy to choose — the reducer cannot legitimately fail — so the report
+object is overhead. `foldSync` returns the value and throws the original error.
+
+```js
+import {foldSync} from 'pipelean'
+
+const totalDuration = foldSync(
+  tracks,
+  (total, {duration}) => total + duration,
+  0,
+)
+// totalDuration = 22, no {value, ...} to unwrap
+
+// One pass, one index — the fold is the whole program
+const byArtist = foldSync(tracks, (index, track) => {
+  index[track.artist] = [...(index[track.artist] ?? []), track]
+  return index
+}, {})
+```
+
+Any sync iterable works (`Set`, generator, array), `undefined` is a legal
+accumulator, and the original error propagates unchanged. `foldSync` is
+sync-only: pass an async iterable and it throws a `TypeError` naming `reduce()`.
+Use `reduce` when the input can be bad as data or when the fold needs `recover`,
+`signal` or `pause`.
+
+#### Example: mapSeries (sequential map, throw on failure)
+
+Scenario: parse every file, one at a time, and if any parse fails the whole run
+must fail. That is `series` with the policy fixed — `mapSeries` returns just the
+array or rejects with the original error.
+
+```js
+import {mapSeries, mapSeriesSync} from 'pipelean'
+
+// Immediate form
+const parsed = await mapSeries(files, file => parseFile(file))
+// a throw rejects with that original error; no {results, errors, failure}
+
+// Curried form: build once, reuse
+const fetchOne = mapSeries(id => api.get(id), {
+  pause: 100,
+  onProgress: ({index, total}) => updateBar(index + 1, total),
+})
+const records = await fetchOne(ids)
+
+// Selection still applies: undefined drops the item
+const active = await mapSeries(users, user => user.active ? user : undefined)
+
+// Sync twin
+const rows = mapSeriesSync(records, record => toRow(record))
+```
+
+`onProgress`, `take`, `pause` and `signal` pass through; `strategy` cannot: any
+value other than `rethrow` / `'throw'` is a `TypeError`. Under the locked
+`rethrow` the failure throws before any callback, so `onError` and `onFailure`
+never fire — use `series` with a collecting strategy when you need per-item
+telemetry.
+
 #### Example: stopWhen (Cancellable Pipeline)
 
 Scenario: You are enriching albums against the MusicBrainz API. The job takes minutes, users hit Cancel, and every request must respect a rate limit. Cancellation, pacing, error strategy and progress each live in exactly one place:
@@ -127,7 +189,7 @@ Scenario: a script with `failFast` where nobody inspects the result. The run
 stops as data, and the process exits 0. `assertOk` turns that into an exception:
 
 ```js
-import {assertOk, series} from 'pipelean'
+import {assertOk, failFast, series} from 'pipelean'
 
 const {results} = assertOk(
   await series(jobs, importJob, {strategy: failFast}),
@@ -258,6 +320,37 @@ const {value, errors, failure} = await processAlbum(input)
 // errors lists each failed step
 // failure is false — we made it to the end
 ```
+
+#### Example: enrich with per-step hooks (live UI status)
+
+Scenario: an import UI shows which enrichment step is running, what it produced,
+and which one failed. Instead of hand-rolling the fold, declare the hooks:
+
+```js
+import {enrich} from 'pipelean'
+
+const processAlbum = enrich(
+  [prepareAlbum, extractYear, extractArtists],
+  {
+    onStepStart: ({operation, index, total}) => {
+      // before op(state): {operation, index, total}
+      status.update({running: operation, current: index + 1, total})
+    },
+    onStepSuccess: ({operation, patch, index, total}) => {
+      // after validation + merge: patch is what the op returned, pre-merge
+      history.append({operation, patch, index, total})
+    },
+    onError: ({operation, error, index}) => {
+      status.fail({operation, error: error.message})
+    },
+  },
+)
+```
+
+`enrich` awaits each hook before moving on; `enrichSync` calls them
+fire-and-forget. A throwing hook is a failed step and goes through the strategy:
+with `failFast`, later hooks never run; with `collect`, the run continues. There
+is no `onStepError` — errors belong to `onError`.
 
 #### Example: join (fork/join over named concurrent tasks)
 

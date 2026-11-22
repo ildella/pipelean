@@ -35,14 +35,22 @@ The vocabulary we have established for the pipelean project:
 
   * **Fold** (Vertical, accumulating): The process of folding a collection into an accumulator. Two collections are possible: the *items* (many inputs, each step depends on the previous one) and the *steps* (one input, many enrichments).
        Implementations: scan (items, every intermediate), reduce (items, final value only), enrich (steps, final value only).
-       
+
+       There are **two managed result shapes plus one raw sync fold**: `scan` keeps every intermediate (`{results, …}`), `reduce` keeps the final value (`{value, …}`), and `foldSync` keeps the final value with no report at all. `foldSync` is not a third engine: it is a plain `for...of` fold over a sync iterable that returns the accumulator and lets the original error propagate. It exists because a pure, synchronous, bug-or-nothing fold (a sum, a count, an index) has no use for a strategy, a report or a `.value` unwrap — the raw shape *is* the whole contract.
+
+       Why raw is sync-only: an async fold in the wild is a service loop, and a service loop needs `recover` (survive a failed round), `signal` (lifecycle stop) and `pause` (cadence). Those options belong to the managed API; shipping an async raw fold would either drop them or re-invent the engine. Sync folds need none of them, so the raw form can be honest. Precedent: `findSync` is sync-only for the same reason.
+
        `scan` and `reduce` are one engine with two result shapes. `enrich` is the same fold where the collection is the operations array:
        `enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), input)`.
+
+  * **Locked-strategy map**: `mapSeries` / `mapSeriesSync` are **not** new primitives. They are `series` / `seriesSync` with the strategy fixed to `rethrow` and the report unwrapped to `.results`; every other option passes through. The lock is validated (any other strategy is a `TypeError`) so the wrapper cannot silently override a caller's intent. They inherit the `undefined` drop signal and the silent-rethrow semantics of `series(..., {strategy: rethrow})`, which is why they are documented as a sequential map with throw semantics, not as `Array.prototype.map`.
 
   * **Recovery** (Fold-local seam): The `recover` option on `scan` / `reduce`. When the scanner throws, it receives `{error, item, index, state, total?}` — `state` is the accumulator before the failed item — and returns the next accumulator. A recovered error is consumed (no `errors` entry, `failure` stays false); if `recover` throws, the thrown error becomes the item error and the normal strategy applies. It is not a strategy: strategies still own the no-recovery path and the end-of-run outcome, source errors bypass it, and it exists only where there is an accumulator to recover into.
 
   * **Fork** (Concurrent fan-out): The process of starting a named set of heterogeneous tasks at the same time and joining their outcomes into one result. This is not a scheduler: no concurrency cap, no cancellation, no ordering guarantee, no process supervision — just I/O concurrency on the same event loop. Every branch starts immediately and completion order never affects the shape of the result. Implementation: join.
    
+  * **Per-step hooks** (not run-level lifecycle): `enrich` / `enrichSync` accept `onStepStart({operation, index, total})` before each operation and `onStepSuccess({operation, patch, index, total})` after its patch is validated and merged. They are telemetry, in the same category as `onProgress` and `onError`: they observe the fold, they do not own resources. The 0.13 note "no lifecycle hooks" still holds in its original scope — there are no before/after-**run** hooks and no automatic resource cleanup; `tryCatch` remains the single-function lifecycle tool.
+
   * **Operation**: The function passed to an iterator (like series) or to a fold over steps (enrich). It can be a simple function or a composed function (pipe).
     - *Transform* (Mapping): An operation that changes the shape or value of an item. (A→B).
     - *Selection* (Filtering): An operation that decides whether to keep or drop an item. (A→A or A→∅). In our merged model, this is signaled by returning undefined.

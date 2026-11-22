@@ -39,7 +39,7 @@ that awaits the result and never inspects it — a scheduler, a script, a startu
 job — can stop silently. `assertOk` is the guard for that gap:
 
 ```javascript
-import {assertOk, series} from 'pipelean'
+import {assertOk, failFast, series} from 'pipelean'
 
 const result = assertOk(await series(jobs, importJob, {strategy: failFast}))
 // truthy failure → throws with `cause` and `failure`; no failure → same object
@@ -48,6 +48,215 @@ const result = assertOk(await series(jobs, importJob, {strategy: failFast}))
 It checks `failure`, not `errors`: under `collect` / `skip`, errors are data by
 design and `assertOk` returns the result. Pair it with `failFast` / `failLate`
 when a silent stop must be impossible.
+
+#### Hand-rolled guard → `assertOk`
+
+The hand-rolled version is easy to get wrong, and it breaks on aggregates:
+
+```js
+// Before: reads the wrong field, and throws `undefined` under failLate
+import {failLate, series} from 'pipelean'
+
+const result = await series(jobs, importJob, {strategy: failLate})
+if (result.failure)
+  throw result.failure.error        // failLate failure is {errors}, so error is undefined
+```
+
+```js
+// After: one guard, correct for failFast and aggregates
+import {assertOk, failLate, series} from 'pipelean'
+
+const result = assertOk(
+  await series(jobs, importJob, {strategy: failLate}),
+)
+// throws Error('pipelean: operation failed') with cause = first failure's error,
+// and error.failure = the structured failure
+```
+
+`assertOk` knows both failure shapes — `{item, error, index}` and `{errors}` —
+so it never throws `undefined`. Use it instead of reaching into
+`failure.error`; if you need the value of a managed fold, `assertOk(result).value`
+is the documented way to get it.
+
+### The `{strategy: rethrow}` smell
+
+The anti-pattern looks like this: a **pure** fold, wrapped in the managed fold
+engine and then unwrapped by hand.
+
+```js
+// Before: three concepts to say "fold these numbers"
+import {reduceSync, rethrow} from 'pipelean'
+
+const total = reduceSync(
+  tracks,
+  (acc, track) => acc + track.duration,
+  0,
+  {strategy: rethrow},
+).value
+```
+
+Nothing here can fail as data. The reducer cannot throw for a legitimate reason,
+the report is discarded, and the `.value` unwrap is noise. `rethrow` also
+bypasses every callback, so any `onError` added "just in case" would be dead
+configuration.
+
+```js
+// After: the fold is the whole program
+import {foldSync} from 'pipelean'
+
+const total = foldSync(tracks, (acc, track) => acc + track.duration, 0)
+```
+
+The decision rule is the bug-vs-data litmus:
+
+- **A thrown error is a bug or an impossible state** → `foldSync` (sync fold),
+  `mapSeries` / `mapSeriesSync` (sequential map), or `rethrow` (an async fold
+  that genuinely needs options: `recover`, `signal`, `pause`).
+- **A thrown error is data** (one bad record among many) → `reduce` / `scan` /
+  `series` with a strategy, and read the report.
+- **You have a managed result and need its value** → `assertOk(result).value`,
+  never `{strategy: rethrow}`.
+
+Two traps the rewrite closes:
+
+1. **Destructuring only `.value` ignores the failure.** This is the shape that
+   generated the smell:
+   ```js
+   // The failure is silently dropped: no throw, no report read
+   const {value} = reduceSync(items, scanner, 0)   // default failFast
+   ```
+   If the fold can fail as data, read `failure`; if it cannot, use `foldSync`.
+2. **Hand-rolling the guard throws `undefined` under `failLate`.** Under
+   `failLate`, `failure` is `{errors}`, so `throw failure.error` throws
+   `undefined`. `assertOk` handles both shapes; do not hand-roll it.
+
+For the async fold that really is raw — a service loop with `recover` — keep
+`rethrow`. It is supported and recommended there; it is only the *value
+extraction* that is a smell.
+
+### Per-step UI status (`enrich` + hooks)
+
+A live "step 2 of 4" indicator for a stateful pipeline is usually a hand-rolled
+fold: an index, a mutable status object, a `try/catch` per step and a manual
+merge. `enrich` plus its step hooks is the same job with the bookkeeping owned by
+the library.
+
+```js
+// Before: ~30 lines of manual folding, merging and status updates
+async function applyOps(input) {
+  const state = {...input}
+  for (let index = 0; index < ops.length; index++) {
+    const op = ops[index]
+    ui.start(op.name, index, ops.length)
+    try {
+      const patch = await op(state)
+      if (patch === null || typeof patch !== 'object' || Array.isArray(patch))
+        throw new TypeError(`step ${op.name} did not return a patch`)
+      Object.assign(state, patch)
+      ui.success(op.name, patch, index)
+    } catch (error) {
+      ui.error(op.name, error)
+      if (isCritical(op)) break
+    }
+  }
+  return state
+}
+```
+
+```js
+// After: the pipeline declares its status behaviour
+import {collect, enrich} from 'pipelean'
+
+const processAlbum = enrich([prepare, extractYear, extractArtists, slug], {
+  strategy: collect,                        // keep going past a bad step
+  onStepStart: ({operation, index, total}) =>
+    ui.start(operation, index, total),
+  onStepSuccess: ({operation, patch, index}) =>
+    ui.success(operation, patch, index),
+  onError: ({operation, error}) => ui.error(operation, error),
+})
+
+const {value, errors, failure} = await processAlbum(input)
+```
+
+`onStepSuccess` fires only after the patch is validated and merged, so the UI
+never reports a step that did not actually apply. Errors stay on `onError` —
+there is no `onStepError`. A hook that throws flows into the strategy like a
+throwing step; with `failFast`, later hooks never fire. `enrichSync` has the same
+hooks, called fire-and-forget.
+
+### Command boundary: the three `tryCatch` flavours
+
+A command boundary is one function whose failure must be handled once: an HTTP
+handler, a CLI command, a button action. `tryCatch` covers three shapes, and they
+differ only in what `onError` does.
+
+**1. Report and swallow** — the default: log, return `undefined`.
+
+```js
+import {tryCatch} from 'pipelean'
+
+const saveSettings = tryCatch(
+  async settings => api.post('/settings', settings),
+  {onError: error => logger.error({error})},
+)
+
+await saveSettings(settings)   // undefined on failure; the command does not crash
+```
+
+**2. Capture into an outcome via a closure** — the boundary returns data instead
+of throwing, and the failure is part of it.
+
+```js
+import {tryCatch} from 'pipelean'
+
+const withOutcome = fn => {
+  let failure = null
+  const wrapped = tryCatch(fn, {
+    onError: error => {
+      failure = error
+    },
+  })
+
+  return async (...args) => {
+    failure = null
+    const value = await wrapped(...args)
+    return failure ? {ok: false, error: failure} : {ok: true, value}
+  }
+}
+
+const runImport = withOutcome(importFile)
+const outcome = await runImport(file)   // {ok: true, value} | {ok: false, error}
+```
+
+**3. Augment and rethrow from `onError`** — the failure must not be swallowed,
+but the boundary wants to add context. A throwing `onError` propagates (it is
+awaited inside the `catch`) and `onFinally` still runs:
+
+```js
+import {tryCatch} from 'pipelean'
+
+const chargeWithContext = tryCatch(
+  () => gateway.charge(order),
+  {
+    onError: error => {
+      throw Object.assign(error, {operation: 'charge', orderId: order.id})
+    },
+    onFinally: () => metrics.timing('charge', startedAt),
+  },
+)
+
+try {
+  await chargeWithContext()
+} catch (error) {
+  // same object identity as the gateway error, now with operation + orderId
+  report(error)
+}
+```
+
+That identity preservation is why the rewrite is `throw Object.assign(error,
+…)` rather than `throw new Error(..., {cause: error})`: callers that already
+match on the original error keep working.
 
 ### Pattern 4: Application Wrapper with Default `onFailure`
 
@@ -280,6 +489,6 @@ What makes this the recipe:
 - **The recovered error is consumed.** `errors` stays empty, `failure` stays `false`, `onFailure` is not called; the loop's outcome stays clean.
 - **`pause` runs after a recovery** regardless of `pauseOnErrors`, and sees the recovered state — the backoff sequence is computed from the incremented `failures`.
 - **A failing `recover` is not swallowed.** If your recovery logic itself throws, that error goes through the strategy: with `rethrow` the loop exits, with `collect` it is recorded.
-- **Source death and external cleanup stay outside the seam.** A generator dying mid-stream is a source error; the caller's `try/finally` for external resources remains the caller's business (there are no lifecycle hooks).
+- **Source death and external cleanup stay outside the seam.** A generator dying mid-stream is a source error; the caller's `try/finally` for external resources remains the caller's business. There are no *run-level* lifecycle hooks (`enrich`'s per-step `onStepStart` / `onStepSuccess` are step telemetry, not resource cleanup).
 
 `recover` exists only on `scan` / `reduce` (and `scanSync` / `reduceSync`). On `series` / `filter` / `findSync` / `enrich` / `join` / `pipe` it is a `TypeError`, because there is no accumulator to recover into.

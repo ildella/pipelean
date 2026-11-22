@@ -220,8 +220,21 @@ export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
  * Synchronous twin of `enrich`: fold one input through ordered steps, merging
  * each returned patch into the accumulated state.
  *
+ * Accepts the same `strategy` / `onError` / `onFailure` options and the same
+ * two per-step hooks:
+ *
+ * - `onStepStart({operation, index, total})` before `operation(state)`.
+ * - `onStepSuccess({operation, patch, index, total})` after the patch is
+ *   validated and merged (`patch` is pre-merge).
+ *
+ * Unlike `enrich`, hooks are called fire-and-forget: their return value is not
+ * awaited, consistent with the other sync callbacks. A hook that throws still
+ * flows into the strategy like a throwing operation. Errors stay on `onError`;
+ * there is no `onStepError`.
+ *
  * @param {Array<(state) => object>} operations
- * @param {{strategy?: StrategyFn, onError?, onFailure?}} opts
+ * @param {{strategy?: StrategyFn, onError?, onFailure?, onStepStart?,
+ *   onStepSuccess?}} opts
  * @returns {(initialState) => {value, errors, failure}}
  */
 export const enrichSync = (operations, opts = {}) => {
