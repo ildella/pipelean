@@ -13,24 +13,34 @@
  * evade detection on purpose, since resolving bindings would drag in
  * re-exports, computed keys and spread opts for little gain.
  *
- * The suggestion renames the callee to `foldSync` and drops the 4th argument
- * plus its comma. When the report is read only through `.value` (the
+ * A suggestion is emitted only when the rewrite is runnable and
+ * behaviour-identical. When the report is read only through `.value` (the
  * migration codemod shape) that access is dropped too:
  * `reduceSync(a, f, z, opts).value` becomes `foldSync(a, f, z)`. Not
  * cosmetic: foldSync returns the raw accumulated value, so
- * `foldSync(...).value` would read a property it does not have. Any other
- * report shape is still reported but gets no suggestion: no safe 1:1 rewrite.
+ * `foldSync(...).value` would read a property it does not have.
  *
- * `foldSync` is added to an existing named `pipelean` import when missing;
- * `reduceSync` is never removed (it may be used elsewhere). Without a named
- * `pipelean` import only the call is rewritten, leaving the callee
- * unresolved until the author adds it. Opt-in on purpose: import edits make
- * blind `--fix` unsafe.
+ * Everything else is reported without a suggestion: any other report shape,
+ * destructuring the result (variable declarator, assignment target or
+ * parameter default), writing through `.value` (assignment, update, delete,
+ * for-in/for-of or a destructuring pattern), and calls with more than four
+ * arguments.
+ *
+ * Residual evasion, out of scope by design: a member access not directly on
+ * the call (`const r = reduceSync(...); r.value`), and pattern wrappers
+ * outside the set the helper walks.
+ *
+ * `foldSync` is resolved against every `pipelean` import. An existing plain
+ * or aliased binding is reused (the call uses its local name and nothing is
+ * inserted); otherwise it is appended to a named import, preferring the one
+ * binding `reduceSync`. `reduceSync` is never removed (it may be used
+ * elsewhere). With only namespace/default imports the import edit is skipped
+ * and the call is rewritten alone, leaving the callee unresolved until the
+ * author adds it. Opt-in on purpose: import edits make blind `--fix` unsafe.
  */
-const FOLD_SYNC = 'foldSync'
+import {reportOnly, suggestionFixes} from './no-fold-rethrow-suggestion.js'
+
 const REDUCE_SYNC = 'reduceSync'
-const PIPLEAN_SOURCE = 'pipelean'
-const VALUE_PROPERTY = 'value'
 
 const propertyName = property => {
   if (property.type !== 'Property' || property.computed)
@@ -66,72 +76,6 @@ const isValueExtraction = node => {
   return !hasKey('recover', opts)
 }
 
-const isValueAccess = member =>
-  !member.computed && member.property.type === 'Identifier' &&
-  member.property.name === VALUE_PROPERTY
-
-const memberAccess = node => {
-  const {parent} = node
-  const isMember = parent?.type === 'MemberExpression' && parent.object === node
-  return isMember ? parent : null
-}
-
-const destructuresResult = node => {
-  const {parent} = node
-  if (!parent || parent.type !== 'VariableDeclarator' || parent.init !== node)
-    return false
-
-  return parent.id.type === 'ObjectPattern' || parent.id.type === 'ArrayPattern'
-}
-
-// The report is consumed in a shape a raw value cannot satisfy.
-const reportShapeInUse = node => {
-  const member = memberAccess(node)
-  return member ? !isValueAccess(member) : destructuresResult(node)
-}
-
-const isPipeleanImport = ({type, source}) =>
-  type === 'ImportDeclaration' && source.value === PIPLEAN_SOURCE
-
-const foldSyncImportFix = (fixer, sourceCode) => {
-  const declaration = sourceCode.ast.body.find(isPipeleanImport)
-  if (!declaration)
-    return null
-
-  const specifiers = declaration.specifiers.filter(
-    ({type}) => type === 'ImportSpecifier'
-  )
-  const hasFoldSync = specifiers.some(
-    ({imported}) => imported.name === FOLD_SYNC
-  )
-  if (specifiers.length === 0 || hasFoldSync)
-    return null
-
-  const anchor =
-    specifiers.find(({imported}) => imported.name === REDUCE_SYNC) ||
-    specifiers.at(-1)
-
-  return fixer.insertTextAfter(anchor, `, ${FOLD_SYNC}`)
-}
-
-const suggestionFixes = (fixer, sourceCode, node) => {
-  const opts = node.arguments[3]
-  const comma = sourceCode.getTokenBefore(opts)
-  const member = memberAccess(node)
-  const fixes = [
-    fixer.replaceText(node.callee, FOLD_SYNC),
-    fixer.removeRange([comma.range[0], opts.range[1]]),
-  ]
-  if (member)
-    fixes.push(fixer.removeRange([node.range[1], member.range[1]]))
-
-  const importFix = foldSyncImportFix(fixer, sourceCode)
-  if (importFix)
-    fixes.push(importFix)
-
-  return fixes
-}
-
 export default {
   meta: {
     type: 'suggestion',
@@ -160,7 +104,7 @@ export default {
           return
 
         const report = {node, messageId: 'preferFoldSync'}
-        if (reportShapeInUse(node)) {
+        if (reportOnly(node)) {
           context.report(report)
           return
         }
