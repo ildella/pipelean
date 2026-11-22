@@ -62,6 +62,57 @@ test('returns value synchronously not a promise', () => {
   expect(result).not.toBeInstanceOf(Promise)
 })
 
+test('propagates an error thrown by onError, not the fn error', () => {
+  const fnError = new Error('fn failed')
+  const onErrorError = new Error('onError failed')
+  const onFinally = vi.fn()
+  const wrapped = tryCatchSync(() => {
+    throw fnError
+  }, {
+    onError: () => {
+      throw onErrorError
+    },
+    onFinally,
+  })
+
+  expect(() => wrapped()).toThrow(onErrorError)
+  expect(onFinally).toHaveBeenCalledOnce()
+})
+
+test('onError can augment the original error and rethrow it', () => {
+  const original = new Error('charge failed')
+  const onFinally = vi.fn()
+  const wrapped = tryCatchSync(() => {
+    throw original
+  }, {
+    onError: error => {
+      throw Object.assign(error, {operation: 'charge'})
+    },
+    onFinally,
+  })
+
+  let thrown
+  try {
+    wrapped()
+  } catch (error) {
+    thrown = error
+  }
+
+  expect(thrown).toBe(original)
+  expect(thrown.operation).toBe('charge')
+  expect(onFinally).toHaveBeenCalledOnce()
+})
+
+test('does not call onSuccess when fn throws', () => {
+  const onSuccess = vi.fn()
+  const wrapped = tryCatchSync(() => {
+    throw new Error('boom')
+  }, {onSuccess})
+
+  wrapped()
+  expect(onSuccess).not.toHaveBeenCalled()
+})
+
 test('composes with seriesSync: failed items are dropped', () => {
   const safe = tryCatchSync(n => {
     if (n === 2)
