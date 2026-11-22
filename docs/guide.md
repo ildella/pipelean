@@ -163,7 +163,8 @@ const {value} = assertOk(await reduce(items, scanner, initial))
   first error of a `failLate` aggregate — with the structured failure attached
   as `error.failure`. Identity, message, stack and `instanceof` survive; the
   attachment mutates the thrown error.
-- a primitive throw value or a frozen / non-extensible error cannot carry the
+- a primitive throw value, a frozen / non-extensible error, or one that rejects
+  the `.failure` attachment (non-writable property, Proxy trap) cannot carry the
   property: `assertOk` falls back to
   `Error('pipelean: operation failed', {cause})` with `.failure` attached.
 
@@ -266,7 +267,7 @@ await parseAll(files)
 ```
 
 Every other option passes through (`take`, `total`, `onProgress`, `pause`,
-`signal`), so it is still a *sequential* map with progress and pacing
+`pauseOnErrors`, `signal`), so it is still a *sequential* map with progress and pacing
 (`mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and `signal`
 with a `TypeError`, like every sync twin). A
 `strategy` other than `rethrow` / `'throw'` is a `TypeError` rather than a silent

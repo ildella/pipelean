@@ -130,8 +130,8 @@ const active = await mapSeries(users, user => user.active ? user : undefined)
 const rows = mapSeriesSync(records, record => toRow(record))
 ```
 
-`onProgress`, `take`, `pause` and `signal` pass through for the async
-`mapSeries`; `mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and
+`take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and `signal` pass
+through for the async `mapSeries`; `mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and
 `signal` with a `TypeError`, like every sync twin. `strategy` cannot: any value
 other than `rethrow` / `'throw'` is a `TypeError`. Under the locked
 `rethrow` the failure throws before any callback, so `onError`, `onFailure` and

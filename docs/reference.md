@@ -1158,8 +1158,10 @@ error**:
   error object reused across results keeps only the latest `.failure`.
 
 **Fallback for values that cannot carry a property.** A primitive throw value
-(`string`, number, `undefined`, `null`) or a frozen / non-extensible error object
-cannot take `.failure`. In that case `assertOk` throws
+(`string`, number, `undefined`, `null`), a frozen / non-extensible error object,
+or an object that rejects the `.failure` attachment (a non-writable `failure`
+own property, a setter-less accessor, a Proxy with a throwing trap) cannot take
+`.failure`. In that case `assertOk` throws
 `Error('pipelean: operation failed', {cause: underlying})` with `.failure`
 attached. Code that matches on the stable `'pipelean: operation failed'` message
 or reads `error.cause` only ever sees this fallback path (see the

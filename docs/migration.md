@@ -46,9 +46,10 @@ try {
 What to change:
 
 - **Matching on `error.message === 'pipelean: operation failed'`**: that message
-  now appears only on the fallback path, when the underlying throw value is a
-  primitive (`string`, number, `undefined`, `null`) or a frozen or otherwise
-  non-extensible error object.
+  now appears only on the fallback path, when the underlying throw value cannot
+  carry `.failure`: a primitive (`string`, number, `undefined`, `null`), a frozen
+  or otherwise non-extensible error, or an object that rejects the attachment
+  (non-writable property, setter-less accessor, Proxy trap).
   Match on the original error instead, or on `error.failure`.
 - **Reading `error.cause`**: it is no longer set on the normal path. The
   structured data is on `error.failure`; the thrown value *is* the cause.
@@ -228,7 +229,8 @@ import {mapSeries} from 'pipelean'
 const rows = await mapSeries(items, fn)
 ```
 
-`mapSeries` keeps every other option (`take`, `onProgress`, `pause`, `signal`),
+`mapSeries` keeps every other option (`take`, `total`, `onProgress`, `pause`,
+`pauseOnErrors`, `signal`),
 accepts the curried form, and rejects any non-`rethrow` strategy with a
 `TypeError`. The sync twin is `mapSeriesSync`.
 
