@@ -194,3 +194,38 @@ test('a frozen error object falls back to the wrapped error', () => {
   expect(thrown.failure).toBe(failure)
   expect(bang.failure).toBeUndefined()
 })
+
+test('an empty failLate aggregate falls back to the wrapped error', () => {
+  const failure = {errors: []}
+
+  const thrown = capture(() => assertOk({failure}))
+
+  expect(thrown).toBeInstanceOf(Error)
+  expect(thrown.message).toBe('pipelean: operation failed')
+  expect(thrown.cause).toBeUndefined()
+  expect(thrown.failure).toBe(failure)
+})
+
+test('a thrown function falls back to the wrapped error', () => {
+  const boom = () => 'boom'
+  const failure = {item: 1, error: boom, index: 0}
+
+  const thrown = capture(() => assertOk({failure}))
+
+  expect(thrown).not.toBe(boom)
+  expect(thrown.message).toBe('pipelean: operation failed')
+  expect(thrown.cause).toBe(boom)
+  expect(thrown.failure).toBe(failure)
+  expect(boom.failure).toBeUndefined()
+})
+
+test('an existing .failure is overwritten on the original error', () => {
+  const bang = Object.assign(new Error('bang'), {failure: {old: true}})
+  const failure = {item: 1, error: bang, index: 0}
+
+  const thrown = capture(() => assertOk({failure}))
+
+  expect(thrown).toBe(bang)
+  expect(thrown.failure).toBe(failure)
+  expect(thrown.failure.old).toBeUndefined()
+})
