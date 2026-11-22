@@ -442,9 +442,11 @@ console.log(result.results)
   first error of a `failLate` aggregate — so its message, stack and
   `instanceof` survive, with the structured failure attached as `error.failure`.
   Attaching it mutates the thrown error.
-- A primitive throw value (`string`, number, `undefined`, `null`) or a frozen
-  or otherwise non-extensible error object cannot carry the property;
-  `assertOk` then throws `Error('pipelean: operation failed', {cause})` with the
+- A primitive throw value (`string`, number, `undefined`, `null`), a frozen
+  or otherwise non-extensible error object, or one that rejects the `.failure`
+  attachment (non-writable property, setter-less accessor, Proxy trap) cannot
+  carry the property; `assertOk` then throws
+  `Error('pipelean: operation failed', {cause})` with the
   structured failure attached as `.failure`.
 - Expects an **awaited** Pipelean result: an un-awaited Promise throws
   `TypeError('assertOk() expects an awaited result, not a Promise')`, and
@@ -509,9 +511,10 @@ strategies, shapes and callbacks — they just return directly instead of a
 
 `mapSeries` and `mapSeriesSync` are the sequential map with the strategy locked
 to `rethrow`: they resolve to a bare array (or throw the original error), accept
-both call forms, and pass every other option through (`mapSeriesSync` rejects
-the async-only `pause`, `pauseOnErrors` and `signal` with a `TypeError`, like
-every sync twin). They inherit the
+both call forms, and pass `take`, `total`, `onProgress`, `pause`,
+`pauseOnErrors` and `signal` through (`mapSeriesSync` rejects the async-only
+`pause`, `pauseOnErrors` and `signal` with a `TypeError`, like every sync twin).
+They inherit the
 `undefined` drop signal, so the output can be shorter than the input. Because a
 failure throws before any callback, `onError` / `onFailure` / `onSourceError` are
 rejected with a `TypeError` instead of being silently ignored; use `series`

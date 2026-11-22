@@ -86,6 +86,21 @@ const withFailure = (error, failure) => {
   return error
 }
 
+// Attaching `.failure` can fail even on an extensible object: a non-writable
+// own property, an accessor without a setter, or a Proxy trap that throws.
+// Both the extensibility probe and the assignment are guarded, so a hostile
+// object never replaces the original error with an unrelated TypeError.
+const attachFailure = (error, failure) => {
+  try {
+    if (!isExtensibleObject(error))
+      return undefined
+
+    return withFailure(error, failure)
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Throw when a structured result carries a truthy `failure`.
  *
@@ -104,8 +119,11 @@ const withFailure = (error, failure) => {
  * When the underlying throw value cannot carry a property, `assertOk` falls
  * back to a new `Error('pipelean: operation failed')` with `cause` set to the
  * underlying value and `failure` attached. That covers primitive throw values
- * (string, number, `undefined`, `null`) and frozen or otherwise non-extensible
- * error objects.
+ * (string, number, `undefined`, `null`), frozen or otherwise non-extensible
+ * error objects, and values that REJECT the attachment: a non-writable
+ * `failure` own property, a `failure` accessor without a setter, or a Proxy
+ * whose `set`/`isExtensible` trap throws. In every case the original value is
+ * left untouched and its identity is preserved as `cause`.
  *
  * It expects an **awaited** Pipelean result. A thenable is rejected with a
  * `TypeError` (an un-awaited `series()` call would otherwise be returned as a
@@ -135,9 +153,10 @@ export const assertOk = result => {
 
   const {failure} = result
   const underlying = failureCause(failure)
+  const attached = attachFailure(underlying, failure)
 
-  if (isExtensibleObject(underlying))
-    throw withFailure(underlying, failure)
+  if (attached)
+    throw attached
 
   throw withFailure(
     new Error('pipelean: operation failed', {cause: underlying}),
