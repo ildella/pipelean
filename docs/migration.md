@@ -47,7 +47,8 @@ What to change:
 
 - **Matching on `error.message === 'pipelean: operation failed'`**: that message
   now appears only on the fallback path, when the underlying throw value is a
-  primitive (`string`, number, `undefined`, `null`) or a frozen error object.
+  primitive (`string`, number, `undefined`, `null`) or a frozen or otherwise
+  non-extensible error object.
   Match on the original error instead, or on `error.failure`.
 - **Reading `error.cause`**: it is no longer set on the normal path. The
   structured data is on `error.failure`; the thrown value *is* the cause.
@@ -93,7 +94,9 @@ series/seriesSync with a strategy
 ```
 
 `take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and `signal` still pass
-through. A conflicting `strategy` is still rejected
+through (`mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and
+`signal` with a `TypeError`, like every sync twin). A conflicting `strategy` is
+still rejected
 (`'... remove the "collect" strategy'`).
 
 `mapSeriesSync` also reports an async iterable with an explicit `TypeError`

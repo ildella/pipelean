@@ -105,7 +105,9 @@ series/seriesSync with a strategy
 ```
 
 Everything else still passes through: `take`, `total`, `onProgress`, `pause`,
-`pauseOnErrors`, `signal`. A conflicting `strategy` is still rejected
+`pauseOnErrors`, `signal` (`mapSeriesSync` rejects the async-only `pause`,
+`pauseOnErrors` and `signal` with a `TypeError`, like every sync twin). A
+conflicting `strategy` is still rejected
 (`'... remove the "collect" strategy'`). Use `series` with a collecting strategy
 when you need per-item telemetry.
 
