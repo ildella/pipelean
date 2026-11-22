@@ -25,23 +25,23 @@ const assertEnrichState = (initialState, label) => {
   }
 }
 
+const operationName = (operation, index) =>
+  operation.name || `operation-${index}`
+
 const mergePatch = ({
   state, operation, index, patch,
 }) => {
   if (patch === null ||
     typeof patch !== 'object' ||
     Array.isArray(patch)) {
-    const name = operation.name || `operation-${index}`
     throw new TypeError(
-      `Operation ${name} must return a non-null, non-array object`,
+      `Operation ${operationName(operation, index)} must return a non-null, ` +
+      'non-array object',
     )
   }
 
   return {...state, ...patch}
 }
-
-const operationName = (operation, index) =>
-  operation.name || `operation-${index}`
 
 // The step wrapper must report the original name, so errors and hooks agree.
 const withName = (name, fn) =>

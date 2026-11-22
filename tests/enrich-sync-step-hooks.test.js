@@ -163,7 +163,14 @@ test('a throwing onStepSuccess under rethrow throws the hook error', () => {
     },
   })
 
-  expect(() => pipeline({})).toThrow(error)
+  let thrown
+  try {
+    pipeline({})
+  } catch (caught) {
+    thrown = caught
+  }
+
+  expect(thrown).toBe(error)
 })
 
 test('failFast stops later hooks, collect runs every step', () => {
