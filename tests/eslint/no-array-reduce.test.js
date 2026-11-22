@@ -12,14 +12,14 @@ tester.run('no-array-reduce', rule, {
     {code: 'items.filter(fn)'},
   ],
   invalid: [
-    {code: 'items.reduce(fn, 0)', errors: [{messageId: 'preferScan'}]},
+    {code: 'items.reduce(fn, 0)', errors: [{messageId: 'preferFold'}]},
     {
       code: '[1, 2, 3].reduce((acc, x) => acc + x, 0)',
-      errors: [{messageId: 'preferScan'}],
+      errors: [{messageId: 'preferFold'}],
     },
     {
       code: 'getItems().reduce(summarize, {})',
-      errors: [{messageId: 'preferScan'}],
+      errors: [{messageId: 'preferFold'}],
     },
   ],
 })

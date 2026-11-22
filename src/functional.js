@@ -1,10 +1,10 @@
 /* eslint-disable max-lines */
 
-import {parseCallArgs} from './shared.js'
+import {assertRethrowStrategy, parseCallArgs} from './shared.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
 import {
-  collect, failOnSource, normalizeOperationError, settle, toResult,
+  collect, failOnSource, normalizeOperationError, rethrow, settle, toResult,
 } from './strategy.js'
 import {
   handleItemErrorAsync, settleFoldErrorAsync,
@@ -517,3 +517,43 @@ export const pipe = (...fns) => input =>
 
     return value === undefined ? undefined : fn(value)
   }, input)
+
+/**
+ * Sequential map that rethrows the first error and returns a bare array.
+ *
+ * `mapSeries` is `series` with the strategy locked to `rethrow` and the report
+ * unwrapped: the promise resolves to `.results` or rejects with the ORIGINAL
+ * error. It accepts both call forms, like `series`:
+ *
+ * - `mapSeries(items, fn, opts?)` runs immediately.
+ * - `mapSeries(fn, opts?)` returns `items => Promise<Array>`.
+ *
+ * Every other option passes through untouched (`signal`, `pause`, `take`,
+ * `total`, `onProgress`, …). A `strategy` other than `rethrow` / `'throw'` is a
+ * configuration mistake and is rejected with a `TypeError`.
+ *
+ * Two inherited behaviors matter:
+ *
+ * - A mapper returning `undefined` DROPS the item, so the result can be shorter
+ *   than the input. This is not `Array.prototype.map`.
+ * - Under `rethrow` a failed item throws before any callback, so `onError` and
+ *   `onFailure` never fire (dead configuration here, parity with
+ *   `series(..., {strategy: rethrow})`).
+ *
+ * @param {AsyncIterable|Array} items - Source of values.
+ * @param {(item, index) => any} fn - Sequential mapper.
+ * @param {{strategy?: 'throw'|StrategyFn, onProgress?, take?, total?,
+ *   pause?, signal?}} opts
+ * @returns {Promise<Array>|((items) => Promise<Array>)}
+ */
+export const mapSeries = (...args) => {
+  const {
+    immediate, items, fn, opts,
+  } = parseCallArgs(args)
+  assertRethrowStrategy(opts.strategy, 'mapSeries')
+
+  const run = async inputItems =>
+    (await series(inputItems, fn, {...opts, strategy: rethrow})).results
+
+  return immediate ? run(items) : run
+}
