@@ -131,8 +131,8 @@ const rows = mapSeriesSync(records, record => toRow(record))
 ```
 
 `take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and `signal` pass
-through for the async `mapSeries`; `mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and
-`signal` with a `TypeError`, like every sync twin. `strategy` cannot: any value
+through for the async `mapSeries`; `mapSeriesSync` rejects the async-only
+`pause`, `pauseOnErrors` and `signal` with a `TypeError`, like every sync twin. `strategy` cannot: any value
 other than `rethrow` / `'throw'` is a `TypeError`. Under the locked
 `rethrow` the failure throws before any callback, so `onError`, `onFailure` and
 `onSourceError` are rejected with a `TypeError` naming the offending key — use

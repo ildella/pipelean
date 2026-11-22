@@ -230,9 +230,8 @@ const rows = await mapSeries(items, fn)
 ```
 
 `mapSeries` keeps every other option (`take`, `total`, `onProgress`, `pause`,
-`pauseOnErrors`, `signal`),
-accepts the curried form, and rejects any non-`rethrow` strategy with a
-`TypeError`. The sync twin is `mapSeriesSync`.
+`pauseOnErrors`, `signal`), accepts the curried form, and rejects any
+non-`rethrow` strategy with a `TypeError`. The sync twin is `mapSeriesSync`.
 
 ### 3. Per-step UI status: hand-rolled fold → `enrich` + hooks
 

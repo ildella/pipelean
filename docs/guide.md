@@ -267,9 +267,9 @@ await parseAll(files)
 ```
 
 Every other option passes through (`take`, `total`, `onProgress`, `pause`,
-`pauseOnErrors`, `signal`), so it is still a *sequential* map with progress and pacing
-(`mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and `signal`
-with a `TypeError`, like every sync twin). A
+`pauseOnErrors`, `signal`), so it is still a *sequential* map with progress and
+pacing (`mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and
+`signal` with a `TypeError`, like every sync twin). A
 `strategy` other than `rethrow` / `'throw'` is a `TypeError` rather than a silent
 override, and `onError` / `onFailure` / `onSourceError` are rejected with a
 `TypeError` naming the offending key: under the locked `rethrow` they could never
