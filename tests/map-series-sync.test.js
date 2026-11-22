@@ -81,7 +81,10 @@ test('passes take and onProgress through untouched', () => {
 })
 
 test('rejects a conflicting strategy at build time', () => {
-  expect(() => mapSeriesSync(x => x, {strategy: collect})).toThrow(TypeError)
+  expect(() => mapSeriesSync(x => x, {strategy: collect})).toThrow(
+    'mapSeriesSync() always rethrows on the first error; ' +
+    'remove the "collect" strategy',
+  )
 })
 
 test('rejects a conflicting strategy instead of overriding it', () => {
@@ -118,8 +121,9 @@ test('rejects a null strategy with the intended configuration error', () => {
 test.each(['onError', 'onFailure', 'onSourceError'])(
   'rejects the dead %s callback at build time',
   key => {
+    // build-time (curried) form must name the key too
     expect(() => mapSeriesSync(x => x, {[key]: () => undefined}))
-      .toThrow(TypeError)
+      .toThrow(`${key} never fires`)
   },
 )
 
@@ -127,7 +131,7 @@ test.each(['onError', 'onFailure', 'onSourceError'])(
   'rejects the dead %s callback on the immediate form',
   key => {
     expect(() => mapSeriesSync([1], x => x, {[key]: () => undefined}))
-      .toThrow(/never fire/)
+      .toThrow(`${key} never fires`)
   },
 )
 

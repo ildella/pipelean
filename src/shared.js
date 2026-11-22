@@ -42,10 +42,11 @@ export const assertNoErrorCallbacks = (opts, label) => {
   if (dead === undefined)
     return
 
+  // Name the offending key: the caller may have passed all three, and the
+  // first one found is the only one this message can report.
   throw new TypeError(
     `${label}() rethrows on the first error; ` +
-    'onError/onFailure/onSourceError never fire — remove them or use ' +
-    'series/seriesSync with a strategy',
+    `${dead} never fires — remove it or use series/seriesSync with a strategy`,
   )
 }
 

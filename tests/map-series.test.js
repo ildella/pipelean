@@ -125,7 +125,10 @@ test('an already-aborted signal resolves to an empty array', async () => {
 
 test('rejects a conflicting strategy at build time', () => {
   expect(() => mapSeries(x => Promise.resolve(x), {strategy: collect}))
-    .toThrow(TypeError)
+    .toThrow(
+      'mapSeries() always rethrows on the first error; ' +
+      'remove the "collect" strategy',
+    )
 })
 
 test('rejects a conflicting strategy instead of overriding it', () => {
@@ -181,8 +184,9 @@ test('rejects a null strategy with the intended configuration error', () => {
 test.each(['onError', 'onFailure', 'onSourceError'])(
   'rejects the dead %s callback at build time',
   key => {
+    // build-time (curried) form must name the key too
     expect(() => mapSeries(x => Promise.resolve(x), {[key]: () => undefined}))
-      .toThrow(TypeError)
+      .toThrow(`${key} never fires`)
   },
 )
 
@@ -191,7 +195,7 @@ test.each(['onError', 'onFailure', 'onSourceError'])(
   key => {
     expect(() => mapSeries([1], x => Promise.resolve(x), {
       [key]: () => undefined,
-    })).toThrow(/never fire/)
+    })).toThrow(`${key} never fires`)
   },
 )
 
