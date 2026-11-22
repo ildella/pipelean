@@ -3,36 +3,54 @@
  *
  * `reduceSync(items, reducer, initial, {strategy: rethrow}).value` is
  * behavior-identical to `foldSync(items, reducer, initial)` for a pure sync
- * fold, but pays for a managed report nobody reads. This rule pushes that
- * shape to foldSync.
+ * fold, but pays for a managed report nobody reads.
  *
- * Deliberately narrow, to keep false positives at zero:
- * - Only calls whose callee is the bare Identifier `reduceSync` and whose 4th
- *   argument is an inline ObjectExpression.
- * - `recover` in the same opts object exempts the call: onError legitimately
- *   fires before the recovery seam, so migrating to foldSync would silently
- *   drop recovery. That is a managed use, not the value-extraction smell.
- * - Async reduce/series/filter/scan with rethrow are never reported: raw
- *   async use is the supported home for rethrow.
- * - Aliased imports (`import {reduceSync as rs}`, `import {rethrow as boom}`)
- *   and member-expression calls (`pipelean.reduceSync(...)`) evade detection.
- *   Intentional narrowness: resolving bindings reliably would drag in
- *   re-exports, computed keys and spread opts, and the extra complexity buys
- *   little over the plain case.
+ * Deliberately narrow: only bare `reduceSync(...)` calls whose 4th argument
+ * is an inline ObjectExpression are reported. `recover` in the same opts
+ * exempts the call (onError fires before the recovery seam, so migrating would
+ * drop recovery); async reduce/series/filter/scan with rethrow are never
+ * reported; aliased imports and member calls (`pipelean.reduceSync(...)`)
+ * evade detection on purpose, since resolving bindings would drag in
+ * re-exports, computed keys and spread opts for little gain.
+ *
+ * A suggestion is emitted only when the rewrite is runnable and
+ * behaviour-identical. When the report is read only through `.value` (the
+ * migration codemod shape) that access is dropped too:
+ * `reduceSync(a, f, z, opts).value` becomes `foldSync(a, f, z)`. Not
+ * cosmetic: foldSync returns the raw accumulated value, so
+ * `foldSync(...).value` would read a property it does not have.
+ *
+ * Everything else is reported without a suggestion: any other report shape,
+ * destructuring the result, writing through `.value` (assignment, update,
+ * delete, for-in/for-of or a destructuring pattern) and calls with more than
+ * four arguments. The pattern-host set is complete for ESTree: an assignment
+ * left, a variable id, a for-in/of left, a catch param, function params and an
+ * assignment pattern are the only places a pattern can be written into, so a
+ * `.value` nested in any of those reports without a suggestion.
+ *
+ * Residual evasion, out of scope by design: a member access not directly on
+ * the call (`const r = reduceSync(...); r.value`).
+ *
+ * `foldSync` is resolved against every `pipelean` import. An existing plain
+ * or aliased binding is reused (the call uses its local name and nothing is
+ * inserted); otherwise it is appended to a named import, preferring the one
+ * binding `reduceSync`. `reduceSync` is never removed (it may be used
+ * elsewhere). A default or namespace import bound as `foldSync` occupies the
+ * name and cannot be verified or reused, so the suggestion is withheld. With
+ * only namespace/default imports the import edit is skipped and the call is
+ * rewritten alone, leaving the callee unresolved until the author adds it.
+ * Opt-in on purpose: import edits make blind `--fix` unsafe.
  */
+import {reportOnly, suggestionFixes} from './no-fold-rethrow-suggestion.js'
 
-const isNamedProperty = (name, property) => {
+const REDUCE_SYNC = 'reduceSync'
+
+const propertyName = property => {
   if (property.type !== 'Property' || property.computed)
-    return false
+    return null
 
-  const key = property.key
-  if (key.type === 'Identifier')
-    return key.name === name
-
-  if (key.type === 'Literal')
-    return key.value === name
-
-  return false
+  const {key} = property
+  return key.type === 'Identifier' ? key.name : key.value
 }
 
 const isRethrowValue = value =>
@@ -40,23 +58,22 @@ const isRethrowValue = value =>
   (value.type === 'Literal' && value.value === 'throw')
 
 const hasKey = (name, opts) =>
-  opts.properties.some(property => isNamedProperty(name, property))
+  opts.properties.some(property => propertyName(property) === name)
 
 const hasRethrowStrategy = opts =>
   opts.properties.some(
     property =>
-      isNamedProperty('strategy', property) &&
+      propertyName(property) === 'strategy' &&
       isRethrowValue(property.value)
   )
 
-const isOptsObject = node => Boolean(node) && node.type === 'ObjectExpression'
-
 const isBareReduceSyncCall = node =>
-  node.callee.type === 'Identifier' && node.callee.name === 'reduceSync'
+  node.callee.type === 'Identifier' && node.callee.name === REDUCE_SYNC
 
 const isValueExtraction = node => {
   const opts = node.arguments[3]
-  if (!isOptsObject(opts) || !hasRethrowStrategy(opts))
+  const isOpts = Boolean(opts) && opts.type === 'ObjectExpression'
+  if (!isOpts || !hasRethrowStrategy(opts))
     return false
 
   return !hasKey('recover', opts)
@@ -65,6 +82,7 @@ const isValueExtraction = node => {
 export default {
   meta: {
     type: 'suggestion',
+    hasSuggestions: true,
     docs: {
       description:
         'Disallow reduceSync with strategy: rethrow for value ' +
@@ -75,14 +93,34 @@ export default {
         'foldSync(items, reducer, initial) returns the value directly. ' +
         'Use it for a pure sync fold; keep reduceSync and assertOk when ' +
         'you need the report.',
+      replaceWithFoldSync:
+        'Replace with foldSync(items, reducer, initial)',
     },
   },
 
   create (context) {
+    const {sourceCode} = context
+
     return {
       CallExpression (node) {
-        if (isBareReduceSyncCall(node) && isValueExtraction(node))
-          context.report({node, messageId: 'preferFoldSync'})
+        if (!isBareReduceSyncCall(node) || !isValueExtraction(node))
+          return
+
+        const report = {node, messageId: 'preferFoldSync'}
+        if (reportOnly(node, sourceCode)) {
+          context.report(report)
+          return
+        }
+
+        context.report({
+          ...report,
+          suggest: [
+            {
+              messageId: 'replaceWithFoldSync',
+              fix: fixer => suggestionFixes(fixer, sourceCode, node),
+            },
+          ],
+        })
       },
     }
   },

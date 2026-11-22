@@ -5,6 +5,8 @@ const tester = new RuleTester({
   languageOptions: {ecmaVersion: 2022, sourceType: 'module'},
 })
 
+const reportOnly = {messageId: 'preferFoldSync', suggestions: []}
+
 tester.run('no-fold-rethrow', rule, {
   valid: [
     {code: 'reduceSync(a, f, z)'},
@@ -28,22 +30,102 @@ tester.run('no-fold-rethrow', rule, {
   ],
   invalid: [
     {
-      code: 'reduceSync(a, f, z, {strategy: rethrow})',
-      errors: [{messageId: 'preferFoldSync'}],
+      // The report is consumed: no safe 1:1 rewrite, report only.
+      code: 'reduceSync(a, f, z, {strategy: rethrow}).failure',
+      errors: [reportOnly],
     },
     {
-      code: 'reduceSync(a, f, z, {strategy: \'throw\'})',
-      errors: [{messageId: 'preferFoldSync'}],
+      code: 'reduceSync(a, f, z, {strategy: rethrow})[\'value\']',
+      errors: [reportOnly],
     },
     {
-      code: 'reduceSync(a, f, z, {onError: e, strategy: rethrow})',
-      errors: [{messageId: 'preferFoldSync'}],
+      code: 'const {value} = reduceSync(a, f, z, {strategy: rethrow})',
+      errors: [reportOnly],
+    },
+    {
+      code: 'const [first] = reduceSync(a, f, z, {strategy: rethrow})',
+      errors: [reportOnly],
+    },
+    {
+      // Assignment destructuring: foldSync would throw on a primitive acc.
+      code: '({value} = reduceSync(a, f, z, {strategy: rethrow}))',
+      errors: [reportOnly],
+    },
+    {
+      // Parameter default that destructures the result.
+      code:
+        'function f({value} = reduceSync(a, f, z, ' +
+        '{strategy: rethrow})) {}',
+      errors: [reportOnly],
+    },
+    {
+      // .value as an assignment target.
+      code: 'reduceSync(a, f, z, {strategy: rethrow}).value = 1',
+      errors: [reportOnly],
+    },
+    {
+      code: 'delete reduceSync(a, f, z, {strategy: rethrow}).value',
+      errors: [reportOnly],
+    },
+    {
+      code: '++reduceSync(a, f, z, {strategy: rethrow}).value',
+      errors: [reportOnly],
+    },
+    {
+      // .value inside a destructuring assignment pattern.
+      code:
+        '({x: reduceSync(a, f, z, {strategy: rethrow}).value} = obj)',
+      errors: [reportOnly],
     },
     {
       code:
-        'reduceSync(items, (acc, x) => acc + x, 0, ' +
-        '{strategy: rethrow}).value',
-      errors: [{messageId: 'preferFoldSync'}],
+        'for (reduceSync(a, f, z, {strategy: rethrow}).value of xs) {}',
+      errors: [reportOnly],
+    },
+    {
+      // .value nested in an object pattern on a for-of left (write target).
+      code:
+        'for ({x: reduceSync(a, f, z, {strategy: rethrow}).value} of xs) {}',
+      errors: [reportOnly],
+    },
+    {
+      code:
+        'for ({x: reduceSync(a, f, z, {strategy: rethrow}).value} in xs) {}',
+      errors: [reportOnly],
+    },
+    {
+      // Array-pattern left is a write target too.
+      code:
+        'for ([reduceSync(a, f, z, {strategy: rethrow}).value] of xs) {}',
+      errors: [reportOnly],
+    },
+    {
+      // `for await` is the same node type with the await flag set.
+      code:
+        'async function g () { for await ' +
+        '({x: reduceSync(a, f, z, {strategy: rethrow}).value} of xs) {} }',
+      errors: [reportOnly],
+    },
+    {
+      // A default import named foldSync occupies the binding: no suggestion.
+      code:
+        'import foldSync from \'pipelean\'\n' +
+        'import {reduceSync} from \'pipelean\'\n' +
+        'reduceSync(a, f, z, {strategy: rethrow})',
+      errors: [reportOnly],
+    },
+    {
+      // A namespace import named foldSync is not callable either.
+      code:
+        'import * as foldSync from \'pipelean\'\n' +
+        'import {reduceSync} from \'pipelean\'\n' +
+        'reduceSync(a, f, z, {strategy: rethrow})',
+      errors: [reportOnly],
+    },
+    {
+      // foldSync has no home for a fifth argument.
+      code: 'reduceSync(a, f, z, {strategy: rethrow}, extra)',
+      errors: [reportOnly],
     },
   ],
 })
