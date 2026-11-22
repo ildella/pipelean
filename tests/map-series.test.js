@@ -125,7 +125,10 @@ test('an already-aborted signal resolves to an empty array', async () => {
 
 test('rejects a conflicting strategy at build time', () => {
   expect(() => mapSeries(x => Promise.resolve(x), {strategy: collect}))
-    .toThrow(TypeError)
+    .toThrow(
+      'mapSeries() always rethrows on the first error; ' +
+      'remove the "collect" strategy',
+    )
 })
 
 test('rejects a conflicting strategy instead of overriding it', () => {
@@ -170,12 +173,39 @@ test('empty input returns an empty array', async () => {
   await expect(mapSeries([], x => Promise.resolve(x))).resolves.toEqual([])
 })
 
-test('does not call onError under the locked rethrow', async () => {
-  const onError = vi.fn()
+test('rejects a null strategy with the intended configuration error', () => {
+  expect(() => mapSeries([1], x => Promise.resolve(x), {strategy: null}))
+    .toThrow(
+      'mapSeries() always rethrows on the first error; ' +
+      'remove the "null" strategy',
+    )
+})
 
-  await captureError(() => mapSeries([1], () => {
-    throw new Error('bang')
-  }, {onError}))
+test.each(['onError', 'onFailure', 'onSourceError'])(
+  'rejects the dead %s callback at build time',
+  key => {
+    // build-time (curried) form must name the key too
+    expect(() => mapSeries(x => Promise.resolve(x), {[key]: () => undefined}))
+      .toThrow(`${key} never fires`)
+  },
+)
 
-  expect(onError).not.toHaveBeenCalled()
+test.each(['onError', 'onFailure', 'onSourceError'])(
+  'rejects the dead %s callback on the immediate form',
+  key => {
+    expect(() => mapSeries([1], x => Promise.resolve(x), {
+      [key]: () => undefined,
+    })).toThrow(`${key} never fires`)
+  },
+)
+
+test('still accepts onProgress under the locked rethrow', async () => {
+  const onProgress = vi.fn()
+
+  const result = await mapSeries([1, 2], x => Promise.resolve(x * 2), {
+    onProgress,
+  })
+
+  expect(result).toEqual([2, 4])
+  expect(onProgress).toHaveBeenCalledTimes(2)
 })

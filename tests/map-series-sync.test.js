@@ -81,7 +81,10 @@ test('passes take and onProgress through untouched', () => {
 })
 
 test('rejects a conflicting strategy at build time', () => {
-  expect(() => mapSeriesSync(x => x, {strategy: collect})).toThrow(TypeError)
+  expect(() => mapSeriesSync(x => x, {strategy: collect})).toThrow(
+    'mapSeriesSync() always rethrows on the first error; ' +
+    'remove the "collect" strategy',
+  )
 })
 
 test('rejects a conflicting strategy instead of overriding it', () => {
@@ -107,12 +110,45 @@ test('empty input returns an empty array', () => {
   expect(mapSeriesSync([], x => x)).toEqual([])
 })
 
-test('does not call onError under the locked rethrow', () => {
-  const onError = vi.fn()
+test('rejects a null strategy with the intended configuration error', () => {
+  expect(() => mapSeriesSync([1], x => x, {strategy: null}))
+    .toThrow(
+      'mapSeriesSync() always rethrows on the first error; ' +
+      'remove the "null" strategy',
+    )
+})
 
-  captureError(() => mapSeriesSync([1], () => {
-    throw new Error('bang')
-  }, {onError}))
+test.each(['onError', 'onFailure', 'onSourceError'])(
+  'rejects the dead %s callback at build time',
+  key => {
+    // build-time (curried) form must name the key too
+    expect(() => mapSeriesSync(x => x, {[key]: () => undefined}))
+      .toThrow(`${key} never fires`)
+  },
+)
 
-  expect(onError).not.toHaveBeenCalled()
+test.each(['onError', 'onFailure', 'onSourceError'])(
+  'rejects the dead %s callback on the immediate form',
+  key => {
+    expect(() => mapSeriesSync([1], x => x, {[key]: () => undefined}))
+      .toThrow(`${key} never fires`)
+  },
+)
+
+test('still accepts onProgress under the locked rethrow', () => {
+  const onProgress = vi.fn()
+
+  const result = mapSeriesSync([1, 2], x => x * 2, {onProgress})
+
+  expect(result).toEqual([2, 4])
+  expect(onProgress).toHaveBeenCalledTimes(2)
+})
+
+test('rejects an async iterable pointing at mapSeries', () => {
+  async function * pages () {
+    yield 1
+  }
+
+  expect(() => mapSeriesSync(pages(), x => x))
+    .toThrow('does not support async iterables; use mapSeries()')
 })

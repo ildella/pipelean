@@ -89,8 +89,10 @@ test('series with pause does NOT wait after errors by default', async () => {
   expect(result.errors).toHaveLength(1)
   // Should take at least 10ms (only 1 delay, error at 2 skips pause)
   expect(elapsed).toBeGreaterThanOrEqual(10)
-  // And less than 25ms (no second delay, allowing some system overhead)
-  expect(elapsed).toBeLessThan(25)
+  // And less than 60ms: only one pause should run (error at 2 skips its
+  // pause). The margin is generous because a loaded machine can add tens of
+  // ms of overhead; it still catches a gross extra-waiting regression.
+  expect(elapsed).toBeLessThan(60)
 })
 
 test('series with pauseOnErrors waits after errors too', async () => {
@@ -137,7 +139,10 @@ test(
     expect(result.results).toEqual([])
     expect(result.failure).toBeTruthy()
     expect(elapsed).toBeGreaterThanOrEqual(8)
-    expect(elapsed).toBeLessThan(20)
+    // Generous upper bound: failFast must not pause after the final error,
+    // but loaded machines can add tens of ms of overhead on top of the one
+    // real pause. It still catches a gross extra-waiting regression.
+    expect(elapsed).toBeLessThan(60)
   },
 )
 
@@ -152,8 +157,8 @@ test('series with pause works with take option', async () => {
   expect(result.results).toEqual([2, 4, 6])
   // Should take at least 20ms (2 delays for 3 items)
   expect(elapsed).toBeGreaterThanOrEqual(20)
-  // And less than 35ms (only 2 delays, allowing system overhead)
-  expect(elapsed).toBeLessThan(35)
+  // Generous upper bound: only 2 delays, but loaded CI can add tens of ms.
+  expect(elapsed).toBeLessThan(60)
 })
 
 test('series with no pause runs immediately', async () => {

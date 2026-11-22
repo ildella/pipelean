@@ -28,14 +28,16 @@ const assertEnrichState = (initialState, label) => {
 const operationName = (operation, index) =>
   operation.name || `operation-${index}`
 
-const mergePatch = ({
-  state, operation, index, patch,
+// Step names are computed once at build time and shared by the error messages
+// and both hooks, so every consumer sees the same normalization.
+const mergePatch = (names, {
+  state, index, patch,
 }) => {
   if (patch === null ||
     typeof patch !== 'object' ||
     Array.isArray(patch)) {
     throw new TypeError(
-      `Operation ${operationName(operation, index)} must return a non-null, ` +
+      `Operation ${names[index]} must return a non-null, ` +
       'non-array object',
     )
   }
@@ -47,10 +49,9 @@ const mergePatch = ({
 const withName = (name, fn) =>
   Object.defineProperty(fn, 'name', {value: name})
 
-const wrapStepStart = ({
+const wrapStepStart = (name, {
   operation, index, total, onStepStart, sync,
 }) => {
-  const name = operationName(operation, index)
   const context = {operation: name, index, total}
 
   if (sync) {
@@ -75,15 +76,15 @@ const notifySuccessAsync = (onStepSuccess, context, merged) =>
   Promise.resolve(onStepSuccess(context)).then(() => merged)
 
 // Success fires only once the patch has been validated and merged.
-const wrapStepSuccess = ({onStepSuccess, total, sync}) =>
-  merge => ({
-    state, operation, index, patch,
+const withStepSuccess = (merge, {
+  names, onStepSuccess, total, sync,
+}) =>
+  ({
+    state, index, patch,
   }) => {
-    const merged = merge({
-      state, operation, index, patch,
-    })
+    const merged = merge({state, index, patch})
     const context = {
-      operation: operationName(operation, index),
+      operation: names[index],
       patch,
       index,
       total,
@@ -143,22 +144,25 @@ export const prepareEnrich = ({
     strategy = collect, onError, onFailure, onStepStart, onStepSuccess,
   } = opts
 
-  const total = operations.length
+  const names = operations.map(operationName)
+  const total = names.length
 
   const steps = onStepStart
     ? operations.map((operation, index) =>
-      wrapStepStart({
+      wrapStepStart(names[index], {
         operation, index, total, onStepStart, sync,
       }))
     : operations
 
-  const merge = onStepSuccess
-    ? wrapStepSuccess({onStepSuccess, total, sync})(mergePatch)
-    : mergePatch
+  const merge = step => mergePatch(names, step)
 
   return {
     steps,
-    scanner: scannerFor(merge),
+    scanner: scannerFor(onStepSuccess
+      ? withStepSuccess(merge, {
+        names, onStepSuccess, total, sync,
+      })
+      : merge),
     reduceOpts: reduceOptions({strategy, onError, onFailure}),
     assertInitial: initialState => assertEnrichState(initialState, label),
     finish: finishEnrich,
