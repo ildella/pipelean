@@ -103,6 +103,23 @@ test('onError can augment the original error and rethrow it', () => {
   expect(onFinally).toHaveBeenCalledOnce()
 })
 
+test('routes a throwing onSuccess to onError and drops the result', () => {
+  const successError = new Error('onSuccess failed')
+  const onError = vi.fn()
+  const onFinally = vi.fn()
+  const wrapped = tryCatchSync(() => 'data', {
+    onSuccess: () => {
+      throw successError
+    },
+    onError,
+    onFinally,
+  })
+
+  expect(wrapped()).toBeUndefined()
+  expect(onError).toHaveBeenCalledWith(successError)
+  expect(onFinally).toHaveBeenCalledOnce()
+})
+
 test('does not call onSuccess when fn throws', () => {
   const onSuccess = vi.fn()
   const wrapped = tryCatchSync(() => {

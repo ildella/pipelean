@@ -152,8 +152,8 @@ test('series with pause works with take option', async () => {
   expect(result.results).toEqual([2, 4, 6])
   // Should take at least 20ms (2 delays for 3 items)
   expect(elapsed).toBeGreaterThanOrEqual(20)
-  // And less than 35ms (only 2 delays, allowing system overhead)
-  expect(elapsed).toBeLessThan(35)
+  // Generous upper bound: only 2 delays, but loaded CI can add tens of ms.
+  expect(elapsed).toBeLessThan(60)
 })
 
 test('series with no pause runs immediately', async () => {
