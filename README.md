@@ -187,9 +187,9 @@ unwrapping and the engine.
 import {foldSync} from 'pipelean'
 
 const totalDuration = foldSync(tracks, (total, {duration}) => total + duration, 0)
-const byArtist = foldSync(tracks, (index, track) => {
-  index[track.artist] = [...(index[track.artist] ?? []), track]
-  return index
+const byArtist = foldSync(tracks, (acc, track) => {
+  acc[track.artist] = [...(acc[track.artist] ?? []), track]
+  return acc
 }, {})
 ```
 
@@ -420,7 +420,9 @@ await series(tracks, pipeline, {strategy: collect})
   are exhausted, so the surrounding strategy still sees the failure.
 - `tryCatch(fn, {onStart, onSuccess, onError, onFinally})` returns `undefined`
   on failure — the same drop signal used everywhere else — so a failed step
-  short-circuits `pipe` and drops the item in `series`.
+  short-circuits `pipe` and drops the item in `series`. A throwing or rejecting
+  `onError` propagates out of the wrapper instead (augment-and-rethrow), and
+  `onFinally` still runs.
 
 ### `assertOk()` — don't ignore the outcome
 
@@ -436,9 +438,14 @@ console.log(result.results)
 ```
 
 - No failure: the same result object is returned unchanged.
-- Truthy `failure`: throws `Error('pipelean: operation failed')` with the
-  underlying error as `cause` (the first error for a `failLate` aggregate) and
-  the structured failure object as `error.failure`.
+- Truthy `failure`: throws the **original** error — `failure.error`, or the
+  first error of a `failLate` aggregate — so its message, stack and
+  `instanceof` survive, with the structured failure attached as `error.failure`.
+  Attaching it mutates the thrown error.
+- A primitive throw value (`string`, number, `undefined`, `null`) or a frozen
+  or otherwise non-extensible error object cannot carry the property;
+  `assertOk` then throws `Error('pipelean: operation failed', {cause})` with the
+  structured failure attached as `.failure`.
 - Expects an **awaited** Pipelean result: an un-awaited Promise throws
   `TypeError('assertOk() expects an awaited result, not a Promise')`, and
   `undefined` or a non-result object throws
@@ -502,8 +509,13 @@ strategies, shapes and callbacks — they just return directly instead of a
 
 `mapSeries` and `mapSeriesSync` are the sequential map with the strategy locked
 to `rethrow`: they resolve to a bare array (or throw the original error), accept
-both call forms, and pass every other option through. They inherit the
-`undefined` drop signal, so the output can be shorter than the input.
+both call forms, and pass every other option through (`mapSeriesSync` rejects
+the async-only `pause`, `pauseOnErrors` and `signal` with a `TypeError`, like
+every sync twin). They inherit the
+`undefined` drop signal, so the output can be shorter than the input. Because a
+failure throws before any callback, `onError` / `onFailure` / `onSourceError` are
+rejected with a `TypeError` instead of being silently ignored; use `series`
+with a strategy for per-item telemetry.
 
 ## Coming from Elixir, Scala/cats, or Haskell?
 
@@ -530,8 +542,12 @@ only `undefined` is a drop), and iterators return records rather than an
 Flags `.forEach()`, `.reduce()`, `.map(async ...)`, non-generator loops and
 `Promise.*` combinators, suggesting pipelean equivalents — including
 `foldSync(items, reducer, initial)` (or `reduce` when you need the report) in
-place of `.reduce()`. Separate entry point — importing it does not pull in the
-runtime.
+place of `.reduce()`. A dedicated `no-fold-rethrow` rule flags
+`reduceSync(items, reducer, initial, {strategy: rethrow})` and points at
+`foldSync`; a `recover` in the same options is exempt, because that is a managed
+use where `onError` legitimately fires. The rule is deliberately narrow: aliased
+imports and member calls are not resolved. Separate entry point — importing it
+does not pull in the runtime.
 
 ```js
 import pipeleanConfig from 'pipelean/eslint/config'

@@ -91,9 +91,9 @@ const totalDuration = foldSync(
 // totalDuration = 22, no {value, ...} to unwrap
 
 // One pass, one index — the fold is the whole program
-const byArtist = foldSync(tracks, (index, track) => {
-  index[track.artist] = [...(index[track.artist] ?? []), track]
-  return index
+const byArtist = foldSync(tracks, (acc, track) => {
+  acc[track.artist] = [...(acc[track.artist] ?? []), track]
+  return acc
 }, {})
 ```
 
@@ -130,11 +130,15 @@ const active = await mapSeries(users, user => user.active ? user : undefined)
 const rows = mapSeriesSync(records, record => toRow(record))
 ```
 
-`onProgress`, `take`, `pause` and `signal` pass through; `strategy` cannot: any
-value other than `rethrow` / `'throw'` is a `TypeError`. Under the locked
-`rethrow` the failure throws before any callback, so `onError` and `onFailure`
-never fire — use `series` with a collecting strategy when you need per-item
-telemetry.
+`onProgress`, `take`, `pause` and `signal` pass through for the async
+`mapSeries`; `mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and
+`signal` with a `TypeError`, like every sync twin. `strategy` cannot: any value
+other than `rethrow` / `'throw'` is a `TypeError`. Under the locked
+`rethrow` the failure throws before any callback, so `onError`, `onFailure` and
+`onSourceError` are rejected with a `TypeError` naming the offending key — use
+`series` with a collecting strategy when you need per-item telemetry.
+`mapSeriesSync` rejects an async iterable with a `TypeError` naming
+`mapSeries()`.
 
 #### Example: stopWhen (Cancellable Pipeline)
 
@@ -194,7 +198,8 @@ import {assertOk, failFast, series} from 'pipelean'
 const {results} = assertOk(
   await series(jobs, importJob, {strategy: failFast}),
 )
-// truthy failure → throws with `cause` and `failure`; no failure → same object
+// truthy failure → throws the ORIGINAL error with `.failure` attached;
+// no failure → the same object
 ```
 
 Under `collect` / `skip`, `failure` is `false` even with errors recorded, so
@@ -348,7 +353,9 @@ const processAlbum = enrich(
 ```
 
 `enrich` awaits each hook before moving on; `enrichSync` calls them
-fire-and-forget. A throwing hook is a failed step and goes through the strategy:
+fire-and-forget, so its hooks must be synchronous — an async hook's rejection is
+never observed by the strategy (a synchronous throw still is). A throwing hook is
+a failed step and goes through the strategy:
 with `failFast`, later hooks never run; with `collect`, the run continues. There
 is no `onStepError` — errors belong to `onError`.
 

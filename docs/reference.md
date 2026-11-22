@@ -406,15 +406,19 @@ This is the answer to "map these items one at a time, and if any one fails the w
 **Parameters**:
 - `items`: An iterable (array, async iterable, generator). `mapSeriesSync` accepts sync iterables only.
 - `fn(item, index)`: The mapper. Sync or async for `mapSeries`. `mapSeriesSync` does not reject an async mapper: it is **not awaited**, so the returned Promise is stored as the value. Returning `undefined` drops the item.
-- `opts` (optional): every `series` / `seriesSync` option except a conflicting `strategy`. `take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and `signal` pass through untouched (`mapSeriesSync` rejects `pause`, `pauseOnErrors` and `signal` like the other sync variants). `recover` is not supported (it is fold-only).
+- `opts` (optional): every `series` / `seriesSync` option except a conflicting `strategy` and the three error callbacks. `take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and `signal` pass through untouched (`mapSeriesSync` rejects `pause`, `pauseOnErrors` and `signal` like the other sync variants). `recover` is not supported (it is fold-only).
 
 **Strategy lock**: `mapSeries` always rethrows. Passing `strategy: rethrow`, `strategy: 'throw'`, or omitting it is fine. Passing any other strategy is a configuration mistake and throws a `TypeError` at build time (`'mapSeries() always rethrows on the first error; remove the "collect" strategy'`) instead of being silently overridden.
+
+**Rejected options**: `onError`, `onFailure` and `onSourceError` are rejected with a `TypeError` naming the offending key — `'mapSeries() rethrows on the first error; onError never fires — remove it or use series/seriesSync with a strategy'`. Both call forms validate, so the curried form fails at build time. These callbacks could never fire under the locked `rethrow`, so accepting them would be dead configuration.
+
+**Async iterable guard**: `mapSeriesSync` rejects an async iterable with an explicit `TypeError` naming the async twin — `'mapSeriesSync() does not support async iterables; use mapSeries()'` — before iteration starts.
 
 **Return**: `Promise<Array>` / `Array` of the kept mapped values, in input order.
 
 **Inherited behavior — read these two**:
 - **`undefined` drops the item.** A mapper that returns `undefined` produces no entry, so the result can be shorter than the input.
-- **The rethrow is silent.** A failed item throws before any callback runs, exactly as in `series(..., {strategy: rethrow})`. `onError`, `onFailure` and `onSourceError` are accepted but never fire: configuring them here is dead configuration. If you need per-item error telemetry, use `series` with a collecting strategy.
+- **The rethrow is silent.** A failed item throws before any callback runs, exactly as in `series(..., {strategy: rethrow})`. `onError`, `onFailure` and `onSourceError` are therefore **rejected** with a `TypeError`, not accepted and ignored (see **Rejected options** above). If you need per-item error telemetry, use `series` with a collecting strategy.
 
 **Stops at the first failure**: no later item runs, and the error is the original throw (identity preserved). An abort via `signal` is not a failure: it resolves with the results completed so far.
 
@@ -590,9 +594,9 @@ const totalDuration = foldSync(
 )
 
 // Build an index in one pass
-const byArtist = foldSync(tracks, (index, track) => {
-  index[track.artist] = [...(index[track.artist] ?? []), track]
-  return index
+const byArtist = foldSync(tracks, (acc, track) => {
+  acc[track.artist] = [...(acc[track.artist] ?? []), track]
+  return acc
 }, {})
 
 // Empty input returns the initial value; a Set or generator is fine
@@ -665,7 +669,7 @@ The thrown round is logged by `onError`, converted into the next accumulator by 
 | `strategy: collect` | the whole run | record the error, continue with the *previous* accumulator |
 | `tryCatch` | one function | swallow, return `undefined` (the drop signal) |
 | `retry` | one function | retry the same call, then rethrow |
-| `assertOk` | one finished result | throw if `failure` is truthy, preserving the cause |
+| `assertOk` | one finished result | throw the original error if `failure` is truthy, with `.failure` attached |
 
 ---
 
@@ -945,6 +949,9 @@ the returned function.
   fields identify the step; `total` is `operations.length`.
 - Timing: `enrich` **awaits** both hooks before moving on; `enrichSync` calls
   them and moves on (fire-and-forget), consistent with its other callbacks.
+  Hooks in `enrichSync` must be **sync**: the return value of an async hook is
+  not awaited, so a rejection is never observed by the strategy. A synchronous
+  throw still is.
 - `onStepSuccess` fires only when the patch was valid and merged. A throwing
   operation, or an invalid patch (`null`, an array, a primitive), goes to
   `onError` and fires **no** success hook.
@@ -974,7 +981,9 @@ const {value, errors, failure} = await processAlbum(input)
 ```
 
 `enrichSync` accepts the same two options with the same payloads and the same
-strategy path; only the dispatch differs (sync, not awaited).
+strategy path; only the dispatch differs (sync, not awaited). Its hooks are
+fire-and-forget: use synchronous hooks, because an async hook's rejection is
+never observed by the strategy (a synchronous throw still is).
 
 ---
 
@@ -1137,15 +1146,27 @@ a result:
 - `undefined`, `null`, a primitive, an array, or a plain object without a
   `failure` property throws `TypeError('assertOk() expects a pipelean result')`.
 
-When `result.failure` is truthy, an `Error` with:
+When `result.failure` is truthy, `assertOk` throws the **original underlying
+error**:
 
-- `message`: `'pipelean: operation failed'` (stable, safe to assert on).
-- `cause`: the underlying error — `failure.error` for a normal failure, or the
-  first `failure.errors[].error` for a `failLate` aggregate.
-- `failure`: the structured failure object, exactly as returned
-  (`{item, error, index}`, `{errors}`, or a source context `{error, index}`).
+- for a normal failure that is `failure.error`; for a `failLate` aggregate it is
+  the first error, `failure.errors[0].error`;
+- the thrown value is the same object the operation threw, so its identity,
+  message, stack and class (`instanceof`) survive — there is no wrapper;
+- the structured failure is attached as `error.failure` (the `{errors}`
+  aggregate for `failLate`). **Attaching it mutates the original error**: an
+  error object reused across results keeps only the latest `.failure`.
 
-The result object is not mutated; only the thrown error is created.
+**Fallback for values that cannot carry a property.** A primitive throw value
+(`string`, number, `undefined`, `null`) or a frozen / non-extensible error object
+cannot take `.failure`. In that case `assertOk` throws
+`Error('pipelean: operation failed', {cause: underlying})` with `.failure`
+attached. Code that matches on the stable `'pipelean: operation failed'` message
+or reads `error.cause` only ever sees this fallback path (see the
+[migration guide](migration.md#0150-assertok-throws-the-original-error)).
+
+The result object is not mutated; only the thrown error is (and that is the
+original error object).
 
 **Caveat — `failure`, not `errors`**: `assertOk` asserts **no failure**, not "no
 errors". Under `collect` and `skip`, `failure` is `false` even when `errors` is
@@ -1162,8 +1183,8 @@ const result = assertOk(await series(jobs, importJob, {strategy: 'failFast'}))
 try {
   assertOk(await series(jobs, importJob, {strategy: 'failFast'}))
 } catch (error) {
-  console.error(error.message)      // 'pipelean: operation failed'
-  console.error(error.cause)        // the original mapper error
+  console.error(error.message)      // the original mapper error's message
+  console.error(error)              // same object the mapper threw
   console.error(error.failure)      // {item, error, index}
 }
 ```
@@ -1361,7 +1382,8 @@ const {value, errors, failure} = processAlbumSync(input)
 `enrichSync` mirrors `enrich()` exactly but executes synchronously. Same
 strategies, same `onError` / `onFailure` semantics, same normalized error
 shapes, and the same per-step hooks (`onStepStart` / `onStepSuccess`) — except
-that the hooks are called fire-and-forget rather than awaited. Use it when your
+that the hooks are called fire-and-forget rather than awaited, so they must be
+synchronous (an async hook's rejection is never observed). Use it when your
 operations and inputs are synchronous.
 
 ---

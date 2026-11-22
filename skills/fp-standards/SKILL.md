@@ -12,7 +12,7 @@ description: "General Functional Programming principles and patterns. Use this s
 - **No `Array.prototype.forEach`**: ForEach swallows promises and doesn't handle async errors correctly. Use `series` instead.
 - **No raw `Promise` combinators**: Use `series` for positional collections, or `join` for named concurrent tasks, instead of `Promise.all` / `Promise.allSettled`. The `no-promise-combinators` rule flags them.
 - **No `Array.prototype.reduce`**: Reduce is often unreadable and mixes state with iteration. Use `foldSync` for a pure sync fold (sums, counts, indexes), `reduce` when you need the report, and `scan` for dependent stateful transformation where intermediate values matter.
-- **No `Array.prototype.map` with async callbacks**: Use `series` for a map over independent items, or `mapSeries` / `mapSeriesSync` when the map must throw on the first failure and return a bare array. Do not use `series(..., {strategy: rethrow}).results` by hand: that is `mapSeries`.
+- **No `Array.prototype.map` with async callbacks**: Use `series` for a map over independent items, or `mapSeries` / `mapSeriesSync` when the map must throw on the first failure and return a bare array. Do not use `series(..., {strategy: rethrow}).results` by hand: that is `mapSeries`. Its `onError` / `onFailure` / `onSourceError` are rejected with a `TypeError` (they could never fire under the locked `rethrow`); use `series` with a strategy when you need per-item telemetry.
 - **Eager Execution**: Reach for `series`/`pipe`/`scan`/`enrich` first — you get a structured report `{ results, errors, sourceErrors, failure }` back immediately. When you genuinely need a lazy producer (e.g. a generator that streams progress events), that is a supported escape hatch: write a standard JavaScript generator and let it yield. The `no-loop-without-yield` rule allows loops only inside a generator that yields.
 - **Undefined Short-Circuit**: When composing operations (via `pipe`), returning `undefined` signals dropping the item (selection/filtering).
 
@@ -26,7 +26,7 @@ description: "General Functional Programming principles and patterns. Use this s
 
 If step N depends on step N-1's output you are folding: many inputs → `scan`/`reduce` (managed) or `foldSync` (pure sync); one input with many enrichments → `enrich`.
 
-**Hard rule: never use `{strategy: rethrow}` to extract a value from a fold.** A pure sync fold is `foldSync(items, reducer, initial)` — it returns the value directly. If you already have a managed result, use `assertOk(result).value`. `rethrow` is for async I/O and bugs, and it bypasses every callback, so `onError` next to it is dead configuration.
+**Hard rule: never use `{strategy: rethrow}` to extract a value from a fold.** A pure sync fold is `foldSync(items, reducer, initial)` — it returns the value directly. If you already have a managed result, use `assertOk(result).value`. `rethrow` is for async I/O and bugs, and it bypasses every callback, so `onError` next to it is dead configuration. The `no-fold-rethrow` ESLint rule flags `reduceSync(..., {strategy: rethrow})` and points at `foldSync`; a `recover` in the same options is exempt (managed telemetry).
 
 ## Prefer `enrich()` over hand-rolled spreads
 
@@ -36,7 +36,7 @@ If you find yourself writing nested spreads to thread state through a chain of e
 - Returns `{value, errors, failure}` — never throws on handled errors.
 - Uses the same strategies (`collect` by default, `failFast`, `failLate`, `skip`, `rethrow`) as `series` and `scan`.
 - Shallow-merges patches (`{...state, ...patch}`) — top-level keys are overwritten, nested objects are not deep-merged.
-- Step hooks: `onStepStart({operation, index, total})` before each step, `onStepSuccess({operation, patch, index, total})` after validation and merge; errors stay on `onError`.
+- Step hooks: `onStepStart({operation, index, total})` before each step, `onStepSuccess({operation, patch, index, total})` after validation and merge; errors stay on `onError`. In `enrichSync`, use synchronous hooks — an async hook's rejection is never observed by the strategy.
 
 ```js
 import { enrich } from 'pipelean'

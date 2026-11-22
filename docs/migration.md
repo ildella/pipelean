@@ -2,6 +2,172 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.15.0: `assertOk` throws the original error
+
+0.15 carries **behavior changes** in two places and one new lint rule. They are
+small, but they are not additive: code that matched on the old `assertOk` wrapper
+or passed error callbacks to `mapSeries` must adapt. `enrichSync` async hooks
+were already unobserved; that is now documented. Everything else keeps working.
+
+### 1. `assertOk` throws the original error, not a wrapper
+
+When `failure` is truthy, `assertOk` used to throw
+`Error('pipelean: operation failed')` with the underlying error as `cause`. It now
+throws the **original** error, with the structured failure attached as
+`.failure`. Identity, message, stack and class (`instanceof`) survive.
+
+```js
+// Before (0.14)
+import {assertOk, failFast, series} from 'pipelean'
+
+try {
+  assertOk(await series(jobs, importJob, {strategy: failFast}))
+} catch (error) {
+  console.log(error.message)        // 'pipelean: operation failed'
+  console.log(error.cause)          // the original mapper error
+  console.log(error instanceof TypeError) // false
+}
+```
+
+```js
+// After (0.15)
+import {assertOk, failFast, series} from 'pipelean'
+
+try {
+  assertOk(await series(jobs, importJob, {strategy: failFast}))
+} catch (error) {
+  console.log(error.message)        // the original mapper error's message
+  console.log(error)                // the same object the mapper threw
+  console.log(error.failure)        // {item, error, index}
+  console.log(error instanceof TypeError) // true, when the mapper threw one
+}
+```
+
+What to change:
+
+- **Matching on `error.message === 'pipelean: operation failed'`**: that message
+  now appears only on the fallback path, when the underlying throw value is a
+  primitive (`string`, number, `undefined`, `null`) or a frozen or otherwise
+  non-extensible error object.
+  Match on the original error instead, or on `error.failure`.
+- **Reading `error.cause`**: it is no longer set on the normal path. The
+  structured data is on `error.failure`; the thrown value *is* the cause.
+- **UI messages and `instanceof` branches**: they now see the real error class
+  and message. If you were showing the wrapper's generic text, show
+  `error.message` — but note it is the user-facing operation error, so keep your
+  own sanitization.
+- **Reusing an error object**: attaching `.failure` mutates the original error.
+  If the same error instance is reused across results, only the latest
+  `.failure` survives.
+
+No change on success: the same result object is still returned, and the two
+`TypeError` guards (`awaited result` / `pipelean result`) are unchanged. The
+read-**no-failure** rule is unchanged too: `collect` / `skip` results with entries
+in `errors` still pass through.
+
+### 2. `mapSeries` / `mapSeriesSync`: remove dead error callbacks
+
+Under the locked `rethrow` a failed item throws before any callback can fire, so
+`onError`, `onFailure` and `onSourceError` were accepted and silently ignored.
+They are now rejected with a `TypeError` naming the offending key, in both call
+forms (the curried form fails at build time):
+
+```text
+mapSeries() rethrows on the first error; onError never fires — remove it or use
+series/seriesSync with a strategy
+```
+
+```diff
+-const rows = await mapSeries(items, fn, {
+-  onError: ({item, error}) => logger.error({item, error}),
+-})
++import {collect, mapSeries, series} from 'pipelean'
++
++// If you only wanted the array, drop the option:
++const rows = await mapSeries(items, fn)
++
++// If you need per-item telemetry, a failure is data: use series.
++const {results, errors} = await series(items, fn, {
++  strategy: collect,
++  onError: ({item, error}) => logger.error({item, error}),
++})
+```
+
+`take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and `signal` still pass
+through (`mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and
+`signal` with a `TypeError`, like every sync twin). A conflicting `strategy` is
+still rejected
+(`'... remove the "collect" strategy'`).
+
+`mapSeriesSync` also reports an async iterable with an explicit `TypeError`
+naming its async twin (`'mapSeriesSync() does not support async iterables; use
+mapSeries()'`) instead of a generic "not iterable".
+
+### 3. Codemod: `reduceSync(..., {strategy: rethrow}).value` → `foldSync`
+
+The new `no-fold-rethrow` rule (enabled at `warn` in `pipelean/eslint/config`)
+flags the value-extraction shape. The rewrite is textual and behavior-identical:
+
+```diff
+-import {reduceSync, rethrow} from 'pipelean'
+-const byId = reduceSync(rows, (acc, row) => ({...acc, [row.id]: row}), {}, {strategy: rethrow}).value
++import {foldSync} from 'pipelean'
++const byId = foldSync(rows, (acc, row) => ({...acc, [row.id]: row}), {})
+```
+
+More readably:
+
+```js
+// Before
+import {reduceSync, rethrow} from 'pipelean'
+
+const total = reduceSync(
+  tracks, (sum, {duration}) => sum + duration, 0, {strategy: rethrow},
+).value
+```
+
+```js
+// After
+import {foldSync} from 'pipelean'
+
+const total = foldSync(tracks, (sum, {duration}) => sum + duration, 0)
+```
+
+A `recover` in the same options object is **exempt**: there `onError`
+legitimately fires before the recovery seam, and `foldSync` would silently drop
+recovery. Keep `reduceSync` in that case. The rule is deliberately narrow:
+aliased imports and member calls are not detected.
+
+### 4. `enrichSync` async hooks are not observed
+
+`enrichSync` calls `onStepStart` / `onStepSuccess` fire-and-forget. Its hooks
+should be **synchronous**: an async hook's rejection is never observed by the
+strategy. A synchronous throw still flows into the strategy like a throwing
+operation.
+
+```diff
+-enrichSync(steps, {
+-  onStepStart: async ({operation}) => {
+-    await ui.markRunning(operation)   // rejection is lost
+-  },
+-})
++enrichSync(steps, {
++  onStepStart: ({operation}) => {
++    ui.markRunning(operation)         // fire-and-forget is fine
++  },
++})
+```
+
+If the hook must await, use `enrich` (async), which awaits both hooks.
+
+### Nothing else changes
+
+Strategy defaults, result shapes, the bug-vs-data litmus and the
+`undefined`-drops-the-item convention are unchanged. `rethrow` remains
+supported and recommended for async I/O; only *extracting a value* from a managed
+fold belongs on `foldSync` / `assertOk`. Release narrative:
+[NOTES_14_15](releases/NOTES_14_15.md).
+
 ## 0.14.0: `foldSync`, `mapSeries`, per-step `enrich` hooks
 
 Everything here is **additive**: no strategy default changes, no result-shape

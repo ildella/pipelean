@@ -62,14 +62,14 @@ const {results, errors, sourceErrors, failure} = await series(
 1. **`scan(iterable, scanner, initialValue, opts?)`**: Fold over **items**, keeping every intermediate accumulator. `scanner(acc, item, index)`. Default strategy `failFast` (which clears `results` on failure). Returns `{results, errors, sourceErrors, failure}`. No `onProgress`/`take`; supports `pause`, `pauseOnErrors`, `signal`, `recover`.
 2. **`reduce(iterable, scanner, initialValue, opts?)`**: Fold over **items**, final accumulator only: `{value, errors, sourceErrors, failure}`. Same engine and default strategy as `scan`. Supports `recover`. The `value` survives `failFast`: `reduce` has no `results` field, so only `scan`'s results array is cleared and the last successful accumulator is kept.
 3. **`foldSync(iterable, reducer, initialValue)`**: **Raw** sync fold. Returns the final accumulator directly; no options, no strategy, no report. A 4th argument, an async iterable or a non-function reducer is a `TypeError`. Throws the original error; `undefined` is a legal accumulator. Sync-only (like `findSync`); use `reduce` for async.
-4. **`mapSeries(items, fn, opts?)`** / **`mapSeriesSync`**: Sequential map with the strategy **locked to `rethrow`** and the report unwrapped: a bare array, or the original error thrown. Both call forms (`mapSeries(fn, opts?)` curries); every other option passes through. `undefined` drops the item (not `Array.prototype.map`), and the rethrow is silent (`onError` / `onFailure` are dead config). A conflicting `strategy` is a `TypeError`.
+4. **`mapSeries(items, fn, opts?)`** / **`mapSeriesSync`**: Sequential map with the strategy **locked to `rethrow`** and the report unwrapped: a bare array, or the original error thrown. Both call forms (`mapSeries(fn, opts?)` curries); every other option passes through (`mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and `signal` with a `TypeError`, like every sync twin). `undefined` drops the item (not `Array.prototype.map`). A conflicting `strategy` is a `TypeError`, and so is `onError` / `onFailure` / `onSourceError`: under `rethrow` they could never fire, so they are rejected with a `TypeError` naming the offending key rather than silently ignored. `mapSeriesSync` rejects an async iterable with a `TypeError` naming `mapSeries()`.
 5. **`filter(items, predicate, opts?)`** or **`filter(predicate, opts?)`**: Keep original items where predicate is truthy. Patterns via `where()`. Same opts as `series`.
 6. **`pipe(...fns)`**: Left-to-right composition. `undefined` short-circuits remaining steps (drop signal).
-7. **`enrich(operations, opts?)`**: Fold over **steps** for **one** input. It is `reduce` over the operations: `enrich(ops)(input) === reduce(ops, (s, op) => ({...s, ...op(s)}), input)`. Options are bound at `enrich(ops, opts)`, not at call time. Each `op(state)` returns an object patch (shallow-merged). Returns `(initialState) => Promise<{value, errors, failure}>`. Step hooks: `onStepStart({operation, index, total})` before the op, `onStepSuccess({operation, patch, index, total})` after validation+merge; errors stay on `onError` (no `onStepError`). `enrich` awaits hooks, `enrichSync` calls them fire-and-forget; a throwing hook flows into the strategy. Use `enrichSync` when everything is sync.
+7. **`enrich(operations, opts?)`**: Fold over **steps** for **one** input. It is `reduce` over the operations: `enrich(ops)(input) === reduce(ops, (s, op) => ({...s, ...op(s)}), input)`. Options are bound at `enrich(ops, opts)`, not at call time. Each `op(state)` returns an object patch (shallow-merged). Returns `(initialState) => Promise<{value, errors, failure}>`. Step hooks: `onStepStart({operation, index, total})` before the op, `onStepSuccess({operation, patch, index, total})` after validation+merge; errors stay on `onError` (no `onStepError`). `enrich` awaits hooks, `enrichSync` calls them fire-and-forget — its hooks must be **sync**, because an async hook's rejection is never observed by the strategy (a synchronous throw still is). A throwing hook flows into the strategy. Use `enrichSync` when everything is sync.
 8. **`join(tasks, opts?)`**: Fork/join over a record of **named** async tasks (not a collection). Every branch starts immediately; waits for all to settle. Returns `Promise<{value, errors, failure}>` where `value` maps successful branch names to their values and `errors` holds `{operation, error, index}` for failures (declaration order). `task(key, index)`, sync or async. Options: `strategy` (default `collect`), `onError`, `onFailure`. `failFast` behaves as `failLate` (branches cannot be stopped without an `AbortSignal`). For a concurrent map over a homogeneous collection use p-map, not `join`.
 9. **`retry(fn, {attempts, delay})`**: Retry on every throw. Defaults `{attempts: 3, delay: 0}`.
 10. **`tryCatch(fn, {onStart, onSuccess, onError, onFinally})`**: Single-function lifecycle. Returns `undefined` on error (the drop signal), so it short-circuits `pipe` and drops the item in `series`. A throwing (or rejecting) `onError` propagates instead — `onFinally` still runs, and the original error object can be augmented and rethrown.
-11. **`assertOk(result)`**: Guard an otherwise ignored outcome. Returns the same result when `failure` is falsy; throws `Error('pipelean: operation failed')` with `cause` (the underlying error, or the first error of a `failLate` aggregate) and `failure` when `failure` is truthy. Checks `failure`, not `errors`: `collect` / `skip` results pass through. Synchronous; works on async and sync results.
+11. **`assertOk(result)`**: Guard an otherwise ignored outcome. Returns the same result when `failure` is falsy; when `failure` is truthy it throws the **original** error — `failure.error`, or the first error of a `failLate` aggregate — with the structured failure attached as `error.failure`, so identity, message, stack and `instanceof` survive (attaching it mutates the thrown error). A primitive or frozen or otherwise non-extensible throw value cannot carry the property: it falls back to `Error('pipelean: operation failed', {cause})` with `.failure` attached. Checks `failure`, not `errors`: `collect` / `skip` results pass through. Synchronous; works on async and sync results.
 12. **`where(pattern)`**: Strict-equality object predicate. Used with `filter` / `findSync`.
 13. **`assign(property, parse)`**: `enrich` step. Sets `{[property]: value}` unless `parse(state)` is `undefined` (returns `{}`).
 14. **`stopWhen(items, predicate?)`** / **`stopWhenSync`**: Source adapter — stops pulling once the predicate `(item, index)` is truthy, checked before the item is yielded. Domain limits (`() => count >= limit`), content sentinels. Clean completion (`failure: false`, no sourceErrors), source cleanup still runs, predicate throws are source errors. Composes with every consumer: `series(fn, opts)(stopWhen(items, shouldStop))`. Not intra-item abort. **Lifecycle cancellation is `signal`**, not `stopWhen`; they compose.
@@ -122,11 +122,17 @@ Rules:
 | `strategy: collect` | whole run | record it, continue with the **previous** accumulator |
 | `tryCatch` | one function | swallow, return `undefined` (drop signal); a throwing `onError` propagates instead (augment-and-rethrow) |
 | `retry` | one function | retry the call, then rethrow |
-| `assertOk` | one finished result | throw when `failure` is truthy, preserving the `cause` |
+| `assertOk` | one finished result | throw the original error when `failure` is truthy, with `.failure` attached |
 
 **Anti-pattern rewrite**: `if (failure) throw failure.error` → `assertOk(result)`.
-The hand-roll throws `undefined` under `failLate` (the failure is `{errors}`) and
-reaches into a shape the library already knows how to unwrap.
+That hand-roll is what `assertOk` now does — plus the two parts it gets wrong:
+it picks `failure.errors[0].error` for a `failLate` aggregate, and it attaches
+`.failure`. Because the thrown value is the original error, existing `catch`
+clauses and `instanceof` checks keep working.
+
+The ESLint rule `no-fold-rethrow` flags the related smell,
+`reduceSync(items, reducer, initial, {strategy: rethrow})`, and points at
+`foldSync`; a `recover` in the options is exempt (managed telemetry).
 
 ## Which fold? (read this before writing state)
 
@@ -164,6 +170,6 @@ const {value, errors, failure} = await processAlbum(input)
 
 `enrich()` error shapes: `{operation, error, index}` (`operation` is `fn.name` or `operation-${index}`). `failLate` failure is `{errors}`.
 
-Per-step telemetry: `onStepStart({operation, index, total})` fires before the op, `onStepSuccess({operation, patch, index, total})` after the patch is validated and merged. Errors stay on `onError`; a throwing hook flows into the strategy. `enrich` awaits hooks, `enrichSync` does not.
+Per-step telemetry: `onStepStart({operation, index, total})` fires before the op, `onStepSuccess({operation, patch, index, total})` after the patch is validated and merged. Errors stay on `onError`; a throwing hook flows into the strategy. `enrich` awaits hooks, `enrichSync` does not — use sync hooks in `enrichSync`, since an async hook's rejection is unobserved.
 
 **Documentation**: [docs/reference.md](../../docs/reference.md) · [docs/patterns.md](../../docs/patterns.md) · [docs/guide.md](../../docs/guide.md)

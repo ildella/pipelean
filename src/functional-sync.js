@@ -229,9 +229,10 @@ export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
  *   validated and merged (`patch` is pre-merge).
  *
  * Unlike `enrich`, hooks are called fire-and-forget: their return value is not
- * awaited, consistent with the other sync callbacks. A hook that throws still
- * flows into the strategy like a throwing operation. Errors stay on `onError`;
- * there is no `onStepError`.
+ * awaited, consistent with the other sync callbacks. Use synchronous hooks — an
+ * async hook's rejection is never observed by the strategy (a synchronous throw
+ * is). A hook that throws still flows into the strategy like a throwing
+ * operation. Errors stay on `onError`; there is no `onStepError`.
  *
  * @param {Array<(state) => object>} operations
  * @param {{strategy?: StrategyFn, onError?, onFailure?, onStepStart?,

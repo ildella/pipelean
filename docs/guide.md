@@ -159,8 +159,13 @@ const {value} = assertOk(await reduce(items, scanner, initial))
 ```
 
 - falsy `failure`: returns the same result object;
-- truthy `failure`: throws `Error('pipelean: operation failed')` with the
-  underlying error as `cause` and the structured failure as `error.failure`.
+- truthy `failure`: throws the **original** error — `failure.error`, or the
+  first error of a `failLate` aggregate — with the structured failure attached
+  as `error.failure`. Identity, message, stack and `instanceof` survive; the
+  attachment mutates the thrown error.
+- a primitive throw value or a frozen / non-extensible error cannot carry the
+  property: `assertOk` falls back to
+  `Error('pipelean: operation failed', {cause})` with `.failure` attached.
 
 It asserts **no failure**, not "no errors": under `collect` / `skip`, `failure`
 is `false` even with entries in `errors`, so `assertOk` returns the result. Use
@@ -261,11 +266,16 @@ await parseAll(files)
 ```
 
 Every other option passes through (`take`, `total`, `onProgress`, `pause`,
-`signal`), so it is still a *sequential* map with progress and pacing. A
+`signal`), so it is still a *sequential* map with progress and pacing
+(`mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and `signal`
+with a `TypeError`, like every sync twin). A
 `strategy` other than `rethrow` / `'throw'` is a `TypeError` rather than a silent
-override. Two inherited behaviors matter: returning `undefined` **drops** the
-item (this is not `Array.prototype.map`), and under `rethrow` the failure throws
-before any callback, so `onError` / `onFailure` never fire.
+override, and `onError` / `onFailure` / `onSourceError` are rejected with a
+`TypeError` naming the offending key: under the locked `rethrow` they could never
+fire, so they are dead configuration. Two inherited behaviors matter: returning
+`undefined` **drops** the item (this is not `Array.prototype.map`), and a failure
+throws before any callback. `mapSeriesSync` rejects an async iterable with an
+explicit `TypeError` naming `mapSeries()`.
 
 Reach for plain `series` when a failure is data you want to collect; reach for
 `mapSeries` when a failure is a bug that must surface. An async fold keeps
@@ -411,9 +421,10 @@ const {value, errors, failure} = await processAlbum(input)
 Errors stay on `onError` — there is no `onStepError`. A hook that throws is a
 failed step and flows into the strategy like a throwing operation (so `failFast`
 stops later hooks, `collect` keeps going). `enrich` **awaits** its hooks;
-`enrichSync` calls them fire-and-forget, consistent with its other callbacks.
-Options bind at build time, and hooks fire on every run of the returned
-pipeline.
+`enrichSync` calls them fire-and-forget, consistent with its other callbacks, so
+its hooks must be **sync** — an async hook's rejection is never observed by the
+strategy (a synchronous throw still is). Options bind at build time, and hooks
+fire on every run of the returned pipeline.
 
 ##### Conditional property assignment with `assign`
 
