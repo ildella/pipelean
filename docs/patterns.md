@@ -42,7 +42,8 @@ job — can stop silently. `assertOk` is the guard for that gap:
 import {assertOk, failFast, series} from 'pipelean'
 
 const result = assertOk(await series(jobs, importJob, {strategy: failFast}))
-// truthy failure → throws with `cause` and `failure`; no failure → same object
+// truthy failure → throws the ORIGINAL error with `.failure` attached;
+// no failure → the same object, unchanged
 ```
 
 It checks `failure`, not `errors`: under `collect` / `skip`, errors are data by
@@ -69,12 +70,18 @@ import {assertOk, failLate, series} from 'pipelean'
 const result = assertOk(
   await series(jobs, importJob, {strategy: failLate}),
 )
-// throws Error('pipelean: operation failed') with cause = first failure's error,
-// and error.failure = the structured failure
+// throws the original first error with error.failure = {errors};
+// message, stack and instanceof of that error survive
 ```
 
 `assertOk` knows both failure shapes — `{item, error, index}` and `{errors}` —
-so it never throws `undefined`. Use it instead of reaching into
+so it never throws `undefined`. In 0.15 it does exactly what the hand-roll meant
+to do — `if (failure) throw failure.error` — plus the two parts the hand-roll
+gets wrong: it picks `failure.errors[0].error` for a `failLate` aggregate, and it
+attaches `.failure`. Because it throws the **original** error rather than a
+wrapper, existing `catch` clauses, message checks and `instanceof` branches keep
+working. Only primitive throw values (and frozen error objects) fall back to
+`Error('pipelean: operation failed', {cause})`. Use it instead of reaching into
 `failure.error`; if you need the value of a managed fold, `assertOk(result).value`
 is the documented way to get it.
 
@@ -183,7 +190,8 @@ const {value, errors, failure} = await processAlbum(input)
 never reports a step that did not actually apply. Errors stay on `onError` —
 there is no `onStepError`. A hook that throws flows into the strategy like a
 throwing step; with `failFast`, later hooks never fire. `enrichSync` has the same
-hooks, called fire-and-forget.
+hooks, called fire-and-forget — use synchronous hooks there, since an async
+hook's rejection is never observed by the strategy.
 
 ### Command boundary: the three `tryCatch` flavours
 
