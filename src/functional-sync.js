@@ -1,10 +1,12 @@
 /* eslint-disable max-lines */
 
-import {getPlannedTotal, parseCallArgs} from './shared.js'
+import {
+  assertRethrowStrategy, getPlannedTotal, parseCallArgs,
+} from './shared.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
 import {
-  collect, createRunState, failOnSource, settle, toResult,
+  collect, createRunState, failOnSource, rethrow, settle, toResult,
 } from './strategy.js'
 import {
   handleItemError, settleFoldError,
@@ -247,3 +249,103 @@ export const enrichSync = (operations, opts = {}) => {
 export const pipeSync = (...fns) => input =>
   fns.reduce((acc, fn) =>
     acc === undefined ? undefined : fn(acc), input)
+
+const isAsyncIterable = value =>
+  value !== null &&
+  value !== undefined &&
+  typeof value[Symbol.asyncIterator] === 'function'
+
+const assertFoldSyncArgs = (iterable, reducer, rest) => {
+  if (rest.length > 0)
+    throw new TypeError('foldSync() takes 3 arguments; it accepts no options')
+
+  if (typeof reducer !== 'function')
+    throw new TypeError('foldSync() requires a reducer function')
+
+  if (isAsyncIterable(iterable))
+    throw new TypeError(
+      'foldSync() does not support async iterables; use reduce()',
+    )
+
+  if (
+    iterable === null ||
+    iterable === undefined ||
+    typeof iterable[Symbol.iterator] !== 'function'
+  )
+    throw new TypeError('foldSync() requires a sync iterable')
+}
+
+/**
+ * Raw synchronous fold: no options, no strategy, no report.
+ *
+ * `foldSync` folds a sync iterable and returns the last accumulator directly.
+ * For a pure fold it is behavior-identical to
+ * `reduceSync(items, reducer, initial, {strategy: rethrow}).value`, with no
+ * result object to unwrap and no engine involved.
+ *
+ * The reducer is `(accumulator, item, index) => accumulator`. An error thrown
+ * by the reducer or by the iterable propagates unchanged — nothing wraps it.
+ * `undefined` is a legal accumulator: folds never drop.
+ *
+ * Sync only, like `findSync`: an async iterable is rejected with a `TypeError`
+ * pointing at `reduce()`. The reducer is not awaited either, so an async
+ * reducer produces a Promise accumulator — use `reduce()` for that.
+ *
+ * @param {Iterable} iterable - Sync source of values.
+ * @param {(accumulator, item, index) => any} reducer
+ * @param {*} initialValue
+ * @returns {*} The final accumulator.
+ */
+// eslint-disable-next-line max-params
+export const foldSync = (iterable, reducer, initialValue, ...rest) => {
+  assertFoldSyncArgs(iterable, reducer, rest)
+
+  let accumulator = initialValue
+  let index = 0
+
+  for (const item of iterable) {
+    accumulator = reducer(accumulator, item, index)
+    index++
+  }
+
+  return accumulator
+}
+
+/**
+ * Synchronous twin of `mapSeries`: sequential map, rethrow, bare array.
+ *
+ * `mapSeriesSync` is `seriesSync` with the strategy locked to `rethrow` and the
+ * report unwrapped: it returns `.results` or throws the ORIGINAL error. It
+ * accepts both call forms, like `seriesSync`:
+ *
+ * - `mapSeriesSync(items, fn, opts?)` runs immediately.
+ * - `mapSeriesSync(fn, opts?)` returns `items => Array`.
+ *
+ * Every other option passes through untouched (`take`, `total`, `onProgress`,
+ * …). A `strategy` other than `rethrow` / `'throw'` is a configuration mistake
+ * and is rejected with a `TypeError`.
+ *
+ * Two inherited behaviors matter:
+ *
+ * - A mapper returning `undefined` DROPS the item, so the result can be shorter
+ *   than the input. This is not `Array.prototype.map`.
+ * - Under `rethrow` a failed item throws before any callback, so `onError` and
+ *   `onFailure` never fire (dead configuration here, parity with
+ *   `seriesSync(..., {strategy: rethrow})`).
+ *
+ * @param {Iterable} items - Sync source of values.
+ * @param {(item, index) => any} fn - Sequential mapper.
+ * @param {{strategy?: 'throw'|StrategyFn, onProgress?, take?, total?}} opts
+ * @returns {Array|((items) => Array)}
+ */
+export const mapSeriesSync = (...args) => {
+  const {
+    immediate, items, fn, opts,
+  } = parseCallArgs(args)
+  assertRethrowStrategy(opts.strategy, 'mapSeriesSync')
+
+  const run = inputItems =>
+    seriesSync(inputItems, fn, {...opts, strategy: rethrow}).results
+
+  return immediate ? run(items) : run
+}

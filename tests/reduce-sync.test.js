@@ -29,7 +29,7 @@ test('empty iterable returns initial value', () => {
   expect(value).toBe(42)
 })
 
-test('failFast stops on error and returns no value', () => {
+test('failFast stops on error and preserves the last accumulator', () => {
   const onError = vi.fn()
   const onFailure = vi.fn()
 
