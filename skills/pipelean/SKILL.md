@@ -106,8 +106,10 @@ A rewrite is a behavior change until proven otherwise. Apply the full checklist:
 - **Match sync to sync:** a sync iterable takes the `*Sync` twin; `signal`,
   `pause` and `pauseOnErrors` on it are a `TypeError`. Its callbacks must be sync
   too — mapper, predicate, scanner, reducer, operation, hook and telemetry
-  (`onError`, `onFailure`, `onSourceError`, `onProgress`): a returned Promise is
-  a `TypeError` naming the async twin, never collected as data.
+  (`onError`, `onFailure`, `onSourceError`, `onProgress`): a returned thenable is
+  a fatal `TypeError` naming the async twin — it escapes the strategy, never
+  collected as data. Never pass an `async` callback to a `*Sync` combinator;
+  use the async twin.
 - **Prove the outcome is read.** Errors are data now: consume `errors` /
   `failure`, or guard with `assertOk` when a silent stop is unacceptable. Keep
   the original error identity for callers that match on message or
