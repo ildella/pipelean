@@ -1,6 +1,6 @@
 {
   "name": "pipelean",
-  "version": "0.15.1",
+  "version": "0.16.0",
   "description": "A pragmatic library for sequential async operations with first-class error handling.",
   "type": "module",
   "license": "MIT",
@@ -65,7 +65,7 @@
     "globals": "17.14.0",
     "jscpd": "5.4.3",
     "jsinspect-plus": "3.2.0",
-    "knip": "6.47.0",
+    "knip": "6.48.0",
     "typescript": "5.9.3",
     "vite": "8.3.8",
     "vitest": "5.1.1"

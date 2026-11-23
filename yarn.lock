@@ -2434,11 +2434,11 @@
         }
       }
     },
-    "knip@npm:6.47.0": {
-      "checksum": "f3aae1d843ec628288784392128bd24d2a50c724cc594c645b26e9b6025f71832a6c400e782479c8857d86ce9c6f46de1f3cb1934a2c93dbd238bc744eb87b72",
+    "knip@npm:6.48.0": {
+      "checksum": "2e3a3a1c72d9c97f8339566c844b763a6a3a52fe7391266e7dc07386c5cf8c9964fd8daa9af45a21725f05f391d1aa4f2a94904067563c1587f3015c5918c08a",
       "resolution": {
-        "resolution": "knip@npm:6.47.0",
-        "version": "6.47.0",
+        "resolution": "knip@npm:6.48.0",
+        "version": "6.48.0",
         "dependencies": {
           "formatly": "^0.11.4",
           "get-tsconfig": "4.14.3",
@@ -2997,7 +2997,7 @@
       "checksum": null,
       "resolution": {
         "resolution": "pipelean@workspace:pipelean",
-        "version": "0.15.1",
+        "version": "0.16.0",
         "dependencies": {
           "@eslint/compat": "2.1.1",
           "@eslint/js": "10.0.1",
@@ -3009,7 +3009,7 @@
           "globals": "17.14.0",
           "jscpd": "5.4.3",
           "jsinspect-plus": "3.2.0",
-          "knip": "6.47.0",
+          "knip": "6.48.0",
           "typescript": "5.9.3",
           "vite": "8.3.8",
           "vitest": "5.1.1"
