@@ -93,7 +93,7 @@ await filter(users, where({active: true}))  // keep matches, same report shape
 await mapSeries(files, parseFile)           // bare array, or the original error
 ```
 
-→ [guide](docs/guide.md#features) · [reference](docs/reference.md#iterators)
+→ [guide](docs/guide.md#independent-vs-dependent-operations) · [reference](docs/reference.md#iterators)
 
 ### Accumulation — `scan`, `reduce`, `foldSync`
 
@@ -129,7 +129,7 @@ const {value, errors, failure} = await processAlbum(input)
 `enrich` **is** a `reduce` over your operations. `assign(property, parse)`
 builds steps that set a property only when the parse is not `undefined`.
 
-→ [guide](docs/guide.md#stateful-accumulation-scan-reduce-enrich) · [reference](docs/reference.md#enrich)
+→ [guide](docs/guide.md#accumulation-vs-enrichment) · [reference](docs/reference.md#enrich)
 
 ### Composition & concurrency — `pipe`, `join`
 
@@ -144,7 +144,7 @@ const normalize = pipe(user => user.active ? user : undefined, user => user.emai
 const {value, errors} = await join({ping: () => pingHost(host), scan: () => scanPort(host, 443)})
 ```
 
-→ [guide](docs/guide.md#composition-pipe) · [reference](docs/reference.md#composition)
+→ [guide](docs/guide.md#pipeline-composition) · [reference](docs/reference.md#composition)
 
 ### Around the four models
 
@@ -236,19 +236,24 @@ Rules, the `no-fold-rethrow` codemod suggestion and its limits:
 
 ### Agent skills
 
-Pipelean ships **Skills** for AI assistants (Claude, Gemini CLI, Cursor, …):
+Pipelean ships an **Agent Skill** for AI assistants (Claude, Gemini CLI, Cursor,
+OpenCode, …):
 
 ```sh
-npx skills add https://github.com/ildella/pipelean/tree/master/skills
+npx skills add https://github.com/ildella/pipelean/tree/master/skills -g -y
 ```
 
-Installs `pipelean-core` and `pipelean-functional-programming`. With
-[skills-npm](https://github.com/antfu/skills-npm/): `yarn add -D skills-npm &&
-yarn skills-npm`.
+`-g` installs it globally (user-level, available in every project) and `-y`
+skips the prompts. Skills are symlinked into each detected agent by default; add
+`--copy` to copy files instead. Drop `-g` to install it into the current project
+only.
+
+With [skills-npm](https://github.com/antfu/skills-npm/): `yarn add -D skills-npm
+&& yarn skills-npm`.
 
 ## Next
 
-- [Guide](docs/guide.md) — learn the mental model: concepts, strategies, features.
+- [Guide](docs/guide.md) — learn the mental model, concept by concept.
 - [Reference](docs/reference.md) — full API contracts, for lookup.
 - [Examples](docs/examples.md) — practical examples for every function.
 - [Patterns](docs/patterns.md) — error-handling recipes, daemon loops.
