@@ -92,7 +92,9 @@ enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), in
 > `tryCatchSync` exist too. Same strategies and shapes, direct return instead of
 > a `Promise`. `foldSync` is the raw sync fold: no options, no report.
 > `signal`, `pause` and `pauseOnErrors` are async-only: passing them to a sync
-> variant throws a `TypeError`.
+> variant throws a `TypeError`. Callbacks must be sync too: a mapper, predicate,
+> scanner, reducer, operation, hook or wrapped function returning a Promise
+> throws a `TypeError` pointing at the async twin.
 
 ### When plain JavaScript is clearer
 
@@ -416,10 +418,10 @@ const {value, errors, failure} = await processAlbum(input)
 Errors stay on `onError` — there is no `onStepError`. A hook that throws is a
 failed step and flows into the strategy like a throwing operation (so `failFast`
 stops later hooks, `collect` keeps going). `enrich` **awaits** its hooks;
-`enrichSync` calls them fire-and-forget, consistent with its other callbacks, so
-its hooks must be **sync** — an async hook's rejection is never observed by the
-strategy (a synchronous throw still is). Options bind at build time, and hooks
-fire on every run of the returned pipeline.
+`enrichSync` requires **sync** hooks and operations — a returned Promise is
+rejected with a `TypeError` pointing at `enrich`, never silently ignored.
+Options bind at build time, and hooks fire on every run of the returned
+pipeline.
 
 #### Conditional property assignment with `assign`
 

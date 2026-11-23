@@ -733,7 +733,9 @@ unwrap.
 
 **Parameters**:
 - `iterable`: A **sync** iterable — array, `Set`, generator, any object with `Symbol.iterator`. An async iterable is rejected.
-- `reducer(accumulator, item, index)`: The fold function. It is **not awaited**: an async reducer produces a Promise accumulator.
+- `reducer(accumulator, item, index)`: The fold function. It must be
+  **synchronous**: a returned Promise is rejected with a `TypeError` pointing at
+  `reduce()`.
 - `initialValue`: The starting accumulator. `undefined` is a legal accumulator — folds never drop.
 
 **Returns**: the final accumulator, whatever type it is.
@@ -806,6 +808,8 @@ item satisfying the predicate. Sync-only — there is no async `find`.
 - `items`: A sync iterable
 - `predicate`: The same forms as [filterSync](#filtersync) — a function
   `(item, index) => truthy | falsy` or an object pattern via [where](#where).
+  An async predicate (a returned Promise) throws a `TypeError` pointing at
+  `filter()`.
 
 **Returns**: `{result, errors, sourceErrors, failure}`. `result` is the first
 matching item; when no item matches,
@@ -1201,11 +1205,9 @@ the returned function.
   operation — the same normalization as `onError`.
 - `patch` is the object the operation returned, **before** the merge. The other
   fields identify the step; `total` is `operations.length`.
-- Timing: `enrich` **awaits** both hooks before moving on; `enrichSync` calls
-  them and moves on (fire-and-forget), consistent with its other callbacks.
-  Hooks in `enrichSync` must be **sync**: the return value of an async hook is
-  not awaited, so a rejection is never observed by the strategy. A synchronous
-  throw still is.
+- Timing: `enrich` **awaits** both hooks before moving on; `enrichSync` requires
+  **sync** hooks: a returned Promise is rejected with a `TypeError` pointing at
+  `enrich`. A synchronous throw still flows into the strategy.
 - `onStepSuccess` fires only when the patch was valid and merged. A throwing
   operation, or an invalid patch (`null`, an array, a primitive), goes to
   `onError` and fires **no** success hook.
@@ -1235,9 +1237,9 @@ const {value, errors, failure} = await processAlbum(input)
 ```
 
 `enrichSync` accepts the same two options with the same payloads and the same
-strategy path; only the dispatch differs (sync, not awaited). Its hooks are
-fire-and-forget: use synchronous hooks, because an async hook's rejection is
-never observed by the strategy (a synchronous throw still is).
+strategy path; only the dispatch differs. Its operations and hooks must be
+**sync**: a returned Promise is rejected with a `TypeError` pointing at `enrich`
+(a synchronous throw still flows into the strategy).
 
 ---
 
@@ -1665,6 +1667,10 @@ want Pipelean's structured error collection.
 - **Not supported in sync variants**:
   - `signal`, `pause` and `pauseOnErrors`, because they depend on async waiting and timers. Passing any of them throws a `TypeError` — they are never silently ignored
   - async iterables, because sync variants use plain synchronous iteration
+  - async callbacks: a mapper, predicate, scanner, reducer, operation, hook or
+    wrapped function that returns a Promise is rejected with a `TypeError`
+    naming the async twin. The violation is fatal — it escapes the strategy and
+    is never collected as data
 - Source errors: same semantics as the async twins — see
   [Source errors](#source-errors).
 - `scanSync` and `reduceSync` also support the fold-only `recover` option. It
@@ -1683,7 +1689,8 @@ returning directly.
 **Default strategy**: `collect`
 
 **Caveats**: sync iterables only; `signal` / `pause` / `pauseOnErrors` throw a
-`TypeError`.
+`TypeError`. An async mapper (a returned Promise) throws a `TypeError` pointing
+at `series()`, even under `collect`.
 
 **Example**:
 ```javascript
@@ -1712,7 +1719,8 @@ truthy; same predicate forms (function or object pattern via `where`).
 **Default strategy**: `collect`
 
 **Caveats**: sync iterables only; async-only options rejected with a
-`TypeError`. For the first match with early exit use [findSync](#findsync).
+`TypeError`. An async predicate throws a `TypeError` pointing at `filter()`.
+For the first match with early exit use [findSync](#findsync).
 
 **Example**:
 ```javascript
@@ -1732,7 +1740,8 @@ Sync twin of [scan](#scan): fold keeping every intermediate accumulator.
 **Default strategy**: `failFast` (clears `results` on failure, as `scan`)
 
 **Caveats**: sync iterables only; async-only options rejected; `recover` must be
-synchronous (a thenable is a `TypeError`). No `onProgress` / `take`.
+synchronous (a thenable is a `TypeError`). An async scanner throws a `TypeError`
+pointing at `scan()`. No `onProgress` / `take`.
 
 **Example**:
 ```javascript
@@ -1753,7 +1762,8 @@ Sync twin of [reduce](#reduce): fold keeping the final accumulator.
 **Default strategy**: `failFast` (`value` survives, as `reduce`)
 
 **Caveats**: sync iterables only; async-only options rejected; `recover` must be
-synchronous. For a pure sync fold with no report, use [foldSync](#foldsync) —
+synchronous. An async scanner throws a `TypeError` pointing at `reduce()`.
+For a pure sync fold with no report, use [foldSync](#foldsync) —
 `reduceSync(items, reducer, initial, {strategy: rethrow}).value` is exactly
 `foldSync(items, reducer, initial)` (the `no-fold-rethrow` ESLint rule flags it).
 
@@ -1784,8 +1794,8 @@ original error.
   before iteration starts.
 - `pause`, `pauseOnErrors` and `signal` are rejected with a `TypeError`, like
   every sync twin.
-- Does not reject an async mapper: it is **not awaited**, so the returned
-  Promise is stored as the value.
+- An async mapper is rejected: a returned Promise throws a `TypeError` pointing
+  at `mapSeries()` — it is never stored as a value.
 - Same strategy lock and rejected error callbacks as [mapSeries](#mapseries);
   `undefined` still drops the item.
 
@@ -1805,7 +1815,8 @@ Sync twin of [pipe](#pipe): composes synchronous functions left-to-right.
 **Signature**: `pipeSync(...fns) => (input) => value`
 
 **Caveats**: same `undefined` short-circuit as `pipe`; no error capture. An
-async step is not awaited — its Promise flows as a value.
+async step is rejected: a returned Promise throws a `TypeError` pointing at
+`pipe()`.
 
 **Example**:
 ```javascript
@@ -1827,10 +1838,11 @@ shapes, and the same per-step hooks (`onStepStart` / `onStepSuccess`).
 
 **Default strategy**: `collect`
 
-**Caveats**: the hooks are called **fire-and-forget** rather than awaited, so
-they must be synchronous — an async hook's rejection is never observed by the
-strategy (a synchronous throw still is). Use it when your operations and inputs
-are synchronous.
+**Caveats**: operations and hooks must be **synchronous**. An operation or a
+hook that returns a Promise is rejected with a `TypeError` pointing at `enrich`
+— never silently merged as a no-op, never fire-and-forget. A synchronous throw
+still flows into the strategy. Use it when your operations and inputs are
+synchronous.
 
 **Example**:
 ```javascript
@@ -1858,6 +1870,10 @@ hooks (`onStart`, `onSuccess`, `onError`, `onFinally`).
 
 **Returns**: `undefined` on failure (the drop signal). A throwing `onError`
 propagates — same contract as `tryCatch`.
+
+**Caveats**: `fn` and every lifecycle callback must be synchronous; a returned
+Promise throws a `TypeError` pointing at `tryCatch()`. The violation escapes the
+wrapper's own error capture — it is never swallowed into the drop signal.
 
 **Example**:
 ```javascript

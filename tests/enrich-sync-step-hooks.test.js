@@ -58,22 +58,14 @@ test('payload shapes use the operation normalization and total', () => {
   ])
 })
 
-test('hooks are fire-and-forget, like the other sync callbacks', () => {
-  const order = []
+test('an async hook is rejected rather than fire-and-forget', () => {
+  const pipeline = enrichSync([() => ({a: 1})], {
+    onStepStart: async () => await undefined,
+    onStepSuccess: async () => await undefined,
+  })
 
-  const result = enrichSync([() => ({a: 1})], {
-    onStepStart: async () => {
-      await Promise.resolve()
-      order.push('start:async')
-    },
-    onStepSuccess: async () => {
-      await Promise.resolve()
-      order.push('success:async')
-    },
-  })({})
-
-  expect(result.value).toEqual({a: 1})
-  expect(order).toEqual([])
+  expect(() => pipeline({}))
+    .toThrow('enrichSync() onStepStart returned a Promise; use enrich()')
 })
 
 test('a failing step reports onError and no success hook', () => {

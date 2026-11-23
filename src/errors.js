@@ -1,4 +1,4 @@
-import {withTotal} from './shared.js'
+import {isSyncCallbackError, isThenable, withTotal} from './shared.js'
 import {failOnItem} from './strategy.js'
 
 // Item-error handling: report the error, then consult the strategy. Fold
@@ -6,7 +6,7 @@ import {failOnItem} from './strategy.js'
 // accumulator and, when it succeeds, consumes the error entirely.
 
 const itemErrorContext = (state, {item, error, index}) => {
-  if (state.strategyName === 'throw')
+  if (state.strategyName === 'throw' || isSyncCallbackError(error))
     throw error
 
   return {item, error, index}
@@ -34,9 +34,6 @@ const recoverContext = ({total}, {item, error, index}, state) =>
   withTotal({
     error, item, index, state,
   }, total)
-
-const isThenable = value =>
-  value !== null && typeof value?.then === 'function'
 
 const tryRecover = (plan, errorContext, state) => {
   notifyItemError(errorContext, plan)
@@ -91,6 +88,9 @@ export const handleItemErrorAsync = async (
 // A recovered error is consumed (a successful iteration); anything else is the
 // usual item error path, including a `recover` that throws.
 export const settleFoldError = (plan, errorContext, state) => {
+  if (isSyncCallbackError(errorContext.error))
+    throw errorContext.error
+
   if (!plan.recover) {
     return {
       recovered: false,

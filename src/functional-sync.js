@@ -1,8 +1,8 @@
 /* eslint-disable max-lines */
 
 import {
-  assertNoErrorCallbacks, assertRethrowStrategy, getPlannedTotal,
-  parseCallArgs,
+  assertNoErrorCallbacks, assertRethrowStrategy, assertSyncResult,
+  getPlannedTotal, isSyncCallbackError, parseCallArgs,
 } from './shared.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
@@ -45,6 +45,9 @@ const runSyncStrategy = ({
     if (stop)
       return stop
   } catch (error) {
+    if (isSyncCallbackError(error))
+      throw error
+
     const handled = failOnSource(state, {error, index})
     if (handled)
       return handled
@@ -59,19 +62,25 @@ export const tryCatchSync = (fn, {
   (...args) => {
     try {
       if (onStart)
-        onStart()
+        assertSyncResult(onStart(), 'tryCatchSync() onStart', 'tryCatch')
       const result = fn(...args)
+      assertSyncResult(result, 'tryCatchSync() fn', 'tryCatch')
       if (onSuccess)
-        onSuccess(result)
+        assertSyncResult(
+          onSuccess(result), 'tryCatchSync() onSuccess', 'tryCatch',
+        )
       return result
     } catch (error) {
+      if (isSyncCallbackError(error))
+        throw error
+
       if (onError)
-        onError(error)
+        assertSyncResult(onError(error), 'tryCatchSync() onError', 'tryCatch')
       // undefined is the library-wide drop signal (see tryCatch).
       return undefined
     } finally {
       if (onFinally)
-        onFinally()
+        assertSyncResult(onFinally(), 'tryCatchSync() onFinally', 'tryCatch')
     }
   }
 
@@ -85,6 +94,7 @@ export const seriesSync = (...args) => {
 
     const runFn = (item, index) => {
       const result = fn(item, index)
+      assertSyncResult(result, 'seriesSync() mapper', 'series')
       notifyProgress(plan, {item, result, index})
       return result
     }
@@ -118,6 +128,7 @@ export const filterSync = (...args) => {
 
   const transform = (item, index) => {
     const keep = predicate(item, index)
+    assertSyncResult(keep, 'filterSync() predicate', 'filter')
     return keep ? item : undefined
   }
 
@@ -149,7 +160,9 @@ export const findSync = (...args) => {
 
     const step = (item, index) => {
       try {
-        if (predicate(item, index)) {
+        const keep = predicate(item, index)
+        assertSyncResult(keep, 'findSync() predicate', 'filter')
+        if (keep) {
           found = item
           return {stop: true, result: toResult(state, settle(state))}
         }
@@ -173,6 +186,8 @@ export const findSync = (...args) => {
 const runScanSync = ({
   iterable, scanner, initialValue, opts = {}, keepPartials,
 }) => {
+  const api = keepPartials ? 'scanSync' : 'reduceSync'
+  const twin = keepPartials ? 'scan' : 'reduce'
   let acc = initialValue
   const plan = planFold(opts, {
     items: iterable,
@@ -190,7 +205,9 @@ const runScanSync = ({
     const state = acc
 
     try {
-      commit(scanner(acc, item, index))
+      const next = scanner(acc, item, index)
+      assertSyncResult(next, `${api}() scanner`, twin)
+      commit(next)
     } catch (error) {
       const settled = settleFoldError(plan, {item, error, index}, state)
       if (!settled.recovered)
@@ -228,11 +245,11 @@ export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
  * - `onStepSuccess({operation, patch, index, total})` after the patch is
  *   validated and merged (`patch` is pre-merge).
  *
- * Unlike `enrich`, hooks are called fire-and-forget: their return value is not
- * awaited, consistent with the other sync callbacks. Use synchronous hooks — an
- * async hook's rejection is never observed by the strategy (a synchronous throw
- * is). A hook that throws still flows into the strategy like a throwing
- * operation. Errors stay on `onError`; there is no `onStepError`.
+ * Operations and hooks must be synchronous: a returned Promise is rejected
+ * with a `TypeError` pointing at `enrich`, never silently ignored. A
+ * synchronous throw from an operation or a hook still flows into the strategy
+ * like a throwing operation. Errors stay on `onError`; there is no
+ * `onStepError`.
  *
  * @param {Array<(state) => object>} operations
  * @param {{strategy?: StrategyFn, onError?, onFailure?, onStepStart?,
@@ -247,10 +264,13 @@ export const enrichSync = (operations, opts = {}) => {
     opts,
     label: 'enrichSync',
     sync: true,
-    scannerFor: merge => (state, operation, index) =>
-      merge({
-        state, operation, index, patch: operation(state),
-      }),
+    scannerFor: merge => (state, operation, index) => {
+      const patch = operation(state)
+      assertSyncResult(patch, 'enrichSync() operation', 'enrich')
+      return merge({
+        state, operation, index, patch,
+      })
+    },
   })
 
   return initialState => {
@@ -263,8 +283,14 @@ export const enrichSync = (operations, opts = {}) => {
 }
 
 export const pipeSync = (...fns) => input =>
-  fns.reduce((acc, fn) =>
-    acc === undefined ? undefined : fn(acc), input)
+  fns.reduce((acc, fn) => {
+    if (acc === undefined)
+      return undefined
+
+    const result = fn(acc)
+    assertSyncResult(result, 'pipeSync() step', 'pipe')
+    return result
+  }, input)
 
 const isAsyncIterable = value =>
   value !== null &&
@@ -304,8 +330,8 @@ const assertFoldSyncArgs = (iterable, reducer, rest) => {
  * `undefined` is a legal accumulator: folds never drop.
  *
  * Sync only, like `findSync`: an async iterable is rejected with a `TypeError`
- * pointing at `reduce()`. The reducer is not awaited either, so an async
- * reducer produces a Promise accumulator — use `reduce()` for that.
+ * pointing at `reduce()`. The reducer must be synchronous too: a returned
+ * Promise is rejected with a `TypeError` pointing at `reduce()`.
  *
  * @param {Iterable} iterable - Sync source of values.
  * @param {(accumulator, item, index) => any} reducer
@@ -320,7 +346,9 @@ export const foldSync = (iterable, reducer, initialValue, ...rest) => {
   let index = 0
 
   for (const item of iterable) {
-    accumulator = reducer(accumulator, item, index)
+    const next = reducer(accumulator, item, index)
+    assertSyncResult(next, 'foldSync() reducer', 'reduce')
+    accumulator = next
     index++
   }
 
@@ -350,7 +378,7 @@ export const foldSync = (iterable, reducer, initialValue, ...rest) => {
  *   rejected with a `TypeError` instead of being silently ignored.
  *
  * Sync only, like `foldSync`: an async iterable is rejected with a `TypeError`
- * pointing at `mapSeries()`.
+ * pointing at `mapSeries()`, and so is a mapper that returns a Promise.
  *
  * @param {Iterable} items - Sync source of values.
  * @param {(item, index) => any} fn - Sequential mapper.
@@ -370,7 +398,13 @@ export const mapSeriesSync = (...args) => {
         'mapSeriesSync() does not support async iterables; use mapSeries()',
       )
 
-    return seriesSync(inputItems, fn, {...opts, strategy: rethrow}).results
+    const mapper = (item, index) => {
+      const result = fn(item, index)
+      assertSyncResult(result, 'mapSeriesSync() mapper', 'mapSeries')
+      return result
+    }
+
+    return seriesSync(inputItems, mapper, {...opts, strategy: rethrow}).results
   }
 
   return immediate ? run(items) : run

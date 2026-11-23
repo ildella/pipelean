@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 
 import {
-  assertNoErrorCallbacks, assertRethrowStrategy, parseCallArgs,
+  assertNoErrorCallbacks, assertRethrowStrategy, isThenable, parseCallArgs,
 } from './shared.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
@@ -70,11 +70,6 @@ const failureCause = failure =>
   Array.isArray(failure.errors)
     ? failure.errors[0]?.error
     : failure.error
-
-const isThenable = value =>
-  value !== null &&
-  (typeof value === 'object' || typeof value === 'function') &&
-  typeof value.then === 'function'
 
 const isExtensibleObject = value =>
   value !== null &&

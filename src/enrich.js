@@ -1,3 +1,4 @@
+import {assertSyncResult} from './shared.js'
 import {
   collect, normalizeFailure, normalizeOperationError,
 } from './strategy.js'
@@ -56,7 +57,9 @@ const wrapStepStart = (name, {
 
   if (sync) {
     return withName(name, state => {
-      onStepStart(context)
+      assertSyncResult(
+        onStepStart(context), 'enrichSync() onStepStart', 'enrich',
+      )
       return operation(state)
     })
   }
@@ -68,7 +71,9 @@ const wrapStepStart = (name, {
 }
 
 const notifySuccessSync = (onStepSuccess, context, merged) => {
-  onStepSuccess(context)
+  assertSyncResult(
+    onStepSuccess(context), 'enrichSync() onStepSuccess', 'enrich',
+  )
   return merged
 }
 
@@ -118,7 +123,7 @@ const finishEnrich = result => ({
  *
  * `scannerFor` is the only coloured part: each twin passes its own sync/async
  * scanner builder, everything else is shared. `sync` selects how the step hooks
- * are dispatched: awaited by `enrich`, fire-and-forget by `enrichSync`.
+ * are dispatched: awaited by `enrich`, sync-checked by `enrichSync`.
  *
  * @param {{
  *  operations: Array<(state) => object>,

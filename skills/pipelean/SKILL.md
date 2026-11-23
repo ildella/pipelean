@@ -101,7 +101,9 @@ A rewrite is a behavior change until proven otherwise. Apply the full checklist:
 - **Source errors are separate** (`sourceErrors` / `onSourceError`), not item
   errors, and bypass `recover`.
 - **Match sync to sync:** a sync iterable takes the `*Sync` twin; `signal`,
-  `pause` and `pauseOnErrors` on it are a `TypeError`.
+  `pause` and `pauseOnErrors` on it are a `TypeError`. Its callbacks must be sync
+  too: a returned Promise is a `TypeError` naming the async twin, never collected
+  as data.
 - **Prove the outcome is read.** Errors are data now: consume `errors` /
   `failure`, or guard with `assertOk` when a silent stop is unacceptable. Keep
   the original error identity for callers that match on message or

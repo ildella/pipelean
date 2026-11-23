@@ -16,6 +16,27 @@ export const getPlannedTotal = ({items, take, total}) => {
 export const withTotal = (payload, total) =>
   total === undefined ? payload : {...payload, total}
 
+export const isThenable = value =>
+  value !== null &&
+  (typeof value === 'object' || typeof value === 'function') &&
+  typeof value.then === 'function'
+
+const SYNC_CALLBACK = Symbol('syncCallback')
+
+export const assertSyncResult = (value, subject, twin) => {
+  if (!isThenable(value))
+    return
+
+  const error = new TypeError(
+    `${subject} returned a Promise; use ${twin}()`,
+  )
+  error[SYNC_CALLBACK] = true
+  throw error
+}
+
+export const isSyncCallbackError = error =>
+  Boolean(error) && error[SYNC_CALLBACK] === true
+
 // mapSeries() and mapSeriesSync() force `rethrow`, so an explicit conflicting
 // strategy is a configuration mistake, never something to silently override.
 export const assertRethrowStrategy = (strategy, label) => {

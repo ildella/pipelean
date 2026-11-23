@@ -103,6 +103,11 @@ test('rejects an async iterable and points at reduce()', () => {
     .toThrow(/reduce\(\)/)
 })
 
+test('rejects an async reducer and points at reduce()', () => {
+  expect(() => foldSync([1, 2], async (acc, item) => await acc + item, 0))
+    .toThrow('foldSync() reducer returned a Promise; use reduce()')
+})
+
 test('rejects a non-iterable input', () => {
   expect(() => foldSync(42, (acc, item) => acc + item, 0)).toThrow(TypeError)
 })

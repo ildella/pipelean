@@ -2,6 +2,41 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.16.0: sync callbacks must be synchronous
+
+0.16 makes the sync/async split explicit at the callback boundary: a sync
+combinator rejects a callback that returns a Promise. Before, the Promise was
+silently kept as a value (a mapper), treated as truthy (a predicate), spread as
+an empty no-op patch (an `enrichSync` operation), or left unobserved (a hook).
+Now every such case throws a `TypeError` naming the async twin. The violation is
+fatal: it escapes the strategy and is never collected as data, even under
+`collect`.
+
+Affected callbacks:
+
+- `seriesSync` / `mapSeriesSync` mapper → use `series` / `mapSeries`.
+- `filterSync` / `findSync` predicate → use `filter`.
+- `scanSync` / `reduceSync` scanner → use `scan` / `reduce`.
+- `foldSync` reducer → use `reduce`.
+- `enrichSync` operation and `onStepStart` / `onStepSuccess` hooks → use `enrich`.
+- `pipeSync` step → use `pipe`.
+- `tryCatchSync` `fn`, `onStart`, `onSuccess`, `onError`, `onFinally` → use
+  `tryCatch`.
+
+```js
+// Before (0.15): silently returned [Promise, Promise]
+mapSeriesSync(items, async item => await load(item))
+
+// After (0.16): TypeError — use the async twin
+await mapSeries(items, async item => await load(item))
+```
+
+The `enrichSync` hooks were documented as fire-and-forget in 0.15; that
+documentation is replaced by the rejection. A synchronous throw from any
+callback still flows into the strategy unchanged. If a sync pipeline genuinely
+needs to carry a Promise as data, wrap it in an object (`{promise}`) — the guard
+only rejects a bare thenable result.
+
 ## 0.15.1: `no-fold-rethrow` suggestion fixer
 
 No behavior changes; no migration required. The `no-fold-rethrow` rule gained an
