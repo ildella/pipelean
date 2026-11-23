@@ -87,6 +87,11 @@ export const tryCatchSync = (fn, {
 // Shared by seriesSync, filterSync and mapSeriesSync: the label carries the
 // public api the run was started from, so error and telemetry messages name
 // that api (and its async twin) instead of an internal delegation target.
+//
+// Guard ownership: a value is inspected only where a USER callback produced
+// it, never where this engine merely passes it through. filterSync's internal
+// transform returns the item unchanged, so thenable ITEMS must flow as data.
+// Each entry point guards its own callback before delegating here.
 const runSeriesSync = ({
   items, fn, opts, label,
 }) => {
@@ -94,7 +99,6 @@ const runSeriesSync = ({
 
   const runFn = (item, index) => {
     const result = fn(item, index)
-    assertSyncCallback(label, 'mapper', result)
     assertSyncCallback(
       label, 'onProgress', notifyProgress(plan, {item, result, index}),
     )
@@ -120,13 +124,18 @@ const runSeriesSync = ({
   })
 }
 
+// The mapper is a user callback, so its result is guarded at the boundary that
+// owns it; the shared engine must not re-inspect what it is handed.
+const guardMapper = fn => (item, index) =>
+  assertSyncCallback('seriesSync', 'mapper', fn(item, index))
+
 export const seriesSync = (...args) => {
   const {
     immediate, items, fn, opts,
   } = parseCallArgs(args)
 
   const run = inputItems => runSeriesSync({
-    items: inputItems, fn, opts, label: 'seriesSync',
+    items: inputItems, fn: guardMapper(fn), opts, label: 'seriesSync',
   })
 
   return immediate ? run(items) : run
@@ -415,11 +424,10 @@ export const mapSeriesSync = (...args) => {
         'mapSeriesSync() does not support async iterables; use mapSeries()',
       )
 
-    const mapper = (item, index) => {
-      const result = fn(item, index)
-      assertSyncResult(result, 'mapSeriesSync() mapper', 'mapSeries')
-      return result
-    }
+    // The only mapper guard: mapSeriesSync owns the user callback, so the
+    // shared engine does not guard it a second time.
+    const mapper = (item, index) =>
+      assertSyncCallback('mapSeriesSync', 'mapper', fn(item, index))
 
     return runSeriesSync({
       items: inputItems,

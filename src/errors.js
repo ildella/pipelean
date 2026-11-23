@@ -1,5 +1,6 @@
 import {
-  assertSyncCallback, isSyncCallbackError, isThenable, withTotal,
+  assertSyncCallback, isSyncCallbackError, isThenable, observeThenable,
+  withTotal,
 } from './shared.js'
 import {failOnItem} from './strategy.js'
 
@@ -45,8 +46,10 @@ const tryRecover = (plan, errorContext, state) => {
 
   try {
     const next = plan.recover(recoverContext(plan, errorContext, state))
-    if (isThenable(next))
+    if (isThenable(next)) {
+      observeThenable(next)
       throw new TypeError('recover must be synchronous in sync folds')
+    }
 
     return {ok: true, acc: next}
   } catch (error) {

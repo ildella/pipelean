@@ -343,8 +343,9 @@ returned Promise is a fatal `TypeError` naming the async twin, telemetry
 callbacks included. The async combinators are unchanged: `onError` and
 `onProgress` stay awaited, `onFailure` and `onSourceError` dispatch as before.
 
-**A callback that throws.** Telemetry is not a trust boundary, so a throw is
-never dropped on the iteration path:
+**A callback that throws.** Telemetry is not a trust boundary, so the dispatch
+never catches a throw — where it lands depends on the callback, and under
+`skip` it can still be discarded by the strategy:
 
 - A throwing `onProgress` fails the current item: it flows into the active
   strategy like a mapper error (`collect` records it and keeps iterating,
@@ -355,8 +356,16 @@ never dropped on the iteration path:
   original item error is displaced and later items are not attempted. Under
   `skip`, which ignores source errors by contract, the run still stops but the
   throw is not reported. Under `rethrow` `onError` never runs.
-- `onFailure` and `onSourceError` are not wrapped: a throw propagates to the
-  caller — the async run rejects, the sync run throws.
+- `onSourceError` is not wrapped: a throw propagates to the caller — the async
+  run rejects, the sync run throws.
+- `onFailure` is not wrapped either, but under `failFast` it runs inside the
+  strategy, so its first throw is reclassified as a source error and
+  `onFailure` is called again with that context: a throw-once `onFailure` fires
+  **twice** and the run can resolve normally, with the telemetry error in
+  `sourceErrors` and as `failure` (the original item error is displaced). Only
+  if the second call also throws does the run reject (async) or throw (sync).
+  Under `failLate`, `onFailure` runs once at settle, outside iteration, so a
+  throw propagates as described for `onSourceError`.
 
 The sync twins behave identically for a synchronous throw; the sync policy only
 adds that a callback returning a Promise is a fatal `TypeError` naming the async
@@ -395,6 +404,9 @@ Optional callback for application-layer error handling (UI updates, notification
   - `failFast`: called with `{item, error, index}`
   - `failLate`: called with `{errors}`
   - `collect` / `skip`: NOT called (failure is false)
+- A throw follows the strategy: under `failFast` it can fire a second time
+  with the telemetry error as context (see
+  [A callback that throws](#callbacks))
 
 ```javascript
 await series(items, fn, {
@@ -452,13 +464,13 @@ executable version of the same statement.
 
 | # | Guarantee | Docs | Pinned by |
 |---|---|---|---|
-| 1 | No failure disappears: every handled error is recorded in `errors`, `sourceErrors` or `failure`, or thrown under `rethrow`. | [The error model](../README.md#the-error-model), [errors as data](guide.md#errors-as-data-vs-errors-as-exceptions), [error strategies](#error-strategies) | `tests/error-strategies.test.js`, `tests/assert-ok.test.js` |
+| 1 | Every handled error is accounted for: recorded in `errors`, `sourceErrors` or `failure`, or thrown under `rethrow` — except under `skip`, which records nothing (a telemetry throw there can stop the run unreported). | [The error model](../README.md#the-error-model), [errors as data](guide.md#errors-as-data-vs-errors-as-exceptions), [error strategies](#error-strategies), [#skip](#skip), [A callback that throws](#callbacks) | `tests/error-strategies.test.js`, `tests/assert-ok.test.js`, `tests/telemetry-throw-edge.test.js` |
 | 2 | Flow stops exactly where the strategy says, plus the explicit `stopWhen` / `take` conditions. | [#failfast](#failfast), [#collect](#collect), [#faillate](#faillate), [#skip](#skip), [#stopwhen](#stopwhen), [pacing](guide.md#pacing-and-cancellation-all-iterators) | `tests/series.test.js`, `tests/series-sync.test.js`, `tests/stop-when.test.js`, `tests/stop-when-sync.test.js` |
 | 3 | Partial results are kept: completed items and accumulators survive a later failure. | [#series](#series), [#scan](#scan), [#reduce](#reduce), [#enrich](#enrich), [accumulation](guide.md#accumulation-vs-enrichment) | `tests/series.test.js`, `tests/reduce.test.js`, `tests/reduce-sync.test.js`, `tests/scan-sync.test.js`, `tests/enrich-error-strategies.test.js` |
 | 4 | Callbacks run when documented: `onError` per handled item error, `onProgress` per kept success, `onFailure` on a truthy failure, `onSourceError` per dead source. | [#callbacks](#callbacks), [#recover](#recover), [sync rules](#sync-variants) | `tests/enrich-callbacks.test.js`, `tests/enrich-step-hooks.test.js`, `tests/onFailure.test.js`, `tests/recover.test.js`, `tests/sync-telemetry-policy.test.js`, `tests/try-catch-lifecycle-await.test.js` |
 | 5 | A source fails independently of the mapper: its error is reported separately and terminates iteration under every strategy. | [#source-errors](#source-errors), [#onsourceerror](#onsourceerror), [source errors](guide.md#source-errors) | `tests/source-errors.test.js`, `tests/source-errors-sync.test.js` |
 | 6 | Cancellation is clean: an abort stops between items, keeps completed results and adds no failure. | [#cancellation-with-signal](#cancellation-with-signal), [pacing](guide.md#pacing-and-cancellation-all-iterators) | `tests/signal.test.js` |
-| 7 | A callback that throws is surfaced, never swallowed: telemetry throws follow the strategy rules in [Callbacks](#callbacks), `onFailure` / `onSourceError` propagate, and a sync callback returning a Promise is a fatal `TypeError`. | [#callbacks](#callbacks), [#trycatch](#trycatch), [#trycatchsync](#trycatchsync) | `tests/try-catch.test.js`, `tests/try-catch-sync.test.js`, `tests/try-catch-lifecycle-await.test.js`, `tests/sync-callback-cross-seam.test.js`, `tests/telemetry-callback-throw.test.js` |
+| 7 | Callback throws are classified: `onProgress` fails the current item, `onError` becomes a source error (unreported under `skip`), `onFailure` may fire twice under `failFast`, `onSourceError` propagates, and a sync callback returning a Promise is a fatal `TypeError`. | [#callbacks](#callbacks), [#trycatch](#trycatch), [#trycatchsync](#trycatchsync) | `tests/try-catch.test.js`, `tests/try-catch-sync.test.js`, `tests/try-catch-lifecycle-await.test.js`, `tests/sync-callback-cross-seam.test.js`, `tests/telemetry-callback-throw.test.js`, `tests/telemetry-throw-edge.test.js` |
 | 8 | A sync function never receives an async value silently: an async callback on a `*Sync` API is a fatal `TypeError` naming the async twin. | [#sync-variants](#sync-variants), [picking a tool](guide.md#picking-a-tool), [sync variants](../README.md#around-the-four-models) | `tests/sync-callback-policy.test.js`, `tests/sync-telemetry-policy.test.js`, `tests/sync-callback-cross-seam.test.js` |
 | 9 | Defaults are part of the contract: `collect` for `series` / `filter` / `enrich` / `join`, `failFast` for `scan` / `reduce`; a change is a documented breaking change. | [default column](#how-to-choose), [defaults](guide.md#defaults) | `tests/reduce.test.js`, `tests/reduce-sync.test.js`, `tests/enrich.test.js`, `tests/join-error-strategies.test.js`, `tests/filter.test.js` |
 
@@ -1074,7 +1086,13 @@ scanner had returned it.
 
 **Validation**: `recover` must be a function. A non-function throws a
 `TypeError` before iteration starts. In the sync folds `recover` must be
-synchronous: a returned thenable is rejected with a `TypeError`.
+synchronous: a returned thenable becomes the recover error, a `TypeError`
+handled by the active strategy (under `collect` it lands in `errors`,
+`failFast` makes it the `failure`, `skip` ignores it, `rethrow` throws it) —
+it is not a fatal policy violation. The original scanner error has already
+passed `onError`, so both errors are reported for that item. A thenable-shaped
+**accumulator** is different: the scanner result is guarded, so it is a fatal
+`TypeError` (see [sync rules](#sync-variants)).
 
 **Example**:
 ```javascript
@@ -1791,6 +1809,11 @@ want Pipelean's structured error collection.
     `collect` / `failLate`, `failure` under `failFast`, nothing recorded under
     `skip` — or `rethrow` throws it. A synchronous throw from the same callback
     still flows into the strategy
+- Thenable-shaped **data** trips the same guard when it is a callback's direct
+  return value: an `enrichSync` patch or a fold accumulator carrying a `.then`
+  method is rejected as if it were a Promise. Nest it one level
+  (`{payload: {then…}}`) to carry it as data — the guard cannot tell an
+  intended promise field from an async callback
 - Source errors: same semantics as the async twins — see
   [Source errors](#source-errors).
 - `scanSync` and `reduceSync` also support the fold-only `recover` option. It

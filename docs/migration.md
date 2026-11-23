@@ -50,7 +50,10 @@ combinators: an async telemetry callback is a configuration error, not a
 fire-and-forget call. A synchronous throw from any callback still flows into
 the strategy unchanged. If a sync pipeline genuinely needs to carry a Promise
 as data, wrap it in an object (`{promise}`) — the guard only rejects a bare
-thenable result.
+thenable result. Thenable-shaped **data** hits the same guard when it is the
+callback's direct return value: an `enrichSync` patch or a fold accumulator
+carrying a `.then` method is rejected as a Promise. Nest the value to carry it
+as data, for example `{payload: {then…}}`.
 
 ### Deprecated: `fail` and `stopOnError`
 

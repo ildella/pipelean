@@ -23,20 +23,30 @@ export const isThenable = value =>
 
 const SYNC_CALLBACK = Symbol('syncCallback')
 
-// Swallows the rejection of a thenable `assertSyncResult` is abandoning.
+// Swallows the rejection of a thenable a sync guard is abandoning.
 const ignoreRejection = () => undefined
+
+// A thenable we refuse (a sync combinator saw a Promise) still settles later.
+// With nobody listening, a rejection surfaces as an unhandled one: under Node
+// that kills the process with a second, unrelated error while we throw.
+// Observe it, and observe what `then` hands back too: some custom thenables
+// return a rejected promise instead of routing the rejection through `reject`.
+export const observeThenable = value => {
+  try {
+    const settled = value.then(undefined, ignoreRejection)
+
+    if (isThenable(settled))
+      settled.then(undefined, ignoreRejection)
+  } catch {
+    // A thenable whose `then` throws synchronously has nothing to observe.
+  }
+}
 
 export const assertSyncResult = (value, subject, twin) => {
   if (!isThenable(value))
     return
 
-  // Observe the abandoned thenable: otherwise a rejection crashes the
-  // process with a second, unrelated error while we throw the TypeError.
-  try {
-    value.then(undefined, ignoreRejection)
-  } catch {
-    // A thenable whose `then` throws synchronously has nothing to observe.
-  }
+  observeThenable(value)
 
   const error = new TypeError(
     `${subject} returned a Promise; use ${twin}()`,
