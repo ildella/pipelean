@@ -55,12 +55,12 @@ Outside the table:
 
 ### Which fold?
 
-| tool | folds | keeps | returns |
-|---|---|---|---|
-| `foldSync` | items, sync, raw | the final value | the value (any throw propagates) |
-| `reduce` | items | the final value | `{value, errors, sourceErrors, failure}` |
-| `scan` | items | every intermediate | `{results, errors, sourceErrors, failure}` |
-| `enrich` | steps (one input) | the final state | `{value, errors, failure}` |
+`foldSync` is the raw sync fold over items: it keeps the final value and returns
+it directly, so any throw propagates. `reduce` keeps the final value as a
+managed report; `scan` keeps every intermediate in `results`; `enrich` folds
+over the **steps** of one input and keeps the final state. The full comparison —
+inputs, outputs, defaults — is the matrix in
+[How to choose](reference.md#how-to-choose).
 
 `scan` and `reduce` are one engine with two result shapes. `enrich` is a `reduce`
 over **operations** rather than items:
@@ -71,20 +71,14 @@ enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), in
 
 ### Picking a tool
 
-1. `series` — many items, Stateless transformation
-2. `filter` — many items, selection (keep/drop)
-3. `scan` — many items, stateful fold, every intermediate result
-4. `reduce` — many items, stateful fold, final value only
-5. `foldSync` — many items, pure sync fold, the value itself (raw)
-6. `pipe` — one item, composition of value-in/value-out steps
-7. `enrich` — one item, stateful accumulation of object patches
-8. `mapSeries` / `mapSeriesSync` — many items, sequential map, throw on failure
-9. `join` — named concurrent tasks, one structured outcome
-10. `stopWhen` / `forever` — source adapters (predicate stop, unbounded ticks)
-11. `signal` — cancellation option on every async iterator
-12. `assign` — helper for building `enrich` steps
-13. `where`, `findSync` — search helpers
-14. `assertOk` — guard a result whose failure would otherwise be ignored
+The comparative table lives in the reference:
+[How to choose](reference.md#how-to-choose) lists every public combinator and
+source adapter, sync twins included, with its model (items, steps, value,
+tasks, source), input, output, default strategy and `undefined` handling. Read
+it when you are choosing between two APIs; the chapters below explain the mental
+model behind it, and [Errors as data vs errors as
+exceptions](#errors-as-data-vs-errors-as-exceptions) explains the strategy
+column.
 
 > **Sync variants** — the iteration functions also have synchronous
 > counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`,
@@ -502,7 +496,7 @@ inspect a structured result instead of writing consumer-side `try/catch`.
 All iteration functions (`series`, `filter`, `scan`, `reduce`) support five error
 strategies:
 
-**failFast** (aliases: `fail`, `stopOnError`)
+**failFast** (aliases: `fail`, `stopOnError` — deprecated in 0.16, removal planned for 0.18; use `failFast`)
 - Sets `failure: {item, error, index}` on first error
 - Calls `onError({item, error, index, total})`, then `onFailure({item, error, index})` immediately
 - Stops iteration; results array is empty on failure
@@ -702,7 +696,9 @@ A service loop that survives failed rounds — `forever()` + `signal` + `recover
 7. **Patches are shallow-merged in `enrich()`**: top-level keys are overwritten;
    nested objects are not deep-merged. Return `{}` (not `undefined`) for a no-op.
 8. **`undefined` is the drop signal** in `series`, `filter`, `pipe`, `mapSeries`
-   and `mapSeriesSync`; it is not a valid value to map to.
+   and `mapSeriesSync`; it is not a valid value to map to. In `enrich` it is the
+   opposite — an invalid patch — so return `{}` for a no-op. Full rule:
+   [the `undefined` sentinel](reference.md#the-undefined-sentinel).
 9. **Bug or data?** A thrown error that means "this cannot happen" belongs in
    `foldSync`, `mapSeries` / `mapSeriesSync`, or `rethrow`. A thrown error that
    means "this record is bad" is data: use `reduce` / `scan` / `series` with a

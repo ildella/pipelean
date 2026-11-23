@@ -56,14 +56,16 @@ native code is clearer. "This is a `forEach`" is not a reason.
 
 Fold over **items** → `scan` / `reduce` / `foldSync`. Fold over **steps** of one
 input → `enrich`. Many items with a concurrent map over a homogeneous
-collection: p-map, not `join`.
-→ [Picking a tool](node_modules/pipelean/docs/guide.md#picking-a-tool) ·
-[How to choose](node_modules/pipelean/docs/reference.md#how-to-choose)
+collection: p-map, not `join`. This table routes the common cases; for every
+combinator and source adapter — sync twins included, with input, output, default
+strategy and `undefined` handling — the single comparison is
+[How to choose](node_modules/pipelean/docs/reference.md#how-to-choose).
 
 ## 3. Consult only what you need
 
 | You need | Read |
 |---|---|
+| Which API fits this shape | [reference: how to choose](node_modules/pipelean/docs/reference.md#how-to-choose) |
 | `series`, `filter`, `findSync`, `mapSeries` and their options | [reference: iterators](node_modules/pipelean/docs/reference.md#iterators) |
 | `scan`, `reduce`, `foldSync`, `recover` | [reference: folds](node_modules/pipelean/docs/reference.md#scan) |
 | `enrich`, `assign`, per-step hooks | [reference: enrich](node_modules/pipelean/docs/reference.md#enrich) |
@@ -93,7 +95,8 @@ A rewrite is a behavior change until proven otherwise. Apply the full checklist:
 - **`undefined` is the drop sentinel** in `series`, `filter`, `pipe`,
   `mapSeries`: `mapSeries` is not `Array.prototype.map`, and a loop that
   legitimately yielded `undefined` loses items. In `enrich`, `undefined` is an
-  error — return `{}` for a no-op.
+  error — return `{}` for a no-op. The authoritative rule:
+  [the `undefined` sentinel](node_modules/pipelean/docs/reference.md#the-undefined-sentinel).
 - **Cancellation has two seams.** `signal` stops between items and during
   `pause`; it never interrupts the in-flight mapper. Domain bounds ("stop after
   N", sentinel reached) are `stopWhen` on the source. Neither is a `break` in

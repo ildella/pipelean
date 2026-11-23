@@ -29,12 +29,14 @@ For the mental model see the [guide](guide.md); for recipes see
 
 ## Table of Contents
 
-- [How to choose](#how-to-choose) — the decision matrix
+- [How to choose](#how-to-choose) — the unified selection matrix
 - [Result shapes](#result-shapes) — what each function returns
+- [Contract guarantees](#contract-guarantees) — the nine promises, with docs and tests
 
 ### Error strategies
 
-- [failFast](#failfast) — stop on first error (aliases: `fail`, `stopOnError`)
+- [failFast](#failfast) — stop on first error (aliases `fail`, `stopOnError`,
+  deprecated)
 - [rethrow](#rethrow) — throw on first error
 - [failLate](#faillate) — collect, report failure at the end
 - [collect](#collect) — collect, keep going
@@ -89,17 +91,70 @@ For the mental model see the [guide](guide.md); for recipes see
 
 ## How to choose
 
-|  | keep every intermediate | keep only the final |
-|---|---|---|
-| fold over **items** (many inputs) | `scan` | `reduce` |
-| fold over **steps** (one input) | — | `enrich` |
+One matrix for every public combinator, sync twins included. `model` names what
+is processed: **items** (many inputs), **steps** (one input, many operations),
+**value** (a single value through transformations), **tasks** (named concurrent
+branches) or **source** (an adapter that feeds a consumer). A `*Sync` row is the
+twin of the async row with the same name minus `Sync`: it returns directly and
+rejects async callbacks, `signal` and `pause` (see [sync rules](#sync-variants)).
+The default strategy is what runs when `opts.strategy` is omitted.
 
-- `foldSync` — many items, pure **sync** fold, returns the value directly.
-- `mapSeries` / `mapSeriesSync` — many items, sequential map that throws on the
-  first failure and returns a bare array.
-- `series` — many items, independent work per item.
-- `pipe` — one value, value-in / value-out composition.
-- `join` — a few named tasks, at the same time.
+| API | model | sync / async | input | output | default strategy | `undefined` / no-op | error semantics |
+|---|---|---|---|---|---|---|---|
+| `series` | items | async | iterable + `fn(item, index)` | `{results, errors, sourceErrors, failure}` | `collect` | mapper returns `undefined` → item dropped | item error → strategy; source death → `sourceErrors` (per strategy) |
+| `seriesSync` | items | sync | sync iterable + sync `fn` | `{results, errors, sourceErrors, failure}` | `collect` | as `series` | as `series`; async callback → fatal `TypeError` |
+| `filter` | items (selection) | async | iterable + predicate (function or object pattern) | shape of `series`; `results` holds the original items | `collect` | falsy predicate → item dropped | item error → strategy, as `series` |
+| `filterSync` | items (selection) | sync | sync iterable + predicate | shape of `filter` | `collect` | as `filter` | as `filter`; async predicate → fatal `TypeError` |
+| `mapSeries` | items (map) | async | iterable + `fn(item, index)` | `Array` of kept values, no report | `rethrow` (locked) | mapper returns `undefined` → item dropped | first throw rejects with the original error; error callbacks are rejected at build time |
+| `mapSeriesSync` | items (map) | sync | sync iterable + sync `fn` | `Array` | `rethrow` (locked) | as `mapSeries` | as `mapSeries`; async callback → fatal `TypeError` |
+| `scan` | items (fold) | async | iterable + `scanner(acc, item, index)` + initial value | `{results, errors, sourceErrors, failure}`; `results` = every accumulator | `failFast` | never drops; `undefined` is a legal accumulator | item error → strategy; `recover` seam; `failFast` clears `results` |
+| `scanSync` | items (fold) | sync | sync iterable + sync scanner + initial value | shape of `scan` | `failFast` | as `scan` | as `scan`; `recover` must be sync |
+| `reduce` | items (fold) | async | iterable + `scanner(acc, item, index)` + initial value | `{value, errors, sourceErrors, failure}` | `failFast` | never drops; `undefined` is a legal accumulator | item error → strategy; `recover` seam; `value` survives `failFast` |
+| `reduceSync` | items (fold) | sync | sync iterable + sync scanner + initial value | shape of `reduce` | `failFast` | as `reduce` | as `reduce`; `recover` must be sync |
+| `foldSync` | items (raw fold) | sync only | sync iterable + `reducer(acc, item, index)` + initial value | the final accumulator | none (raw) | never drops; `undefined` is a legal accumulator | any throw propagates unchanged |
+| `findSync` | items (first match) | sync only | sync iterable + predicate | `{result, errors, sourceErrors, failure}` | `collect` | no drop; no match → `result: undefined` | item error → strategy; stops at the first match |
+| `pipe` | value (steps) | async | value + steps | the last step's value | none | `undefined` short-circuits: later steps are skipped | throw escapes; no capture |
+| `pipeSync` | value (steps) | sync | value + sync steps | value | none | as `pipe` | as `pipe`; async step → fatal `TypeError` |
+| `enrich` | steps (fold over one input) | async | `[op(state) → patch]` + initial state | `{value, errors, failure}` | `collect` | `{}` = no-op; an `undefined` patch is a step error | step error → strategy; an invalid patch is a step error; no `recover` |
+| `enrichSync` | steps (fold over one input) | sync | same, sync ops | `{value, errors, failure}` | `collect` | as `enrich` | as `enrich`; async op, hook or callback → fatal `TypeError` |
+| `join` | tasks (concurrent) | async | record `name → task(key, index)` | `{value, errors, failure}` | `collect` (`failFast` behaves as `failLate`) | no drop; `undefined` is a successful branch value | per branch → strategy; `rethrow` after all settle; no `sourceErrors` |
+| `stopWhen` | source adapter | async | iterable + predicate | async iterable | none | n/a | a throwing predicate becomes a source error downstream; stopping is a clean end |
+| `stopWhenSync` | source adapter | sync | sync iterable + predicate | iterable | none | n/a | as `stopWhen` |
+| `forever` | source adapter | async | none | infinite async iterable `0, 1, 2, …` | none | n/a | unbounded: the consumer must bound it |
+| `foreverSync` | source adapter | sync | none | infinite iterable `0, 1, 2, …` | none | n/a | as `forever` |
+
+### The `undefined` sentinel
+
+**`undefined` is the drop sentinel in iteration and composition, and an error in
+`enrich`.** In `series` / `seriesSync`, `mapSeries` / `mapSeriesSync`, `pipe` /
+`pipeSync` and `tryCatch` / `tryCatchSync` (when used downstream), returning
+`undefined` drops the item or short-circuits the pipeline, so `results` (or the
+returned array) can be shorter than the input; a `filter` / `filterSync`
+predicate drops on any falsy value. In `enrich` / `enrichSync` it is the
+opposite: a step must return a patch object, and `undefined` is an **invalid
+patch** that fails the step through the strategy — return `{}` for a no-op.
+Folds (`scan`, `scanSync`, `reduce`, `reduceSync`, `foldSync`) never drop, so
+`undefined` is a legal accumulator; `join` never drops, so a branch resolving
+`undefined` is a successful branch value.
+
+### Wrappers, guards and helpers
+
+| API | model | sync / async | input | output | default strategy | `undefined` / no-op | error semantics |
+|---|---|---|---|---|---|---|---|
+| `tryCatch` | wrapper | async | `fn` + lifecycle hooks | wrapper returning `fn`'s result, or `undefined` | none | failure → `undefined` (drop signal) | swallows into `undefined`; a throwing `onError` propagates; a throwing `onFinally` wins |
+| `tryCatchSync` | wrapper | sync | sync `fn` + sync hooks | same, direct | none | as `tryCatch` | as `tryCatch`; async callback → fatal `TypeError` |
+| `retry` | wrapper | async | `fn` + `{attempts, delay}` | wrapper returning the result after retries | none | n/a | retries, then throws the last error |
+| `assertOk` | guard | sync (works on both result kinds) | a settled result object | the same result | none | n/a | throws the original error with `.failure` when `failure` is truthy |
+| `delay` | utility | async | `ms` | `Promise<void>` | none | n/a | n/a; prefer the iterator's abort-aware `pause` |
+| `where` | helper (predicate) | sync | pattern object | `(item) => boolean` | none | n/a; strict `===` on the pattern's keys, no deep match | none |
+| `assign` | helper (enrich step) | sync | `property` + `parse(state)` | enrich step returning `{}` or `{[property]: value}` | none | `parse` returns `undefined` → `{}` no-op | a throw is a step error under the active `enrich` strategy |
+
+The `strategy` column accepts five identifiers, documented under
+[Error strategies](#error-strategies): `collect`, `failFast` (aliases `fail`,
+`stopOnError`, both deprecated), `failLate`, `skip`, `rethrow`. They are not
+combinators, so they have no row here. `normalizeOperationError` is exported for
+internal error-payload normalization; it is not a combinator and has no
+documented contract.
 
 **Bug or data?** `foldSync`, `mapSeries` / `mapSeriesSync` and `rethrow` are for
 errors that are bugs or infrastructure failures: the run must not continue and
@@ -109,9 +164,6 @@ recover the value from a managed result, use `assertOk(result)`; `rethrow` is ra
 async mode, not a value extractor.
 
 `enrich(ops)(input)` is `reduce(ops, (state, op) => ({...state, ...op(state)}), input)`.
-
-Defaults: `series`, `filter`, `enrich`, `join` use `collect`; `scan` and `reduce`
-use `failFast`.
 
 None of these apply? If the code needs no failure policy, no lifecycle and no
 report, plain JavaScript is clearer — see
@@ -141,7 +193,8 @@ impossible there and the field is not returned.
 
 **Purpose**: Error strategy identifier that stops immediately on the first error.
 
-**Aliases**: `fail`, `stopOnError`
+**Aliases**: `fail`, `stopOnError` — **deprecated in 0.16**, removal planned
+for 0.18; use `failFast`.
 
 **Use when**: Critical operations where failure means the entire pipeline is invalid.
 
@@ -281,20 +334,41 @@ const result = await series([1, 2, 3], async item => {
 
 ## Callbacks
 
-Callbacks are telemetry and application-layer hooks. They never change control
-flow — the [strategy](#error-strategies) owns the policy.
+Callbacks are telemetry and application-layer hooks. When they return normally
+they never change control flow — the [strategy](#error-strategies) owns the
+policy. A callback that throws is the exception, covered below.
 
 On the [sync variants](#sync-variants) every callback must be synchronous: a
 returned Promise is a fatal `TypeError` naming the async twin, telemetry
 callbacks included. The async combinators are unchanged: `onError` and
 `onProgress` stay awaited, `onFailure` and `onSourceError` dispatch as before.
 
+**A callback that throws.** Telemetry is not a trust boundary, so a throw is
+never dropped on the iteration path:
+
+- A throwing `onProgress` fails the current item: it flows into the active
+  strategy like a mapper error (`collect` records it and keeps iterating,
+  `failFast` stops, `rethrow` rejects).
+- A throwing `onError` ends the run and is **reclassified as a source error**:
+  `collect` records it in `sourceErrors` (with `failure: false`), `failFast`
+  returns it as `failure`, `failLate` merges it into `failure.errors`. The
+  original item error is displaced and later items are not attempted. Under
+  `skip`, which ignores source errors by contract, the run still stops but the
+  throw is not reported. Under `rethrow` `onError` never runs.
+- `onFailure` and `onSourceError` are not wrapped: a throw propagates to the
+  caller — the async run rejects, the sync run throws.
+
+The sync twins behave identically for a synchronous throw; the sync policy only
+adds that a callback returning a Promise is a fatal `TypeError` naming the async
+twin, before it can throw asynchronously.
+
 ### onError
 
 Optional callback for verification/telemetry (logging, metrics).
 
 - Called for every handled item error in `series`
-- Does NOT affect control flow
+- Does NOT affect control flow when it returns normally (a throw ends the run,
+  see above)
 - Receives `{item, error, index, total}`; `total` is omitted when unknown
 - Use for: logging, metrics, external error reporting
 
@@ -370,6 +444,26 @@ await series(items, saveItem, {
 
 ---
 
+## Contract guarantees
+
+The properties a consumer can rely on. Each row is an index, not a second
+specification: the linked docs carry the detail, and the tests are the
+executable version of the same statement.
+
+| # | Guarantee | Docs | Pinned by |
+|---|---|---|---|
+| 1 | No failure disappears: every handled error is recorded in `errors`, `sourceErrors` or `failure`, or thrown under `rethrow`. | [The error model](../README.md#the-error-model), [errors as data](guide.md#errors-as-data-vs-errors-as-exceptions), [error strategies](#error-strategies) | `tests/error-strategies.test.js`, `tests/assert-ok.test.js` |
+| 2 | Flow stops exactly where the strategy says, plus the explicit `stopWhen` / `take` conditions. | [#failfast](#failfast), [#collect](#collect), [#faillate](#faillate), [#skip](#skip), [#stopwhen](#stopwhen), [pacing](guide.md#pacing-and-cancellation-all-iterators) | `tests/series.test.js`, `tests/series-sync.test.js`, `tests/stop-when.test.js`, `tests/stop-when-sync.test.js` |
+| 3 | Partial results are kept: completed items and accumulators survive a later failure. | [#series](#series), [#scan](#scan), [#reduce](#reduce), [#enrich](#enrich), [accumulation](guide.md#accumulation-vs-enrichment) | `tests/series.test.js`, `tests/reduce.test.js`, `tests/reduce-sync.test.js`, `tests/scan-sync.test.js`, `tests/enrich-error-strategies.test.js` |
+| 4 | Callbacks run when documented: `onError` per handled item error, `onProgress` per kept success, `onFailure` on a truthy failure, `onSourceError` per dead source. | [#callbacks](#callbacks), [#recover](#recover), [sync rules](#sync-variants) | `tests/enrich-callbacks.test.js`, `tests/enrich-step-hooks.test.js`, `tests/onFailure.test.js`, `tests/recover.test.js`, `tests/sync-telemetry-policy.test.js`, `tests/try-catch-lifecycle-await.test.js` |
+| 5 | A source fails independently of the mapper: its error is reported separately and terminates iteration under every strategy. | [#source-errors](#source-errors), [#onsourceerror](#onsourceerror), [source errors](guide.md#source-errors) | `tests/source-errors.test.js`, `tests/source-errors-sync.test.js` |
+| 6 | Cancellation is clean: an abort stops between items, keeps completed results and adds no failure. | [#cancellation-with-signal](#cancellation-with-signal), [pacing](guide.md#pacing-and-cancellation-all-iterators) | `tests/signal.test.js` |
+| 7 | A callback that throws is surfaced, never swallowed: telemetry throws follow the strategy rules in [Callbacks](#callbacks), `onFailure` / `onSourceError` propagate, and a sync callback returning a Promise is a fatal `TypeError`. | [#callbacks](#callbacks), [#trycatch](#trycatch), [#trycatchsync](#trycatchsync) | `tests/try-catch.test.js`, `tests/try-catch-sync.test.js`, `tests/try-catch-lifecycle-await.test.js`, `tests/sync-callback-cross-seam.test.js`, `tests/telemetry-callback-throw.test.js` |
+| 8 | A sync function never receives an async value silently: an async callback on a `*Sync` API is a fatal `TypeError` naming the async twin. | [#sync-variants](#sync-variants), [picking a tool](guide.md#picking-a-tool), [sync variants](../README.md#around-the-four-models) | `tests/sync-callback-policy.test.js`, `tests/sync-telemetry-policy.test.js`, `tests/sync-callback-cross-seam.test.js` |
+| 9 | Defaults are part of the contract: `collect` for `series` / `filter` / `enrich` / `join`, `failFast` for `scan` / `reduce`; a change is a documented breaking change. | [default column](#how-to-choose), [defaults](guide.md#defaults) | `tests/reduce.test.js`, `tests/reduce-sync.test.js`, `tests/enrich.test.js`, `tests/join-error-strategies.test.js`, `tests/filter.test.js` |
+
+---
+
 ## Iterators
 
 ### series
@@ -411,7 +505,7 @@ one at a time.
 
 **Caveats**:
 - Returning `undefined` from `fn` **drops the item** — the output can be shorter
-  than the input.
+  than the input (see [the `undefined` sentinel](#the-undefined-sentinel)).
 - Works on anything `for await` accepts; not a Node/`ReadableStream` adapter.
 - Sync twin: [seriesSync](#seriessync).
 
@@ -551,7 +645,7 @@ error callbacks. `take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and
   callbacks could never fire under the locked `rethrow`, so accepting them would
   be dead configuration.
 - **`undefined` drops the item**: the result can be shorter than the input. This
-  is **not** `Array.prototype.map`.
+  is **not** `Array.prototype.map` (see [the `undefined` sentinel](#the-undefined-sentinel)).
 - Sync twin: [mapSeriesSync](#mapseriessync).
 
 **When to use `mapSeries` vs `series`**: use `mapSeries` when a failure must
@@ -1041,7 +1135,7 @@ the final result.
 - Supports both synchronous and asynchronous functions
 - Natural data flow from input through transformations
 - Designed for composing reusable operations passed to `series()` or used directly
-- **Undefined Short-Circuit**: If any step returns `undefined`, remaining steps are skipped and `undefined` is returned. This enables selection within a composed operation — see [series](#series) drop behavior.
+- **Undefined Short-Circuit**: If any step returns `undefined`, remaining steps are skipped and `undefined` is returned. This enables selection within a composed operation — see [the `undefined` sentinel](#the-undefined-sentinel).
 
 **Best practice**: use `pipe()` when you need to chain operations that form a
 coherent data processing pipeline.
@@ -1141,8 +1235,8 @@ The returned function:
 - **Empty operations array** is valid and returns the initial state untouched.
 
 **Caveats**:
-- Return `{}` for a no-op — `undefined` is **not** a no-op signal here (it is an
-  invalid patch).
+- `{}` is the no-op patch: an `undefined` patch is invalid, not a skip — see
+  [the `undefined` sentinel](#the-undefined-sentinel).
 - No `sourceErrors`: the steps are a fixed array, so a source error is
   impossible.
 - Options bind at build time (`enrich(ops, opts)`); hooks fire on every run.
@@ -1275,7 +1369,9 @@ guarantee.
 **Failure behavior / strategies**:
 - `collect` (default): keep successes in `value`, failures in `errors`, `failure: false`.
 - `failLate`: like `collect`, then `failure: {errors}` if anything failed.
-- `failFast` (alias `fail`, `stopOnError`): behaves as `failLate`. Branches already started and cannot be stopped without an `AbortSignal`.
+- `failFast` (aliases `fail`, `stopOnError` — deprecated in 0.16, removal
+  planned for 0.18): behaves as `failLate`. Branches already started and cannot
+  be stopped without an `AbortSignal`.
 - `skip`: `errors` stays empty, but `onError` still fires.
 - `rethrow`: throw the original error of the first failed branch, by declaration order, once every branch has settled.
 
@@ -1283,7 +1379,8 @@ guarantee.
 - **Throws (before any branch starts)**: `TypeError` if `tasks` is not a non-null, non-array object, if any value is not a function, or if it is a thenable (e.g. an un-awaited `Promise`).
 - **All branches settle**: `join` starts from a resolved promise, so a synchronous throw becomes a rejection; `allSettled` always captures it and nothing is left unhandled.
 - **Completion order is irrelevant**: `value` keys follow declaration order, and so does `errors`.
-- **No drop signal**: `undefined` is a legitimate branch value, unlike in `series` / `pipe`.
+- **No drop signal**: `undefined` is a legitimate branch value; the
+  [drop rule](#the-undefined-sentinel) belongs to iteration, not forks.
 - **Empty record** is valid: resolves to `{value: {}, errors: [], failure: false}`.
 - **Not a concurrent map**: for a homogeneous collection use p-map.
 - No `sourceErrors`: the branches are a fixed record.
@@ -1531,8 +1628,8 @@ the library-wide drop signal.
     success/failure (no arguments); awaited
 
 **Returns**: a wrapper function with the same signature as `fn`. Returns
-`undefined` on error. Because `undefined` is the drop signal, a failed step
-short-circuits `pipe` and drops the item when used as a `series` mapper.
+`undefined` on error — the [drop signal](#the-undefined-sentinel) — so a failed
+step short-circuits `pipe` and drops the item when used as a `series` mapper.
 
 **Failure behavior**:
 - Automatic `async/await` wrapping; preserves original function signature

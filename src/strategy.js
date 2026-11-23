@@ -6,8 +6,17 @@ export const failLate = Object.freeze({name: 'failLate'})
 export const skip = Object.freeze({name: 'skip'})
 export const rethrow = Object.freeze({name: 'throw'})
 
-// Aliases
+// Aliases (deprecated, removal planned for 0.18)
+/**
+ * @deprecated Alias of `failFast`. Use `failFast` instead. Scheduled for
+ * removal in 0.18.
+ */
 export const fail = failFast
+
+/**
+ * @deprecated Alias of `failFast`. Use `failFast` instead. Scheduled for
+ * removal in 0.18.
+ */
 export const stopOnError = failFast
 
 const seriesShape = ({

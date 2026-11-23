@@ -93,6 +93,20 @@ like a telemetry call that simply did nothing. Async combinators are unchanged:
 they still await `onError` / `onProgress` and dispatch `onFailure` /
 `onSourceError` as before, so an async callback stays valid there.
 
+## Deprecated: `fail` / `stopOnError` aliases
+
+`fail` and `stopOnError` are aliases of `failFast`. They are deprecated in 0.16
+and keep working exactly as before — the exports are untouched at runtime.
+Removal is planned for 0.18. Rename the import; no other change is needed:
+
+```js
+// Before
+import {stopOnError} from 'pipelean' // also: fail
+
+// After
+import {failFast} from 'pipelean'
+```
+
 ## What we deliberately did not add
 
 - **No new API.** The fix is a guard on the existing sync surface, not a new

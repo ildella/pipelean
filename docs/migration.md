@@ -52,6 +52,20 @@ the strategy unchanged. If a sync pipeline genuinely needs to carry a Promise
 as data, wrap it in an object (`{promise}`) — the guard only rejects a bare
 thenable result.
 
+### Deprecated: `fail` and `stopOnError`
+
+`fail` and `stopOnError` are aliases of `failFast`. They are deprecated in
+0.16 and keep working unchanged; removal is planned for 0.18. Only the import
+name changes:
+
+```js
+// Before (still works in 0.16 and 0.17)
+import {series, stopOnError} from 'pipelean'
+
+// After (works today; required from 0.18)
+import {series, failFast} from 'pipelean'
+```
+
 ## 0.15.1: `no-fold-rethrow` suggestion fixer
 
 No behavior changes; no migration required. The `no-fold-rethrow` rule gained an
