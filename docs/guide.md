@@ -88,8 +88,10 @@ column.
 > `signal`, `pause` and `pauseOnErrors` are async-only: passing them to a sync
 > variant throws a `TypeError`. Callbacks must be sync too: a mapper, predicate,
 > scanner, reducer, operation, hook, telemetry callback (`onError`, `onFailure`,
-> `onSourceError`, `onProgress`) or wrapped function returning a Promise throws
-> a `TypeError` pointing at the async twin.
+> `onSourceError`, `onProgress`) or wrapped function returning a Promise — or
+> any thenable — throws a `TypeError` pointing at the async twin. The violation
+> is fatal: it escapes the strategy, never collected as item data. Full
+> contract: [Sync variants](reference.md#sync-variants).
 
 ### When plain JavaScript is clearer
 
@@ -184,7 +186,9 @@ override, and `onError` / `onFailure` / `onSourceError` are rejected with a
 fire, so they are dead configuration. Two inherited behaviors matter: returning
 `undefined` **drops** the item (this is not `Array.prototype.map`), and a failure
 throws before any callback. `mapSeriesSync` rejects an async iterable with an
-explicit `TypeError` naming `mapSeries()`.
+explicit `TypeError` naming `mapSeries()`, and its callbacks — the mapper and
+`onProgress` alike — fall under the shared sync rule: a returned thenable is a
+fatal `TypeError` ([Sync variants](reference.md#sync-variants)).
 
 Reach for plain `series` when a failure is data you want to collect; reach for
 `mapSeries` when a failure is a bug that must surface. An async fold keeps

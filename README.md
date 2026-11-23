@@ -157,9 +157,7 @@ const {value, errors} = await join({ping: () => pingHost(host), scan: () => scan
 - **Guards & helpers** — `assertOk(result)` throws when a failure would
   otherwise be ignored; `where` / `findSync` search; `assign` builds `enrich`
   steps.
-- **Sync variants** — `seriesSync`, `filterSync`, `scanSync`, `reduceSync`,
-  `enrichSync`, `pipeSync`, `mapSeriesSync`, `tryCatchSync`, `findSync` mirror
-  the async API with the same strategies and shapes, returning directly.
+- **Sync variants** — synchronous counterparts of the core APIs, returning directly instead of a Promise. They reject async iterables, async-only options, and callbacks that return thenables. Each API's reference documents its specific contract.
 
 Full contracts: [reference](docs/reference.md).
 

@@ -76,7 +76,7 @@ For the mental model see the [guide](guide.md); for recipes see
 - [Cancellation with signal](#cancellation-with-signal)
 - [Source errors](#source-errors)
 
-### Sync variants
+### Sync rules
 
 - [Sync rules](#sync-variants) — what every `*Sync` twin shares
 - [seriesSync](#seriessync) · [filterSync](#filtersync) · [scanSync](#scansync) ·
