@@ -352,12 +352,12 @@ const processAlbum = enrich(
 )
 ```
 
-`enrich` awaits each hook before moving on; `enrichSync` calls them
-fire-and-forget, so its hooks must be synchronous — an async hook's rejection is
-never observed by the strategy (a synchronous throw still is). A throwing hook is
-a failed step and goes through the strategy:
-with `failFast`, later hooks never run; with `collect`, the run continues. There
-is no `onStepError` — errors belong to `onError`.
+`enrich` awaits each hook before moving on; `enrichSync` requires **sync**
+operations and hooks — a returned Promise is rejected with a `TypeError` pointing
+at `enrich`, never silently ignored (a synchronous throw still flows into the
+strategy). A throwing hook is a failed step and goes through the strategy: with
+`failFast`, later hooks never run; with `collect`, the run continues. There is no
+`onStepError` — errors belong to `onError`.
 
 #### Example: join (fork/join over named concurrent tasks)
 

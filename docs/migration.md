@@ -195,6 +195,11 @@ also available as an opt-in editor suggestion on the report.
 
 ### 4. `enrichSync` async hooks are not observed
 
+> **Superseded in 0.16:** the advice below describes 0.15 only. Since 0.16 an
+> `enrichSync` operation or hook that returns a Promise is rejected with a
+> `TypeError` pointing at `enrich` — never fire-and-forget. See
+> [0.16.0: sync callbacks must be synchronous](#0160-sync-callbacks-must-be-synchronous).
+
 `enrichSync` calls `onStepStart` / `onStepSuccess` fire-and-forget. Its hooks
 should be **synchronous**: an async hook's rejection is never observed by the
 strategy. A synchronous throw still flows into the strategy like a throwing

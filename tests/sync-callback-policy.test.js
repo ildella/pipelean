@@ -90,6 +90,63 @@ test('a custom thenable is rejected like a native Promise', () => {
     .toThrow('seriesSync() mapper returned a Promise; use series()')
 })
 
+// A rejected promise abandoned by the guard used to crash the process with a
+// second, unrelated error. Collect what the process reports as unhandled
+// while `run` throws, so a leaked rejection fails the expectation below.
+const unhandledWhileThrowing = async (run, message) => {
+  const proc = globalThis.process
+  const reasons = []
+  const listener = reason => reasons.push(reason)
+  proc.on('unhandledRejection', listener)
+
+  try {
+    expect(run).toThrow(message)
+    await Promise.resolve()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    return reasons
+  } finally {
+    proc.removeListener('unhandledRejection', listener)
+  }
+}
+
+const rejectBoom = async () => await Promise.reject(new Error('boom'))
+
+test('a rejecting async mapper leaks no rejection', async () => {
+  const reasons = await unhandledWhileThrowing(
+    () => seriesSync([1], rejectBoom),
+    'seriesSync() mapper returned a Promise; use series()',
+  )
+
+  expect(reasons).toEqual([])
+})
+
+test('a rejecting async reducer leaks no rejection', async () => {
+  const reasons = await unhandledWhileThrowing(
+    () => foldSync([1], rejectBoom, 0),
+    'foldSync() reducer returned a Promise; use reduce()',
+  )
+
+  expect(reasons).toEqual([])
+})
+
+test('a thenable that rejects or throws is observed, not leaked', () => {
+  const rejecting = {
+    then: (resolve, reject) => {
+      reject(new Error('boom'))
+    },
+  }
+  const throwing = {
+    then: () => {
+      throw new Error('boom')
+    },
+  }
+
+  expect(() => assertSyncResult(rejecting, 'api() cb', 'twin'))
+    .toThrow('api() cb returned a Promise; use twin()')
+  expect(() => assertSyncResult(throwing, 'api() cb', 'twin'))
+    .toThrow('api() cb returned a Promise; use twin()')
+})
+
 test('the rejection is a TypeError that escapes the strategy', () => {
   let thrown
   try {

@@ -23,9 +23,20 @@ export const isThenable = value =>
 
 const SYNC_CALLBACK = Symbol('syncCallback')
 
+// Swallows the rejection of a thenable `assertSyncResult` is abandoning.
+const ignoreRejection = () => undefined
+
 export const assertSyncResult = (value, subject, twin) => {
   if (!isThenable(value))
     return
+
+  // Observe the abandoned thenable: otherwise a rejection crashes the
+  // process with a second, unrelated error while we throw the TypeError.
+  try {
+    value.then(undefined, ignoreRejection)
+  } catch {
+    // A thenable whose `then` throws synchronously has nothing to observe.
+  }
 
   const error = new TypeError(
     `${subject} returned a Promise; use ${twin}()`,

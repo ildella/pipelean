@@ -241,8 +241,9 @@ const {value, errors, failure} = await processAlbum(input)
 never reports a step that did not actually apply. Errors stay on `onError` —
 there is no `onStepError`. A hook that throws flows into the strategy like a
 throwing step; with `failFast`, later hooks never fire. `enrichSync` has the same
-hooks, called fire-and-forget — use synchronous hooks there, since an async
-hook's rejection is never observed by the strategy.
+hooks but requires them **sync**, along with its operations: a returned Promise
+is rejected with a `TypeError` pointing at `enrich` (a synchronous throw still
+flows into the strategy).
 
 ### Command boundary: the three `tryCatch` flavours
 
