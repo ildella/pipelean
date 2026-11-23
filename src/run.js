@@ -69,7 +69,7 @@ export const validateOptions = (opts, {sync = false, fold = false} = {}) => {
  * Everything one series run needs before the first item is pulled: the run
  * state, the planned total and the callback/pause knobs its step reads.
  */
-export const planSeries = (opts, items, {sync = false} = {}) => {
+export const planSeries = (opts, items, {sync = false, label} = {}) => {
   validateOptions(opts, {sync})
 
   const {
@@ -79,7 +79,7 @@ export const planSeries = (opts, items, {sync = false} = {}) => {
   } = opts
 
   return {
-    state: createRunState(strategy, {onFailure, onSourceError}),
+    state: createRunState(strategy, {onFailure, onSourceError}, label),
     total: getPlannedTotal({items, take, total}),
     take,
     onProgress,
@@ -100,7 +100,7 @@ export const notifyProgress = (plan, {item, result, index}) =>
  * Fold state: `scan` keeps every intermediate accumulator, `reduce` keeps the
  * last one, so the result shape differs but the base bookkeeping does not.
  */
-const createFoldState = (opts, {keepPartials, readAcc}) => {
+const createFoldState = (opts, {keepPartials, readAcc}, label) => {
   const shape = ({
     results, errors, sourceErrors, failure,
   }) =>
@@ -116,7 +116,7 @@ const createFoldState = (opts, {keepPartials, readAcc}) => {
     onFailure: opts.onFailure,
     onSourceError: opts.onSourceError,
     shape,
-  })
+  }, label)
 }
 
 /**
@@ -124,12 +124,12 @@ const createFoldState = (opts, {keepPartials, readAcc}) => {
  * (with the right result shape) plus the error-handling knobs.
  */
 export const planFold = (
-  opts, {items, keepPartials, readAcc}, {sync = false} = {},
+  opts, {items, keepPartials, readAcc}, {sync = false, label} = {},
 ) => {
   validateOptions(opts, {sync, fold: true})
 
   return {
-    state: createFoldState(opts, {keepPartials, readAcc}),
+    state: createFoldState(opts, {keepPartials, readAcc}, label),
     total: getPlannedTotal({items}),
     onError: opts.onError,
     recover: opts.recover,

@@ -1,3 +1,5 @@
+import {assertSyncCallback} from './shared.js'
+
 export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
 export const failLate = Object.freeze({name: 'failLate'})
@@ -22,10 +24,13 @@ const seriesShape = ({
  * active, the callbacks, the collected errors and the function that turns the
  * run into a result. Helpers below take the state whole instead of receiving
  * the same seven fields as loose arguments.
+ *
+ * `label` is the sync api name ('seriesSync'); it is set only on the sync path
+ * so the telemetry dispatch below can reject an async callback there.
  */
 export const createRunState = (strategy, {
   onFailure, onSourceError, shape = seriesShape, results = [],
-}) => ({
+}, label) => ({
   strategyName: strategy.name ?? strategy,
   onFailure,
   onSourceError,
@@ -33,6 +38,7 @@ export const createRunState = (strategy, {
   errors: [],
   sourceErrors: [],
   shape,
+  label,
 })
 
 export const toResult = (state, failure) =>
@@ -46,7 +52,9 @@ export const toResult = (state, failure) =>
 /** An item failed inside the mapping/scanner function. */
 export const failOnItem = (state, errorContext) => {
   if (state.strategyName === 'failFast') {
-    state.onFailure?.(errorContext)
+    assertSyncCallback(
+      state.label, 'onFailure', state.onFailure?.(errorContext),
+    )
     return {
       stop: true,
       result: state.shape({
@@ -70,10 +78,14 @@ export const failOnSource = (state, sourceContext) => {
   if (state.strategyName === 'throw')
     throw sourceContext.error
 
-  state.onSourceError?.(sourceContext)
+  assertSyncCallback(
+    state.label, 'onSourceError', state.onSourceError?.(sourceContext),
+  )
 
   if (state.strategyName === 'failFast') {
-    state.onFailure?.(sourceContext)
+    assertSyncCallback(
+      state.label, 'onFailure', state.onFailure?.(sourceContext),
+    )
     return state.shape({
       results: [],
       errors: state.errors,
@@ -102,7 +114,7 @@ export const settle = state => {
     : false
 
   if (failure && state.onFailure)
-    state.onFailure(failure)
+    assertSyncCallback(state.label, 'onFailure', state.onFailure(failure))
 
   return failure
 }

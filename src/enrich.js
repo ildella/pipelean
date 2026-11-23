@@ -1,4 +1,4 @@
-import {assertSyncResult} from './shared.js'
+import {assertSyncCallback, assertSyncResult} from './shared.js'
 import {
   collect, normalizeFailure, normalizeOperationError,
 } from './strategy.js'
@@ -100,14 +100,18 @@ const withStepSuccess = (merge, {
       : notifySuccessAsync(onStepSuccess, context, merged)
   }
 
-const reduceOptions = ({strategy, onError, onFailure}) => ({
+// Telemetry callbacks must be synchronous too, and they name `enrichSync`,
+// not the `reduceSync` the pipeline delegates to.
+const guardError = (label, onError) => ctx =>
+  assertSyncCallback(label, 'onError', onError(normalizeOperationError(ctx)))
+
+const guardFailure = (label, onFailure) => ctx =>
+  assertSyncCallback(label, 'onFailure', onFailure(normalizeFailure(ctx)))
+
+const reduceOptions = ({strategy, onError, onFailure}, label) => ({
   strategy,
-  ...onError
-    ? {onError: ctx => onError(normalizeOperationError(ctx))}
-    : {},
-  ...onFailure
-    ? {onFailure: ctx => onFailure(normalizeFailure(ctx))}
-    : {},
+  ...onError ? {onError: guardError(label, onError)} : {},
+  ...onFailure ? {onFailure: guardFailure(label, onFailure)} : {},
 })
 
 const finishEnrich = result => ({
@@ -151,6 +155,7 @@ export const prepareEnrich = ({
 
   const names = operations.map(operationName)
   const total = names.length
+  const syncLabel = sync ? label : undefined
 
   const steps = onStepStart
     ? operations.map((operation, index) =>
@@ -168,7 +173,7 @@ export const prepareEnrich = ({
         names, onStepSuccess, total, sync,
       })
       : merge),
-    reduceOpts: reduceOptions({strategy, onError, onFailure}),
+    reduceOpts: reduceOptions({strategy, onError, onFailure}, syncLabel),
     assertInitial: initialState => assertEnrichState(initialState, label),
     finish: finishEnrich,
   }

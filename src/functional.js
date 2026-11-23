@@ -21,13 +21,23 @@ export {
   collect, fail, failFast, failLate, rethrow, skip, stopOnError,
 } from './strategy.js'
 
+/**
+ * Wrap an async function with lifecycle hooks.
+ *
+ * All four hooks are awaited, in lifecycle order: `onStart` before `fn`,
+ * `onSuccess` on the result, `onError` on a throw/rejection, `onFinally` last
+ * on both paths. A failing `onStart` is caught like a failing `fn`: `onError`
+ * runs and the wrapper drops (`undefined`). A failing `onError` propagates. A
+ * failing `onFinally` also rejects the wrapper, overriding whatever the try
+ * body was about to return or throw — standard `finally` precedence.
+ */
 export const tryCatch = (fn, {
   onStart, onSuccess, onError, onFinally,
 } = {}) =>
   async (...args) => {
     try {
       if (onStart)
-        onStart()
+        await onStart()
       const result = await fn(...args)
       if (onSuccess)
         await onSuccess(result)
@@ -40,7 +50,7 @@ export const tryCatch = (fn, {
       return undefined
     } finally {
       if (onFinally)
-        onFinally()
+        await onFinally()
     }
   }
 

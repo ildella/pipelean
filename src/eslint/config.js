@@ -12,5 +12,6 @@ export default {
     'pipelean/no-array-map-async': 'warn',
     'pipelean/no-loop-without-yield': 'warn',
     'pipelean/no-fold-rethrow': 'warn',
+    'pipelean/no-sync-async-callback': 'warn',
   },
 }

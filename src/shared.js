@@ -48,6 +48,24 @@ export const assertSyncResult = (value, subject, twin) => {
 export const isSyncCallbackError = error =>
   Boolean(error) && error[SYNC_CALLBACK] === true
 
+// `findSync` has no async twin; its guards point at `filter`, like its
+// predicate guard.
+const ASYNC_TWINS = {findSync: 'filter'}
+
+const asyncTwinOf = label => ASYNC_TWINS[label] ?? label.replace(/Sync$/, '')
+
+// Sync dispatch of a telemetry callback. `label` is the api name the run knows
+// ('seriesSync'); it is undefined on the async path, where the same dispatch
+// site awaits (or fires) the callback unchecked. Returns the result unchanged
+// so wrappers can hand it back to the async path.
+export const assertSyncCallback = (label, name, result) => {
+  if (label === undefined)
+    return result
+
+  assertSyncResult(result, `${label}() ${name}`, asyncTwinOf(label))
+  return result
+}
+
 // mapSeries() and mapSeriesSync() force `rethrow`, so an explicit conflicting
 // strategy is a configuration mistake, never something to silently override.
 export const assertRethrowStrategy = (strategy, label) => {

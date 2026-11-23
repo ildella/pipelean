@@ -1,8 +1,8 @@
 /* eslint-disable max-lines */
 
 import {
-  assertNoErrorCallbacks, assertRethrowStrategy, assertSyncResult,
-  getPlannedTotal, isSyncCallbackError, parseCallArgs,
+  assertNoErrorCallbacks, assertRethrowStrategy, assertSyncCallback,
+  assertSyncResult, getPlannedTotal, isSyncCallbackError, parseCallArgs,
 } from './shared.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
@@ -84,46 +84,57 @@ export const tryCatchSync = (fn, {
     }
   }
 
+// Shared by seriesSync, filterSync and mapSeriesSync: the label carries the
+// public api the run was started from, so error and telemetry messages name
+// that api (and its async twin) instead of an internal delegation target.
+const runSeriesSync = ({
+  items, fn, opts, label,
+}) => {
+  const plan = planSeries(opts, items, {sync: true, label})
+
+  const runFn = (item, index) => {
+    const result = fn(item, index)
+    assertSyncCallback(label, 'mapper', result)
+    assertSyncCallback(
+      label, 'onProgress', notifyProgress(plan, {item, result, index}),
+    )
+    return result
+  }
+
+  const step = (item, index) => {
+    try {
+      const result = runFn(item, index)
+      if (result !== undefined)
+        plan.state.results.push(result)
+    } catch (error) {
+      return handleItemError(
+        plan.state, {item, error, index}, plan,
+      )
+    }
+
+    return null
+  }
+
+  return runSyncStrategy({
+    state: plan.state, items, take: plan.take, step,
+  })
+}
+
 export const seriesSync = (...args) => {
   const {
     immediate, items, fn, opts,
   } = parseCallArgs(args)
 
-  const run = inputItems => {
-    const plan = planSeries(opts, inputItems, {sync: true})
-
-    const runFn = (item, index) => {
-      const result = fn(item, index)
-      assertSyncResult(result, 'seriesSync() mapper', 'series')
-      notifyProgress(plan, {item, result, index})
-      return result
-    }
-
-    const step = (item, index) => {
-      try {
-        const result = runFn(item, index)
-        if (result !== undefined)
-          plan.state.results.push(result)
-      } catch (error) {
-        return handleItemError(
-          plan.state, {item, error, index}, plan,
-        )
-      }
-
-      return null
-    }
-
-    return runSyncStrategy({
-      state: plan.state, items: inputItems, take: plan.take, step,
-    })
-  }
+  const run = inputItems => runSeriesSync({
+    items: inputItems, fn, opts, label: 'seriesSync',
+  })
 
   return immediate ? run(items) : run
 }
 
 export const filterSync = (...args) => {
   const {
-    immediate, items, predicate, opts,
+    immediate, items, predicate, opts = {},
   } = parseSearchArgs(args)
 
   const transform = (item, index) => {
@@ -132,7 +143,10 @@ export const filterSync = (...args) => {
     return keep ? item : undefined
   }
 
-  const run = inputItems => seriesSync(inputItems, transform, opts)
+  const run = inputItems => runSeriesSync({
+    items: inputItems, fn: transform, opts, label: 'filterSync',
+  })
+
   return immediate ? run(items) : run
 }
 
@@ -156,7 +170,9 @@ export const findSync = (...args) => {
     }) => ({
       result: found, errors, sourceErrors, failure,
     })
-    const state = createRunState(strategy, {onFailure, onSourceError, shape})
+    const state = createRunState(
+      strategy, {onFailure, onSourceError, shape}, 'findSync',
+    )
 
     const step = (item, index) => {
       try {
@@ -193,7 +209,7 @@ const runScanSync = ({
     items: iterable,
     keepPartials,
     readAcc: () => acc,
-  }, {sync: true})
+  }, {sync: true, label: api})
 
   const commit = value => {
     acc = value
@@ -245,11 +261,11 @@ export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
  * - `onStepSuccess({operation, patch, index, total})` after the patch is
  *   validated and merged (`patch` is pre-merge).
  *
- * Operations and hooks must be synchronous: a returned Promise is rejected
- * with a `TypeError` pointing at `enrich`, never silently ignored. A
- * synchronous throw from an operation or a hook still flows into the strategy
- * like a throwing operation. Errors stay on `onError`; there is no
- * `onStepError`.
+ * Operations, hooks and the `onError` / `onFailure` callbacks must be
+ * synchronous: a returned Promise is rejected with a `TypeError` pointing at
+ * `enrich`, never silently ignored. A synchronous throw from an operation, a
+ * hook or a callback still flows into the strategy like a throwing operation.
+ * Errors stay on `onError`; there is no `onStepError`.
  *
  * @param {Array<(state) => object>} operations
  * @param {{strategy?: StrategyFn, onError?, onFailure?, onStepStart?,
@@ -378,7 +394,8 @@ export const foldSync = (iterable, reducer, initialValue, ...rest) => {
  *   rejected with a `TypeError` instead of being silently ignored.
  *
  * Sync only, like `foldSync`: an async iterable is rejected with a `TypeError`
- * pointing at `mapSeries()`, and so is a mapper that returns a Promise.
+ * pointing at `mapSeries()`, and so is a mapper or an `onProgress` callback
+ * that returns a Promise.
  *
  * @param {Iterable} items - Sync source of values.
  * @param {(item, index) => any} fn - Sequential mapper.
@@ -404,7 +421,12 @@ export const mapSeriesSync = (...args) => {
       return result
     }
 
-    return seriesSync(inputItems, mapper, {...opts, strategy: rethrow}).results
+    return runSeriesSync({
+      items: inputItems,
+      fn: mapper,
+      opts: {...opts, strategy: rethrow},
+      label: 'mapSeriesSync',
+    }).results
   }
 
   return immediate ? run(items) : run

@@ -1,4 +1,6 @@
-import {isSyncCallbackError, isThenable, withTotal} from './shared.js'
+import {
+  assertSyncCallback, isSyncCallbackError, isThenable, withTotal,
+} from './shared.js'
 import {failOnItem} from './strategy.js'
 
 // Item-error handling: report the error, then consult the strategy. Fold
@@ -16,12 +18,15 @@ const itemErrorContext = (state, {item, error, index}) => {
  * Report one item error through `onError`, without consulting the strategy.
  *
  * Recovery needs this: with `recover` present the error is handled, so
- * `rethrow` must not suppress the telemetry. The sync twin leaves the callback
- * fire-and-forget; `notifyItemErrorAsync` awaits it.
+ * `rethrow` must not suppress the telemetry. The sync twin guards the callback
+ * result (`label`) so an async `onError` is a fatal `TypeError`;
+ * `notifyItemErrorAsync` awaits it.
  */
-const notifyItemError = (errorContext, {onError, total}) => {
+const notifyItemError = (errorContext, {onError, total}, label) => {
   if (onError)
-    onError(withTotal(errorContext, total))
+    assertSyncCallback(
+      label, 'onError', onError(withTotal(errorContext, total)),
+    )
 }
 
 const notifyItemErrorAsync = async (errorContext, {onError, total}) => {
@@ -36,7 +41,7 @@ const recoverContext = ({total}, {item, error, index}, state) =>
   }, total)
 
 const tryRecover = (plan, errorContext, state) => {
-  notifyItemError(errorContext, plan)
+  notifyItemError(errorContext, plan, state.label)
 
   try {
     const next = plan.recover(recoverContext(plan, errorContext, state))
@@ -64,13 +69,14 @@ const tryRecoverAsync = async (plan, errorContext, state) => {
 /**
  * Turn an item error into a step outcome, notifying `onError` first.
  *
- * The sync twin leaves the callback fire-and-forget; `handleItemErrorAsync`
- * awaits it so an async `onError` settles before the run continues.
+ * The sync twin guards the callback result so an async `onError` is a fatal
+ * `TypeError`; `handleItemErrorAsync` awaits it so an async `onError` settles
+ * before the run continues.
  */
 export const handleItemError = (state, errorContext, {onError, total}) => {
   const context = itemErrorContext(state, errorContext)
 
-  notifyItemError(context, {onError, total})
+  notifyItemError(context, {onError, total}, state.label)
 
   return failOnItem(state, context)
 }
@@ -109,6 +115,9 @@ export const settleFoldError = (plan, errorContext, state) => {
 }
 
 export const settleFoldErrorAsync = async (plan, errorContext, state) => {
+  if (isSyncCallbackError(errorContext.error))
+    throw errorContext.error
+
   if (!plan.recover) {
     return {
       recovered: false,

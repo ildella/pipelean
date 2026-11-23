@@ -45,6 +45,7 @@ just to silence a warning. When the rewrite is warranted, follow
 | `pipelean/no-promise-combinators` | `Promise.all` / `Promise.allSettled` / … | `series` with a strategy, `join` for named tasks |
 | `pipelean/no-loop-without-yield` | non-generator loops | generator sources consumed by pipelean |
 | `pipelean/no-fold-rethrow` | `reduceSync(items, reducer, initial, {strategy: rethrow})` | `foldSync(items, reducer, initial)` |
+| `pipelean/no-sync-async-callback` | async callback or hook passed to a `*Sync` combinator | drop `async`, or use the async combinator |
 
 ## `no-fold-rethrow` in depth
 
@@ -70,6 +71,30 @@ Other bindings of that name (a non-pipelean import, a local declaration) are not
 scope-analyzed and may still get a colliding suggestion, which the opt-in
 preview shows. The rule is deliberately narrow: aliased `reduceSync` imports and
 member calls are not resolved.
+
+## `no-sync-async-callback` in depth
+
+Every `*Sync` combinator rejects a callback that returns a Promise: the runtime
+raises a `TypeError` naming the async twin, and never collects the Promise as
+data. The rule flags the literal form, so the mistake surfaces before the run:
+
+```js
+seriesSync(items, async x => x)                       // warn
+enrichSync(ops, {onStepStart: async () => {}})         // warn
+tryCatchSync(fn, {onFinally: async () => {}})          // warn
+seriesSync(items, x => x, {onProgress: async p => p})  // warn
+```
+
+It inspects the lifecycle hooks `onStepStart`, `onStepSuccess`, `onStart`,
+`onSuccess`, `onError`, `onFinally` and the telemetry callbacks `onProgress`,
+`onFailure`, `onSourceError` — the same set the runtime guards. Sync hooks and
+sync telemetry are the supported shape, and the same callbacks are fine on the
+async combinator. Severity is `warn` like every rule.
+
+Deliberately narrow, matching `no-fold-rethrow`: only bare calls whose callee
+identifier ends in `Sync`, and only an inline function literal. Member calls,
+aliased imports, a callback held in a variable, computed keys, spread properties
+and nested options objects are not resolved, since that needs scope analysis.
 
 ## Related
 

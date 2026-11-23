@@ -44,17 +44,10 @@
  * rewritten alone, leaving the callee unresolved until the author adds it.
  * Opt-in on purpose: import edits make blind `--fix` unsafe.
  */
+import propertyName from './property-name.js'
 import {reportOnly, suggestionFixes} from './no-fold-rethrow-suggestion.js'
 
 const REDUCE_SYNC = 'reduceSync'
-
-const propertyName = property => {
-  if (property.type !== 'Property' || property.computed)
-    return null
-
-  const {key} = property
-  return key.type === 'Identifier' ? key.name : key.value
-}
 
 const isRethrowValue = value =>
   (value.type === 'Identifier' && value.name === 'rethrow') ||

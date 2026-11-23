@@ -214,8 +214,9 @@ Worth knowing before you adopt it:
 
 ### ESLint plugin
 
-Flags `.forEach()`, `.reduce()`, `.map(async ...)`, non-generator loops and
-`Promise.*` combinators, suggesting pipelean equivalents:
+Flags `.forEach()`, `.reduce()`, `.map(async ...)`, non-generator loops,
+`Promise.*` combinators and async callbacks passed to `*Sync` combinators,
+suggesting pipelean equivalents:
 
 ```js
 import pipeleanConfig from 'pipelean/eslint/config'

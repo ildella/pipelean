@@ -102,8 +102,9 @@ A rewrite is a behavior change until proven otherwise. Apply the full checklist:
   errors, and bypass `recover`.
 - **Match sync to sync:** a sync iterable takes the `*Sync` twin; `signal`,
   `pause` and `pauseOnErrors` on it are a `TypeError`. Its callbacks must be sync
-  too: a returned Promise is a `TypeError` naming the async twin, never collected
-  as data.
+  too — mapper, predicate, scanner, reducer, operation, hook and telemetry
+  (`onError`, `onFailure`, `onSourceError`, `onProgress`): a returned Promise is
+  a `TypeError` naming the async twin, never collected as data.
 - **Prove the outcome is read.** Errors are data now: consume `errors` /
   `failure`, or guard with `assertOk` when a silent stop is unacceptable. Keep
   the original error identity for callers that match on message or
@@ -132,5 +133,6 @@ and suppress the rule at that site.
 | `no-promise-combinators` | `series` with a strategy; `join` for named tasks |
 | `no-loop-without-yield` | generator source that yields (loops allowed there) |
 | `no-fold-rethrow` | `foldSync`; `recover` in the options exempts |
+| `no-sync-async-callback` | drop `async`; the `*Sync` twin needs sync callbacks |
 
 → [ESLint plugin](node_modules/pipelean/docs/eslint.md)

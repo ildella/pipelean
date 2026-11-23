@@ -284,6 +284,11 @@ const result = await series([1, 2, 3], async item => {
 Callbacks are telemetry and application-layer hooks. They never change control
 flow — the [strategy](#error-strategies) owns the policy.
 
+On the [sync variants](#sync-variants) every callback must be synchronous: a
+returned Promise is a fatal `TypeError` naming the async twin, telemetry
+callbacks included. The async combinators are unchanged: `onError` and
+`onProgress` stay awaited, `onFailure` and `onSourceError` dispatch as before.
+
 ### onError
 
 Optional callback for verification/telemetry (logging, metrics).
@@ -1516,10 +1521,14 @@ the library-wide drop signal.
 **Parameters**:
 - `fn`: The async function to wrap
 - `options`: Configuration object with the following properties:
-  - `onStart: () => void` — Called before function execution (no arguments)
-  - `onSuccess: (result) => void | Promise<void>` — Called on successful completion (result only)
-  - `onError: (error) => void` — Called on error (error only)
-  - `onFinally: () => void` — Called regardless of success/failure (no arguments)
+  - `onStart: () => void | Promise<void>` — Called before function execution
+    (no arguments); awaited
+  - `onSuccess: (result) => void | Promise<void>` — Called on successful
+    completion (result only); awaited
+  - `onError: (error) => void | Promise<void>` — Called on error (error only);
+    awaited
+  - `onFinally: () => void | Promise<void>` — Called regardless of
+    success/failure (no arguments); awaited
 
 **Returns**: a wrapper function with the same signature as `fn`. Returns
 `undefined` on error. Because `undefined` is the drop signal, a failed step
@@ -1528,14 +1537,20 @@ short-circuits `pipe` and drops the item when used as a `series` mapper.
 **Failure behavior**:
 - Automatic `async/await` wrapping; preserves original function signature
 - Comprehensive lifecycle: onStart → onSuccess/onError → onFinally
+- **All four hooks are awaited**, so when the wrapper settles every hook has
+  completed. A rejecting `onStart` is handled like a failing `fn`: `onError`
+  runs and the wrapper returns `undefined`. A rejecting `onFinally` rejects the
+  wrapper and overrides the `try` body's outcome — its return value, or the
+  error `onError` was rethrowing — because `finally` wins in JavaScript.
 - Deep telemetry support for debugging
 - **A throwing (or rejecting) `onError` propagates.** It is awaited inside the
   `catch`, so an `onError` that throws replaces the original error as the
-  rejection, and `onFinally` still runs. This is how you augment-and-rethrow:
+  rejection, and `onFinally` still runs — unless `onFinally` itself fails, in
+  which case the `onFinally` rejection wins. This is how you augment-and-rethrow:
   `onError: error => { throw Object.assign(error, {operation: 'charge'}) }`
   rejects with the *original* object, now carrying extra fields. A plain
   `onError` (logs, returns) still swallows and returns `undefined`.
-  `tryCatchSync` has the same contract.
+  `tryCatchSync` has the same precedence contract, with synchronous hooks.
 
 **Caveats**: not an error strategy — strategies belong to the iterators.
 Composes with `pipe` (short-circuit) and `series` (drop) through the `undefined`
@@ -1667,10 +1682,18 @@ want Pipelean's structured error collection.
 - **Not supported in sync variants**:
   - `signal`, `pause` and `pauseOnErrors`, because they depend on async waiting and timers. Passing any of them throws a `TypeError` — they are never silently ignored
   - async iterables, because sync variants use plain synchronous iteration
-  - async callbacks: a mapper, predicate, scanner, reducer, operation, hook or
-    wrapped function that returns a Promise is rejected with a `TypeError`
+  - async callbacks: a mapper, predicate, scanner, reducer, operation, hook,
+    telemetry callback (`onError`, `onFailure`, `onSourceError`, `onProgress`)
+    or wrapped function that returns a Promise is rejected with a `TypeError`
     naming the async twin. The violation is fatal — it escapes the strategy and
-    is never collected as data
+    is never collected as item data. It stays fatal across the seam too: a
+    sync-callback `TypeError` raised inside an async combinator's callback (for
+    example an async `series` mapper calling `foldSync` with an async reducer)
+    never lands in `errors`, and a fold's `recover` is not consulted either.
+    The run aborts on the source-error path — `sourceErrors` under
+    `collect` / `failLate`, `failure` under `failFast`, nothing recorded under
+    `skip` — or `rethrow` throws it. A synchronous throw from the same callback
+    still flows into the strategy
 - Source errors: same semantics as the async twins — see
   [Source errors](#source-errors).
 - `scanSync` and `reduceSync` also support the fold-only `recover` option. It
@@ -1838,11 +1861,11 @@ shapes, and the same per-step hooks (`onStepStart` / `onStepSuccess`).
 
 **Default strategy**: `collect`
 
-**Caveats**: operations and hooks must be **synchronous**. An operation or a
-hook that returns a Promise is rejected with a `TypeError` pointing at `enrich`
-— never silently merged as a no-op, never fire-and-forget. A synchronous throw
-still flows into the strategy. Use it when your operations and inputs are
-synchronous.
+**Caveats**: operations, hooks and `onError` / `onFailure` callbacks must be
+**synchronous**. One that returns a Promise is rejected with a `TypeError`
+pointing at `enrich` — never silently merged as a no-op, never fire-and-forget.
+A synchronous throw still flows into the strategy. Use it when your operations
+and inputs are synchronous.
 
 **Example**:
 ```javascript

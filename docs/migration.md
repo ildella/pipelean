@@ -10,7 +10,11 @@ silently kept as a value (a mapper), treated as truthy (a predicate), spread as
 an empty no-op patch (an `enrichSync` operation), or left unobserved (a hook).
 Now every such case throws a `TypeError` naming the async twin. The violation is
 fatal: it escapes the strategy and is never collected as data, even under
-`collect`.
+`collect`. It stays fatal across the seam: a sync-callback `TypeError` raised
+inside an async combinator's callback (for example a `foldSync` with an async
+reducer called from an async `series` mapper) escapes the async item error
+path too, aborting the run as a source error instead of being collected as an
+item error.
 
 Affected callbacks:
 
@@ -19,9 +23,17 @@ Affected callbacks:
 - `scanSync` / `reduceSync` scanner → use `scan` / `reduce`.
 - `foldSync` reducer → use `reduce`.
 - `enrichSync` operation and `onStepStart` / `onStepSuccess` hooks → use `enrich`.
+- `onError` / `onFailure` / `onSourceError` / `onProgress` on the sync
+  combinators → use the async twin of that run (`series`, `filter`, `scan`,
+  `reduce`, `enrich`). There is no carve-out for telemetry. `findSync` has no
+  async twin: its callbacks must be synchronous and its messages point at
+  `filter`.
 - `pipeSync` step → use `pipe`.
 - `tryCatchSync` `fn`, `onStart`, `onSuccess`, `onError`, `onFinally` → use
-  `tryCatch`.
+  `tryCatch`. It awaits all four hooks, so async lifecycle callbacks are fully
+  supported: when the wrapper settles, the hooks have completed. (A rejecting
+  `onStart` is caught by the wrapper — `onError` runs, then it drops; a
+  rejecting `onFinally` rejects the wrapper.)
 
 ```js
 // Before (0.15): silently returned [Promise, Promise]
@@ -32,10 +44,13 @@ await mapSeries(items, async item => await load(item))
 ```
 
 The `enrichSync` hooks were documented as fire-and-forget in 0.15; that
-documentation is replaced by the rejection. A synchronous throw from any
-callback still flows into the strategy unchanged. If a sync pipeline genuinely
-needs to carry a Promise as data, wrap it in an object (`{promise}`) — the guard
-only rejects a bare thenable result.
+documentation is replaced by the rejection. The same rejection applies to
+`onError` / `onFailure` / `onSourceError` / `onProgress` on the sync
+combinators: an async telemetry callback is a configuration error, not a
+fire-and-forget call. A synchronous throw from any callback still flows into
+the strategy unchanged. If a sync pipeline genuinely needs to carry a Promise
+as data, wrap it in an object (`{promise}`) — the guard only rejects a bare
+thenable result.
 
 ## 0.15.1: `no-fold-rethrow` suggestion fixer
 

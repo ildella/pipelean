@@ -4,6 +4,7 @@ import noPromiseCombinators from './rules/no-promise-combinators.js'
 import noArrayMapAsync from './rules/no-array-map-async.js'
 import noLoopWithoutYield from './rules/no-loop-without-yield.js'
 import noFoldRethrow from './rules/no-fold-rethrow.js'
+import noSyncAsyncCallback from './rules/no-sync-async-callback.js'
 
 export default {
   meta: {name: 'pipelean'},
@@ -14,5 +15,6 @@ export default {
     'no-array-map-async': noArrayMapAsync,
     'no-loop-without-yield': noLoopWithoutYield,
     'no-fold-rethrow': noFoldRethrow,
+    'no-sync-async-callback': noSyncAsyncCallback,
   },
 }

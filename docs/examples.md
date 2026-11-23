@@ -353,11 +353,12 @@ const processAlbum = enrich(
 ```
 
 `enrich` awaits each hook before moving on; `enrichSync` requires **sync**
-operations and hooks — a returned Promise is rejected with a `TypeError` pointing
-at `enrich`, never silently ignored (a synchronous throw still flows into the
-strategy). A throwing hook is a failed step and goes through the strategy: with
-`failFast`, later hooks never run; with `collect`, the run continues. There is no
-`onStepError` — errors belong to `onError`.
+operations, hooks and `onError` / `onFailure` callbacks — a returned Promise is
+rejected with a `TypeError` pointing at `enrich`, never silently ignored (a
+synchronous throw still flows into the strategy). A throwing hook is a failed
+step and goes through the strategy: with `failFast`, later hooks never run;
+with `collect`, the run continues. There is no `onStepError` — errors belong to
+`onError`.
 
 #### Example: join (fork/join over named concurrent tasks)
 
@@ -401,4 +402,4 @@ const {value} = processAlbumSync(rawAlbum)
 // value: {title, year, slug, rawTitle, rawYear}
 ```
 
-`enrichSync` returns `{value, errors, failure}` directly. Same strategies, same `onError` / `onFailure` semantics, same normalized error shapes as `enrich()`. Use it whenever all your data and operations are synchronous.
+`enrichSync` returns `{value, errors, failure}` directly. Same strategies, same `onError` / `onFailure` semantics, same normalized error shapes as `enrich()`. The callbacks must be synchronous like the operations. Use it whenever all your data and operations are synchronous.

@@ -93,8 +93,9 @@ enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), in
 > a `Promise`. `foldSync` is the raw sync fold: no options, no report.
 > `signal`, `pause` and `pauseOnErrors` are async-only: passing them to a sync
 > variant throws a `TypeError`. Callbacks must be sync too: a mapper, predicate,
-> scanner, reducer, operation, hook or wrapped function returning a Promise
-> throws a `TypeError` pointing at the async twin.
+> scanner, reducer, operation, hook, telemetry callback (`onError`, `onFailure`,
+> `onSourceError`, `onProgress`) or wrapped function returning a Promise throws
+> a `TypeError` pointing at the async twin.
 
 ### When plain JavaScript is clearer
 
