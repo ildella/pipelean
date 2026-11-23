@@ -1,143 +1,134 @@
 ---
 name: pipelean
-description: Use when a project depends on `pipelean`, or when writing or reviewing sequential async iteration, batch/import jobs, rate-limited loops, daemon loops with backoff, cancellation (AbortSignal), error handling (strategies, retry, tryCatch), folds/accumulators, enrichment pipelines, or named concurrent tasks. Replaces hand-rolled forEach, for-loops with try/catch, Promise.all/allSettled, async .map and Array.reduce. Also use when a `pipelean/*` ESLint rule fires. Do not use in projects without pipelean in package.json.
+description: Use when a project depends on `pipelean` and you are writing or reviewing sequential async work — batch/import jobs, rate-limited loops, daemon loops with backoff, cancellation (AbortSignal), error strategies, retry/tryCatch, folds and accumulators, enrichment pipelines, named concurrent tasks — or when deciding whether a hand-rolled loop should use pipelean at all. Also use when a `pipelean/*` ESLint rule fires. Do not use in projects without pipelean in package.json.
 ---
 
-Contracts ship with the package (`docs/` inside `node_modules/pipelean`). Tests are not published.
+Do not rewrite working code just to use pipelean. The job is to choose correctly:
+introduce pipelean where it earns its place, leave plain JavaScript where it does
+not, and never change error or cancellation meaning in a rewrite.
 
-## 1. Bug or data?
+Docs ship with the package, in `node_modules/pipelean/docs/`: `guide.md` (mental
+model), `reference.md` (contracts), `patterns.md` (recipes and the rewrite
+checklist), `examples.md`, `eslint.md`. Read only the section for the API you
+picked — the links below land on it.
 
-- Failure means "cannot happen" → it must throw: `foldSync`, `mapSeries` / `mapSeriesSync`, or `{strategy: rethrow}` at an async I/O boundary (daemon, command exit).
-- Failure means "this record is bad" → managed strategy on `series`, `reduce`, `scan`, `enrich`, `join`.
-- Result already managed and you need the value → `assertOk(result).value`.
+## 0. Gate: does this code need pipelean?
+
+| Situation | Decision |
+|---|---|
+| One `await`, or a pure sync `map` / `filter`, with no failure policy and no lifecycle | Plain JavaScript — do not introduce pipelean |
+| A loop that produces values (async generator source) | Plain `for` + `yield` — loops belong there |
+| Several async steps whose failure policy, report, or lifecycle is explicit | Pipelean — see §2 |
+| The same work must run concurrently | `Promise.all` / p-map — `series` is sequential, `join` is only for a few named, different tasks |
+| Failure is not handled at all and nobody reads the outcome | Fix the policy first; a pipelean call alone does not make it safe |
+
+Pipelean earns its place when the run needs at least one of: an explicit
+**failure policy**, a **lifecycle** (progress, pacing, cancellation), a
+**structured report** to inspect, or a **reusable pipeline**. When none apply,
+native code is clearer. "This is a `forEach`" is not a reason.
+→ [When plain JavaScript is clearer](node_modules/pipelean/docs/guide.md#when-plain-javascript-is-clearer)
+
+## 1. Classify before choosing
+
+1. **Independent or dependent?** Item N needs item N-1's output → fold.
+2. **How many inputs?** Many → `scan` / `reduce` / `foldSync`. One input through
+   many operations → `enrich` (or `pipe` when steps return values, not patches).
+3. **Bug or data?** "This record is bad" is data, handled by a strategy.
+   "This cannot happen" is a bug: it must throw.
+4. **Is there a lifecycle?** Pacing, progress, `take`, cancellation → only the
+   async iterators have them; a sync iterable takes the `*Sync` twin.
 
 ## 2. Pick the tool
 
 | Instead of | Use |
 |---|---|
 | `forEach`, loop + `try/catch`, many independent items | `series` |
-| async `.map` that must throw on first failure | `mapSeries` / `mapSeriesSync` |
-| `Promise.all` / `allSettled` on named tasks | `join` |
+| an async `.map` that must throw on first failure | `mapSeries` / `mapSeriesSync` |
+| `Promise.all` / `allSettled` on a few named tasks | `join` |
 | `.reduce`, pure sync (sums, counts, indexes) | `foldSync` |
-| `.reduce`, async or report needed | `reduce` |
-| `.reduce`, every intermediate matters | `scan` |
+| `.reduce` that is async or needs a report | `reduce` |
+| `.reduce` where every intermediate matters | `scan` |
 | nested spreads threading state through steps | `enrich` |
 | value in → value out, may bail | `pipe` |
+| `items.filter(pred)` / `.find(pred)` with a report | `filter` / `findSync` |
 | `if (failure) throw failure.error` | `assertOk(result)` |
-| lazy producer | plain generator that yields (loops allowed only there) |
+| a loop that produces values | plain generator that yields |
 
-Fold over **items** → `scan` / `reduce` / `foldSync`. Fold over **steps** of one input → `enrich`.
-Many items with a concurrent map over a homogeneous collection: use p-map, not `join`.
+Fold over **items** → `scan` / `reduce` / `foldSync`. Fold over **steps** of one
+input → `enrich`. Many items with a concurrent map over a homogeneous
+collection: p-map, not `join`.
+→ [Picking a tool](node_modules/pipelean/docs/guide.md#picking-a-tool) ·
+[How to choose](node_modules/pipelean/docs/reference.md#how-to-choose)
 
-## 3. series and its options
+## 3. Consult only what you need
 
-```js
-import {series, collect} from 'pipelean'
+| You need | Read |
+|---|---|
+| `series`, `filter`, `findSync`, `mapSeries` and their options | [reference: iterators](node_modules/pipelean/docs/reference.md#iterators) |
+| `scan`, `reduce`, `foldSync`, `recover` | [reference: folds](node_modules/pipelean/docs/reference.md#scan) |
+| `enrich`, `assign`, per-step hooks | [reference: enrich](node_modules/pipelean/docs/reference.md#enrich) |
+| `pipe`, `join` | [reference: composition](node_modules/pipelean/docs/reference.md#composition) |
+| `stopWhen`, `forever` | [reference: source adapters](node_modules/pipelean/docs/reference.md#stopwhen) |
+| `signal`, `pause`, `pauseOnErrors` | [reference: cancellation](node_modules/pipelean/docs/reference.md#cancellation-with-signal) |
+| `assertOk`, `retry`, `tryCatch`, `where` | [reference: helpers and guards](node_modules/pipelean/docs/reference.md#assertok) |
+| `*Sync` variants | [reference: sync variants](node_modules/pipelean/docs/reference.md#sync-variants) |
+| Result shapes | [reference: result shapes](node_modules/pipelean/docs/reference.md#result-shapes) |
+| Strategy matrix | [reference: error strategies](node_modules/pipelean/docs/reference.md#error-strategies) |
 
-const {results, errors, sourceErrors, failure} = await series(pages(), importPage, {
-  strategy: collect,
-  pause: 200,
-  onProgress: ({index, total}) => updateBar(index + 1, total),
-  onError: ({item, error}) => report(item, error),
-  onSourceError: ({error, index}) => log.warn('source died', {error, index}),
-})
-```
+The five strategies are `collect` (`series`/`filter`/`enrich`/`join` default:
+keep what worked), `failLate`, `failFast` (`scan`/`reduce` default: stops and
+returns `failure` as data), `skip`, `rethrow` (throws the original error).
+State the strategy whenever the default is not the policy you mean.
 
-Also curried: `series(fn, opts)(items)`. Accepts arrays and async iterables.
+## 4. Transform without changing meaning
 
-- `strategy`, `onError`, `onFailure`, `onSourceError`, `pause` (ms or fn), `pauseOnErrors`, `signal`, `take`, `total`, `onProgress` (after each kept success only).
-- `signal` checked before each item and during `pause`; abort ends cleanly (`failure: false`), never interrupts the in-flight mapper.
-- `filter` inherits every `series` option. `scan` / `reduce`: no `onProgress`/`take`; they support `pause`, `pauseOnErrors`, `signal`, `recover`.
-- `mapSeries`: passes everything through **except** `onError`/`onFailure`/`onSourceError` and any strategy other than `rethrow`, which throw `TypeError`.
+A rewrite is a behavior change until proven otherwise. Apply the full checklist:
+[Rewriting a hand-rolled loop safely](node_modules/pipelean/docs/patterns.md#rewriting-a-hand-rolled-loop-safely).
 
-## 4. Strategies
+- **Name the failure policy first.** Swallow-and-continue, stop-at-first, keep
+  partial work — that is the `strategy`, and it must match the old loop.
+- **Concurrency changes behavior.** `Promise.all` was concurrent; `series` is
+  sequential with an order guarantee. Do not "modernize" a concurrent run into a
+  serial one by accident.
+- **`undefined` is the drop sentinel** in `series`, `filter`, `pipe`,
+  `mapSeries`: `mapSeries` is not `Array.prototype.map`, and a loop that
+  legitimately yielded `undefined` loses items. In `enrich`, `undefined` is an
+  error — return `{}` for a no-op.
+- **Cancellation has two seams.** `signal` stops between items and during
+  `pause`; it never interrupts the in-flight mapper. Domain bounds ("stop after
+  N", sentinel reached) are `stopWhen` on the source. Neither is a `break` in
+  disguise.
+- **Source errors are separate** (`sourceErrors` / `onSourceError`), not item
+  errors, and bypass `recover`.
+- **Match sync to sync:** a sync iterable takes the `*Sync` twin; `signal`,
+  `pause` and `pauseOnErrors` on it are a `TypeError`.
+- **Prove the outcome is read.** Errors are data now: consume `errors` /
+  `failure`, or guard with `assertOk` when a silent stop is unacceptable. Keep
+  the original error identity for callers that match on message or
+  `instanceof`.
 
-| strategy | `errors` | `failure` | note |
-|---|---|---|---|
-| `collect` | all handled | `false` | default for `series`, `filter`, `enrich`, `join` |
-| `failLate` | all handled | `{errors}` at end | |
-| `failFast` | `[]` | `{item, error, index}` | default for `scan`, `reduce`; clears `scan` results (`reduce` keeps its last accumulator); in `join` = `failLate` |
-| `skip` | `[]` | `false` | `onError` still fires |
-| `rethrow` | throws original | — | no `onError`/`onFailure`/`onSourceError` (except fold with `recover`) |
+### Three ways to get it wrong
 
-Always state the strategy when the default is not the policy you mean.
+- `{strategy: rethrow}` as a value extractor. It is raw async mode, not
+  `unwrap`: use `assertOk(result)` for a managed result, `foldSync` for a pure
+  sync fold. `pipelean/no-fold-rethrow` exists for this.
+- `onError` next to `rethrow`. It never fires — dead configuration.
+- Ignoring a `failFast` failure. The run stopped and returned `failure`; if
+  nobody reads it the job dies silently. Guard with `assertOk`.
 
-## 5. Error tools
+## 5. When a `pipelean/*` rule fires
 
-| Tool | Scope | Effect |
-|---|---|---|
-| `strategy: collect` | whole run | record, continue with the previous accumulator |
-| `recover` (folds only) | one fold item | error → next accumulator, keep folding; error is consumed |
-| `tryCatch` | one function | swallow, return `undefined`; a throwing `onError` propagates, `onFinally` still runs |
-| `retry` | one function | retry (default 3), then rethrow |
-| `assertOk` | one finished result | throws the original error (`failLate` → first error) with `.failure` attached; asserts no `failure`, not no `errors` |
-
-`retry` / `tryCatch` wrap one function. They are not strategies.
-
-`recover`: a recovered error is consumed (`errors` empty, `failure: false`); `onError` fires first, even under `rethrow`. Source errors bypass `recover`.
-
-## 6. Rules that bite
-
-- `undefined` drops the item in `series`, `filter`, `pipe`, `mapSeries`. In `enrich` it is an error: return `{}` for a no-op.
-- Never extract a fold value with `{strategy: rethrow}`. `onError` next to `rethrow` never fires. (`no-fold-rethrow` flags it; `recover` in the options exempts it.)
-- `foldSync`: sync only, exactly 3 arguments, throws the original error, `undefined` is a valid accumulator.
-- `enrich`: steps return a non-null, non-array object patch, shallow-merged. Options bind at `enrich(ops, opts)`. Hooks: `onStepStart`, `onStepSuccess`; errors only on `onError`. In `enrichSync` hooks must be sync: an async rejection is never observed.
-- `pipe` catches nothing. Only `undefined` short-circuits; `null`, `false`, `0`, `''` flow.
-- `join`: named tasks, no cap, no cancellation.
-- `stopWhen(items, pred)` / `stopWhenSync` end a source cleanly; `signal` is lifecycle cancellation. They compose.
-- `*Sync` variants (`seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `mapSeriesSync`, `pipeSync`, `enrichSync`, `tryCatchSync`): same shapes, no Promises, no async iterables, `signal`/`pause`/`pauseOnErrors` throw `TypeError`. `foldSync` has no async twin.
-
-## 7. enrich, join and the daemon loop
-
-```js
-import {enrich, join} from 'pipelean'
-
-const processAlbum = enrich([
-  state => ({title: state.rawTitle.trim()}),
-  state => ({year: parseYear(state.rawYear)}),
-])
-const {value, errors, failure} = await processAlbum(input)
-
-const report = await join({api: () => ping('api.example.com'), cdn: () => ping('cdn.example.com')})
-// report.value = {api, cdn}; a failed branch is {operation, error, index} in report.errors
-```
-
-Daemon loop: `reduce` over `forever()` ticks, with `signal` for shutdown, `pause` for backoff, `recover` so a failed round does not end the loop.
-
-```js
-import {reduce, rethrow, forever} from 'pipelean'
-
-await reduce(forever(), async state => {
-  const results = await runner.sync({full: state.full})
-  return {...state, full: false, failures: failedRound(results) ? state.failures + 1 : 0}
-}, {failures: 0, full: true}, {
-  signal: controller.signal,
-  strategy: rethrow,
-  onError: ({error}) => log.warn(error.message),
-  recover: ({state}) => ({...state, full: false, failures: state.failures + 1}),
-  pause: state => backoffWait({failures: state.failures}),
-})
-```
-
-## 8. Supporting cast
-
-- `where(pattern)`: strict-equality object predicate for `filter` / `findSync`.
-- `assign(property, parse)`: `enrich` step; sets `{[property]: value}` unless `parse(state)` is `undefined` (then `{}`).
-- `findSync(items, pred)`: first match, early exit; `{result, errors, sourceErrors, failure}`.
-- `forever()` / `foreverSync()`: unbounded ticks for daemon loops.
-- `delay(ms)`: Promise-based wait.
-
-## 9. When a `pipelean/*` rule fires
-
-All rules default to `warn` in `pipelean/eslint/config`.
+All rules default to `warn` in `pipelean/eslint/config`. The warning is a prompt
+to apply §0, not an order to rewrite: if the native code passes the gate, keep it
+and suppress the rule at that site.
 
 | rule | use instead |
 |---|---|
-| `no-array-foreach` | `series` |
+| `no-array-foreach` | `series` — if the loop passes the gate |
 | `no-array-reduce` | `foldSync` (pure sync) or `reduce` (report needed) |
 | `no-array-map-async` | `series` / `mapSeries` |
 | `no-promise-combinators` | `series` with a strategy; `join` for named tasks |
-| `no-loop-without-yield` | generator source that yields (loops allowed only there) |
+| `no-loop-without-yield` | generator source that yields (loops allowed there) |
 | `no-fold-rethrow` | `foldSync`; `recover` in the options exempts |
 
-Return shapes: `series`/`filter`/`scan` `{results, errors, sourceErrors, failure}`; `reduce` `{value, errors, sourceErrors, failure}`; `enrich`/`join` `{value, errors, failure}`; `findSync` `{result, errors, sourceErrors, failure}`; `mapSeries` bare array; `foldSync` bare value.
+→ [ESLint plugin](node_modules/pipelean/docs/eslint.md)
