@@ -1,5 +1,6 @@
 import path from 'node:path'
 import {includeIgnoreFile} from '@eslint/compat'
+import {importX} from 'eslint-plugin-import-x'
 import {nostandard} from 'eslint-nostandard'
 import vitest from 'eslint-nostandard/vitest'
 import globals from 'globals'
@@ -14,6 +15,18 @@ export default [
   includeIgnoreFile(gitignorePath),
   ...nostandard.recommended,
   vitest,
+  {
+    // A library has no layers: the one promise is an acyclic import graph.
+    name: 'Pipelean/Cycles',
+    files: ['src/**/*.js'],
+    plugins: {'import-x': importX},
+    settings: {
+      'import-x/extensions': ['.js'],
+    },
+    rules: {
+      'import-x/no-cycle': ['error', {ignoreExternal: true}],
+    },
+  },
   {
     name: 'Pipelean',
     ignores,
