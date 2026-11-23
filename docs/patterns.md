@@ -144,6 +144,54 @@ For the async fold that really is raw — a service loop with `recover` — keep
 `rethrow`. It is supported and recommended there; it is only the *value
 extraction* that is a smell.
 
+### Rewriting a hand-rolled loop safely
+
+A checklist for replacing a `for` / `forEach` / `Promise.all` with a pipelean
+call without changing what the code means. Each item links to the contract
+that owns it.
+
+**Before — read what the loop actually does:**
+
+1. **Name the failure policy.** Swallow and continue? Stop at the first
+   error? Keep the partial work? That choice is the `strategy`, and it must
+   be explicit whenever the default is not the policy you mean
+   ([error strategies](guide.md#error-strategies)).
+2. **Check the gate.** If the loop needs no failure policy, no lifecycle and
+   no report, plain JavaScript may be clearer — keep it
+   ([when plain JS is clearer](guide.md#when-plain-javascript-is-clearer)).
+3. **Note the concurrency.** `Promise.all` runs items at the same time;
+   `series` is sequential by design, so the rewrite changes timing — a
+   behavior change, not a refactor. `join` is only for a few named tasks; a
+   capped concurrent map over a homogeneous collection is p-map's job.
+
+**During — preserve the semantics:**
+
+4. **`undefined` is the drop sentinel.** `series`, `filter`, `mapSeries` and
+   `pipe` drop `undefined` results. If the original loop legitimately produced
+   `undefined` values, the rewrite loses them.
+5. **Source errors are separate.** A generator that can throw produces
+   `sourceErrors`, not item errors; decide what a dead source means for the
+   run ([source errors](reference.md#source-errors)).
+6. **Cancellation has two seams.** `signal` stops between items and during
+   `pause` — it never interrupts the in-flight mapper; keep intra-item
+   cancellation inside your operation. Domain bounds ("stop after N", "stop
+   at the sentinel") are `stopWhen` on the source
+   ([pattern 9](#pattern-9-cancel--limit-a-run-with-stopwhen)).
+7. **Execution is eager.** Work starts when the call is made; there are no
+   lazy pipelines to defer.
+8. **Match sync to sync.** A sync iterable takes the `*Sync` twin;
+   `signal` / `pause` / `pauseOnErrors` on a sync variant are a `TypeError`,
+   and a sync fold's `recover` must be synchronous.
+
+**After — prove the outcome is still read:**
+
+9. **Read the report.** Errors are data now: the caller must consume `errors`
+   and `failure`, or guard with `assertOk` when a silent stop must be
+   impossible ([don't ignore the outcome](#dont-ignore-the-outcome-assertok)).
+10. **Run before/after on the same inputs — including the failure cases.**
+    Same results, same partial work, same error identity where callers match
+    on message or `instanceof`.
+
 ### Per-step UI status (`enrich` + hooks)
 
 A live "step 2 of 4" indicator for a stateful pipeline is usually a hand-rolled

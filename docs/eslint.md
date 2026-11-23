@@ -23,6 +23,18 @@ export default [
 Every rule defaults to `warn` in the ready-made flat config. The plugin itself
 is also exported at `pipelean/eslint` for manual `plugins`/`rules` wiring.
 
+## Advisory, not mandatory
+
+The rules flag shapes and suggest pipelean equivalents; a warning is a prompt
+to decide, not an order to rewrite. The decision gate comes first: if the code
+needs no failure policy, no lifecycle and no structured report, plain
+JavaScript is clearer and should stay
+([when plain JavaScript is clearer](guide.md#when-plain-javascript-is-clearer)).
+When the native code passes the gate, keep it and suppress the rule at that
+site with an `eslint-disable-next-line` comment — do not rewrite working code
+just to silence a warning. When the rewrite is warranted, follow
+[Rewriting a hand-rolled loop safely](patterns.md#rewriting-a-hand-rolled-loop-safely).
+
 ## Rules
 
 | rule | flags | suggests |

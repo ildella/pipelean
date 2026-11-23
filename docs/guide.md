@@ -94,6 +94,30 @@ enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), in
 > `signal`, `pause` and `pauseOnErrors` are async-only: passing them to a sync
 > variant throws a `TypeError`.
 
+### When plain JavaScript is clearer
+
+Pipelean earns its place when a run needs at least one of: an explicit
+**failure policy**, a **lifecycle** (progress, pacing, cancellation), a
+**structured report** to inspect, or a **reusable pipeline**. When none of
+these apply, plain JavaScript is clearer and you should keep it:
+
+- **A single operation** — one `await` with a `try/catch` at a boundary is
+  already explicit; wrapping it adds indirection, not safety. `tryCatch` is
+  for when you want the wrapper itself: uniform logging, an outcome value,
+  a reusable safe function.
+- **A pure sync transformation with no failure policy** — `items.map(x => x.id)`
+  or `items.filter(Boolean)` says exactly what it does. A pure sync *fold* is
+  the exception: `foldSync` is its canonical form, and `no-array-reduce`
+  points at it.
+- **A loop inside a generator** — yielding producers are where loops belong;
+  `no-loop-without-yield` only flags loops that are not sources.
+
+The ESLint rules are advisory: a warning is a prompt to apply this gate, not
+an order to rewrite. If the native code passes the gate, keep it and suppress
+the rule at that site — see [ESLint plugin](eslint.md). For rewriting a loop
+that *does* pass the gate, the before/after checklist is
+[Rewriting a hand-rolled loop safely](patterns.md#rewriting-a-hand-rolled-loop-safely).
+
 ## Independent vs dependent operations
 
 **The question**: does item N need item N-1's output? If not, the items are

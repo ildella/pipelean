@@ -113,6 +113,10 @@ async mode, not a value extractor.
 Defaults: `series`, `filter`, `enrich`, `join` use `collect`; `scan` and `reduce`
 use `failFast`.
 
+None of these apply? If the code needs no failure policy, no lifecycle and no
+report, plain JavaScript is clearer — see
+[when plain JavaScript is clearer](guide.md#when-plain-javascript-is-clearer).
+
 ---
 
 ## Result shapes
