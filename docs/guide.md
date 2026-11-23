@@ -196,6 +196,12 @@ details.
 
 #### Iteration: series / scan / reduce / filter
 
+**Use `series` when** items are independent: import/sync jobs, API fan-in with a
+rate limit, paging generators, anything with a progress bar. **Don't use it
+when** item N needs item N-1's output (`reduce` / `scan`), you have one input
+with many enrichments (`enrich`), or you need a fixed set of different tasks
+running together (`join`).
+
 * **Error strategies** — built-in and first-class (see above).
 
 * **Universal input**
@@ -242,6 +248,14 @@ details.
     `for await`) with no option changes:
     `series(fn, opts)(stopWhen(items, shouldStop))`.
   - Cancel is a clean shorter run (`failure: false`), never a source error.
+
+  Two stop mechanisms, two jobs: **`signal`** is the lifecycle stop — user
+  cancel, shutdown, a parent request ending; it ends the run cleanly at the next
+  item or during `pause`, keeping the completed step. **`stopWhen`** is a
+  source-level condition — a batch limit (`() => count >= limit`), a content
+  sentinel (`page.isLast`), or any predicate over the item; it works with raw
+  `for await` too and needs no consumer options. They compose freely. See
+  [patterns](patterns.md#pattern-10-daemon-loop-with-forever--signal).
 
 * **Order guarantee**
   - Execution is sequential, so output order strictly matches input order.
@@ -330,6 +344,16 @@ may bail. **Don't use it when** steps need the state accumulated so far
 and keeps only the last. Both take `(iterable, scanner, initialValue, opts?)`
 where the scanner is `(accumulator, item, index) => newAccumulator`.
 
+**Use `scan` when** each item depends on the previous one **and** every
+intermediate value is useful: chained insert IDs, a running total rendered as a
+timeline, a replayable audit trail. **Use `reduce` when** you need the last
+value **plus the report**: the accumulator, the errors, and a failure policy for
+a fold whose input can be bad (a price that is missing, a record that fails
+validation). A daemon loop built with `forever()` + `signal` also belongs here:
+it needs the policy even though the value is data. **Don't use either when**
+items are independent (`series`), or the collection being folded is your
+operation list (`enrich`).
+
 ```js
 import {scan, reduce} from 'pipelean'
 
@@ -396,6 +420,13 @@ const {value, errors, failure} = await processAlbum(input)
 `enrich` returns `{value, errors, failure}` — no `results` array, no
 `sourceErrors` (the steps are a fixed array, so a source error is impossible).
 The default strategy is `collect`.
+
+**Use `enrich` when** one input passes through several steps that each add or
+override fields and need to see everything added so far: raw payload →
+normalised entity, request → enriched context, form → validated model. **Don't
+use it when** steps return plain values rather than patches (`pipe`), there are
+many inputs (`series` + `pipe`), or you need every intermediate state — if you
+genuinely do, fold the patches with `scan`.
 
 ##### Per-step hooks: `onStepStart` / `onStepSuccess`
 

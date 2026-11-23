@@ -13,6 +13,9 @@
 
 ## Table of Contents
 
+- [How to choose](#how-to-choose) - The decision matrix
+- [Result shapes](#result-shapes) - What each function returns
+
 ### Error strategies
 
 - [failFast](#failfast) - Error Strategy Identifier (aliases: `stopOnError`, `fail`)
@@ -81,6 +84,22 @@ async mode, not a value extractor.
 
 Defaults: `series`, `filter`, `enrich`, `join` use `collect`; `scan` and `reduce`
 use `failFast`.
+
+---
+
+## Result shapes
+
+| function | returns |
+|---|---|
+| `series`, `filter`, `scan` | `{results, errors, sourceErrors, failure}` |
+| `reduce` | `{value, errors, sourceErrors, failure}` |
+| `enrich`, `join` | `{value, errors, failure}` |
+| `findSync` | `{result, errors, sourceErrors, failure}` |
+| `mapSeries`, `mapSeriesSync` | the mapped `Array`, or throws the original error |
+| `foldSync` | the final accumulator, or throws the original error |
+
+`enrich` and `join` fold a known list of steps/branches, so a "source error" is
+impossible there and the field is not returned.
 
 ---
 
@@ -1392,6 +1411,11 @@ operations and inputs are synchronous.
 
 ## Related Documentation
 
-- **[README.md](../README.md)** - Project overview and philosophy
-- **[guide.md](guide.md)** - Comprehensive development guide with examples
+- **[README.md](../README.md)** - Project overview and quick start
+- **[guide.md](guide.md)** - Core concepts and usage patterns
 - **[examples.md](examples.md)** - Practical usage examples for all functions
+- **[patterns.md](patterns.md)** - Error-handling recipes, daemon loops
+- **[eslint.md](eslint.md)** - ESLint plugin rules and setup
+- **[fp-mapping.md](fp-mapping.md)** - Pipelean for functional programmers
+- **[architecture.md](architecture.md)** - Philosophy and design principles
+- **[migration.md](migration.md)** - Upgrading from earlier versions
