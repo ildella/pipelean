@@ -9,8 +9,29 @@ not, and never change error or cancellation meaning in a rewrite.
 
 Docs ship with the package, in `node_modules/pipelean/docs/`: `guide.md` (mental
 model), `reference.md` (contracts), `patterns.md` (recipes and the rewrite
-checklist), `examples.md`, `eslint.md`. Read only the section for the API you
-picked — the links below land on it.
+checklist), `examples.md`, `eslint.md`, and `alternatives.md` (when another
+library is the answer). Read only the section for the API you picked — the links
+below land on it.
+
+## The map
+
+| Layer | APIs | Role |
+|---|---|---|
+| **Core: iteration** | `series` | many independent items, one at a time |
+| **Core: accumulation** | `scan`, `reduce` | a fold, where each item needs the previous value |
+| **Policy** | `collect`, `failFast`, `failLate`, `skip`, `rethrow` | the failure policy of a run |
+| **Shortcuts over the core** | `filter`, `mapSeries`, `findSync`, `foldSync`, `enrich` | the core with one decision already made |
+| **Composition & concurrency** | `pipe`, `join` | orthogonal to the core |
+| **Operation tools** | `tryCatch`, `retry` | one function, wrapped |
+| **Guards & helpers** | `assertOk`, `where`, `assign`, `delay` | results, predicates, steps, waits |
+| **Sources & lifecycle** | `stopWhen`, `forever`; `signal`, `pause`, `take` | what feeds a run, and how it stops |
+| **Sync mirror** | `*Sync` | the same layers, synchronous |
+
+Start from the core: `series` maps independent items, `scan` / `reduce` fold
+dependent ones. The strategies are the failure policy of a run, not a layer above
+it. The shortcuts are not peers of the core — `filter` is `series` with a
+truthiness decision, `mapSeries` is `series` with `rethrow`, `foldSync` is
+`reduceSync` with `rethrow`, and `enrich` is `reduce` over the steps.
 
 ## 0. Gate: does this code need pipelean?
 
@@ -28,64 +49,77 @@ Pipelean earns its place when the run needs at least one of: an explicit
 native code is clearer. "This is a `forEach`" is not a reason.
 → [When plain JavaScript is clearer](node_modules/pipelean/docs/guide.md#when-plain-javascript-is-clearer)
 
-For the run's edges — capped concurrency → p-map, streaming/backpressure →
-exstream-js, push-based sources → RxJS. Full map:
+For the run's edges, another library owns the transport: capped concurrent
+mapping → p-map, queues/scheduling → p-queue or p-limit, retry with
+backoff/jitter → p-retry, streaming/backpressure → exstream-js, push-based
+sources → RxJS. Do not emulate those with `series` + options. Full map:
 [When to reach for another library](node_modules/pipelean/docs/alternatives.md).
 
 ## 1. Classify before choosing
 
-1. **Independent or dependent?** Item N needs item N-1's output → fold.
-2. **How many inputs?** Many → `scan` / `reduce` / `foldSync`. One input through
-   many operations → `enrich` (or `pipe` when steps return values, not patches).
-3. **Bug or data?** "This record is bad" is data, handled by a strategy.
+1. **Independent or dependent?** Item N needs item N-1's output → fold
+   (`scan` / `reduce`). Otherwise → `series`.
+2. **How many inputs?** One input through many operations → `enrich` (steps
+   return patches) or `pipe` (steps return values, no accumulation).
+3. **Does a shortcut already match?** `filter` (selection), `mapSeries`
+   (throw-on-first), `foldSync` (pure sync fold), `findSync` (first match,
+   sync), `enrich` (steps over one input) are the core with the decision made.
+   Prefer the shortcut to a core call plus options.
+4. **Bug or data?** "This record is bad" is data, handled by a strategy.
    "This cannot happen" is a bug: it must throw.
-4. **Is there a lifecycle?** Pacing, progress, `take`, cancellation → only the
+5. **Is there a lifecycle?** Pacing, progress, `take`, cancellation → only the
    async iterators have them; a sync iterable takes the `*Sync` twin.
 
 ## 2. Pick the tool
 
-| Instead of | Use |
-|---|---|
-| `forEach`, loop + `try/catch`, many independent items | `series` |
-| an async `.map` that must throw on first failure | `mapSeries` / `mapSeriesSync` |
-| `Promise.all` / `allSettled` on a few named tasks | `join` |
-| `.reduce`, pure sync (sums, counts, indexes) | `foldSync` |
-| `.reduce` that is async or needs a report | `reduce` |
-| `.reduce` where every intermediate matters | `scan` |
-| nested spreads threading state through steps | `enrich` |
-| value in → value out, may bail | `pipe` |
-| `items.filter(pred)` / `.find(pred)` with a report | `filter` / `findSync` |
-| `if (failure) throw failure.error` | `assertOk(result)` |
-| a reusable boundary around ONE operation (observe + failure policy) | `tryCatch` / `tryCatchSync` |
-| a loop that produces values | plain generator that yields |
+| Instead of | Use | Layer |
+|---|---|---|
+| `forEach`, loop + `try/catch`, many independent items | `series` | core |
+| `.reduce`, pure sync (sums, counts, indexes) | `foldSync` | shortcut |
+| `.reduce` that is async or needs a report | `reduce` | core |
+| `.reduce` where every intermediate matters | `scan` | core |
+| an async `.map` that must throw on first failure | `mapSeries` / `mapSeriesSync` | shortcut |
+| `items.filter(pred)` / `.find(pred)` with a report | `filter` / `findSync` | shortcut |
+| nested spreads threading state through steps | `enrich` | shortcut |
+| `Promise.all` / `allSettled` on a few named tasks | `join` | concurrency |
+| value in → value out, may bail | `pipe` | composition |
+| `if (failure) throw failure.error` | `assertOk(result)` | guard |
+| a reusable boundary around ONE operation (observe + failure policy) | `tryCatch` / `tryCatchSync` | operation |
+| a call that must be retried a fixed number of times | `retry` | operation |
+| a loop that produces values | plain generator that yields | — |
 
 Fold over **items** → `scan` / `reduce` / `foldSync`. Fold over **steps** of one
 input → `enrich`. Many items with a concurrent map over a homogeneous
 collection: p-map, not `join`. This table routes the common cases; for every
-combinator and source adapter — sync twins included, with input, output, default
-strategy and `drop` handling — the single comparison is
+combinator and source adapter — sync twins included, with layer, input, output,
+default strategy and `drop` handling — the single comparison is
 [How to choose](node_modules/pipelean/docs/reference.md#how-to-choose).
 
 ## 3. Consult only what you need
 
 | You need | Read |
 |---|---|
-| Which API fits this shape | [reference: how to choose](node_modules/pipelean/docs/reference.md#how-to-choose) |
-| `series`, `filter`, `findSync`, `mapSeries` and their options | [reference: iterators](node_modules/pipelean/docs/reference.md#iterators) |
-| `scan`, `reduce`, `foldSync`, `recover` | [reference: folds](node_modules/pipelean/docs/reference.md#scan) |
+| Which API fits this layer and scope | [reference: how to choose](node_modules/pipelean/docs/reference.md#how-to-choose) |
+| `series` and its run options | [reference: series](node_modules/pipelean/docs/reference.md#series) |
+| `scan`, `reduce`, `recover` | [reference: scan](node_modules/pipelean/docs/reference.md#scan) |
+| `filter`, `mapSeries`, `findSync`, `foldSync` | [reference: shortcuts](node_modules/pipelean/docs/reference.md#shortcuts-over-the-core) |
 | `enrich`, `assign`, per-step hooks | [reference: enrich](node_modules/pipelean/docs/reference.md#enrich) |
 | `pipe`, `join` | [reference: composition](node_modules/pipelean/docs/reference.md#composition) |
 | `stopWhen`, `forever` | [reference: source adapters](node_modules/pipelean/docs/reference.md#stopwhen) |
-| `signal`, `pause`, `pauseOnErrors` | [reference: cancellation](node_modules/pipelean/docs/reference.md#cancellation-with-signal) |
-| `assertOk`, `retry`, `tryCatch`, `where` | [reference: helpers and guards](node_modules/pipelean/docs/reference.md#assertok) |
+| `signal`, `pause`, `pauseOnErrors`, `take` | [reference: cancellation](node_modules/pipelean/docs/reference.md#cancellation-with-signal) |
+| `tryCatch`, `retry` | [reference: operation tools](node_modules/pipelean/docs/reference.md#operation-tools) |
+| `assertOk`, `where`, `assign`, `delay` | [reference: guards and helpers](node_modules/pipelean/docs/reference.md#guards--helpers) |
+| Which options an API accepts | [reference: unsupported options](node_modules/pipelean/docs/reference.md#unsupported-options) |
+| What a strategy keeps per API | [reference: strategy × consumer](node_modules/pipelean/docs/reference.md#strategy--consumer) |
 | `*Sync` variants | [reference: sync variants](node_modules/pipelean/docs/reference.md#sync-variants) |
 | Result shapes | [reference: result shapes](node_modules/pipelean/docs/reference.md#result-shapes) |
-| Strategy matrix | [reference: error strategies](node_modules/pipelean/docs/reference.md#error-strategies) |
 
 The five strategies are `collect` (`series`/`filter`/`enrich`/`join` default:
 keep what worked), `failLate`, `failFast` (`scan`/`reduce` default: stops and
 returns `failure` as data), `skip`, `rethrow` (throws the original error).
-State the strategy whenever the default is not the policy you mean.
+`fail` and `stopOnError` were removed in 0.18: pass `failFast`. On `join`,
+`failFast` behaves as `failLate`. State the strategy whenever the default is not
+the policy you mean.
 
 ## 4. Transform without changing meaning
 
@@ -101,9 +135,17 @@ A rewrite is a behavior change until proven otherwise. Apply the full checklist:
   `mapSeries`: `mapSeries` is not `Array.prototype.map`, and a loop that
   legitimately yielded `drop` loses items. In 0.18 `undefined` still drops too;
   `series` / `mapSeries` accept `onUndefined: 'error'` to make legacy
-  `undefined` fatal, and 1.0 flips the default. In `enrich`, `drop` and
-  `undefined` are errors — return `{}` for a no-op. The authoritative rule:
+  `undefined` fatal, and 1.0 flips the default. `onUndefined` belongs to the
+  `series` family only: `filter` / `findSync` read truthiness and reject it.
+  In `enrich`, `drop` and `undefined` are errors — return `{}` for a no-op.
+  `scan` / `reduce` / `foldSync` / `join` never drop. The authoritative rule:
   [the `drop` sentinel](node_modules/pipelean/docs/reference.md#the-drop-sentinel).
+- **Use only options the API honours.** `enrich` / `join` reject the run
+  lifecycle (`signal`, `pause`, `take`, `onProgress`, …) and `recover`;
+  `scan` / `reduce` reject `take`, `total`, `onProgress` and `onUndefined`;
+  `mapSeries` rejects the error callbacks. The rejected option throws a
+  `TypeError` naming it — fix the call, do not catch:
+  [Unsupported options](node_modules/pipelean/docs/reference.md#unsupported-options).
 - **`tryCatch` rethrows by default.** It is the single-operation execution
   boundary: `onStart` gates the call, the other hooks observe, and
   `recover({error}) => value` is the explicit swallow/substitute seam
@@ -116,8 +158,8 @@ A rewrite is a behavior change until proven otherwise. Apply the full checklist:
   successful operation is thrown as itself.
 - **Cancellation has two seams.** `signal` stops between items and during
   `pause`; it never interrupts the in-flight mapper. Domain bounds ("stop after
-  N", sentinel reached) are `stopWhen` on the source. Neither is a `break` in
-  disguise.
+  N", sentinel reached) are `stopWhen` on the source, and `take: 0` (or a
+  pre-aborted signal) pulls nothing. Neither is a `break` in disguise.
 - **Source errors are separate** (`sourceErrors` / `onSourceError`), not item
   errors, and bypass `recover`.
 - **Match sync to sync:** a sync iterable takes the `*Sync` twin; `signal`,
