@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {
   test, expect, vi, afterEach,
 } from 'vitest'
@@ -17,11 +18,47 @@ const aborted = () => {
   return controller.signal
 }
 
+const countingSource = values => {
+  const state = {pulled: 0}
+  const gen = async function * () {
+    for (const value of values) {
+      state.pulled++
+      yield value
+    }
+  }
+
+  return {items: gen(), state}
+}
+
 test('series aborted before start processes zero items', async () => {
   const fn = vi.fn(x => x)
   const result = await series([1, 2, 3], fn, {signal: aborted()})
 
   expect(fn).not.toHaveBeenCalled()
+  expect(result).toEqual({
+    results: [], errors: [], sourceErrors: [], failure: false,
+  })
+})
+
+test('a pre-aborted signal never pulls from the source', async () => {
+  const {items, state} = countingSource([1, 2, 3])
+  const result = await series(items, x => x, {signal: aborted()})
+
+  expect(result).toEqual({
+    results: [], errors: [], sourceErrors: [], failure: false,
+  })
+  expect(state.pulled).toBe(0)
+})
+
+test('a pre-aborted signal never starts a dying source', async () => {
+  const boom = new Error('never pulled')
+  // eslint-disable-next-line require-yield
+  const source = async function * () {
+    throw boom
+  }
+
+  const result = await series(source(), x => x, {signal: aborted()})
+
   expect(result).toEqual({
     results: [], errors: [], sourceErrors: [], failure: false,
   })
@@ -35,6 +72,29 @@ test('reduce aborted before start keeps the initial value', async () => {
   expect(result).toEqual({
     value: 42, errors: [], sourceErrors: [], failure: false,
   })
+})
+
+test('a pre-aborted signal never pulls for scan or reduce', async () => {
+  const sum = (acc, item) => acc + item
+  const scannedSource = countingSource([1, 2])
+  const scanned = await scan(scannedSource.items, sum, 0, {
+    signal: aborted(),
+  })
+
+  expect(scanned).toEqual({
+    results: [], errors: [], sourceErrors: [], failure: false,
+  })
+  expect(scannedSource.state.pulled).toBe(0)
+
+  const reducedSource = countingSource([1, 2])
+  const reduced = await reduce(reducedSource.items, sum, 0, {
+    signal: aborted(),
+  })
+
+  expect(reduced).toEqual({
+    value: 0, errors: [], sourceErrors: [], failure: false,
+  })
+  expect(reducedSource.state.pulled).toBe(0)
 })
 
 test('abort between items keeps completed results', async () => {
@@ -95,6 +155,38 @@ test('abort during a long pause stops with no extra round', async () => {
     results: [1], errors: [], sourceErrors: [], failure: false,
   })
   expect(fn).toHaveBeenCalledTimes(1)
+})
+
+test('abort during pause does not pull the next item', async () => {
+  vi.useFakeTimers()
+  const controller = new AbortController()
+  const {items, state} = countingSource([1, 2, 3])
+
+  const promise = series(items, x => x, {
+    signal: controller.signal, pause: 10_000,
+  })
+
+  await vi.advanceTimersByTimeAsync(0)
+  expect(state.pulled).toBe(1)
+
+  controller.abort()
+  const result = await promise
+
+  expect(result.results).toEqual([1])
+  expect(state.pulled).toBe(1)
+})
+
+test('abort during step does not pull the next item', async () => {
+  const controller = new AbortController()
+  const {items, state} = countingSource([1, 2, 3])
+
+  const result = await series(items, x => {
+    controller.abort()
+    return x
+  }, {signal: controller.signal})
+
+  expect(result.results).toEqual([1])
+  expect(state.pulled).toBe(1)
 })
 
 test('abort during a fold pause keeps the accumulator', async () => {

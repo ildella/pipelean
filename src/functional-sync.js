@@ -15,7 +15,8 @@ import {
   handleItemError, settleFoldError,
 } from './errors.js'
 import {
-  notifyProgress, planFold, planSeries, validateOptions,
+  assertTake, assertTotal, notifyProgress, planFold, planSeries,
+  validateOptions,
 } from './run.js'
 
 /**
@@ -25,25 +26,29 @@ import {
  * @typedef {import('./types.js').EnrichResult} EnrichResult
  */
 
+const shouldStopTake = (index, take) =>
+  take !== undefined && index >= take
+
 const runSyncStrategy = ({
   state, items, take, step,
 }) => {
   let index = 0
 
   const iterate = () => {
+    if (shouldStopTake(0, take))
+      return null
+
     for (const item of items) {
-      if (take !== undefined && index >= take)
+      if (shouldStopTake(index, take))
         break
 
       const outcome = step(item, index)
       if (outcome?.stop)
         return outcome.result
-      if (outcome?.skip) {
-        index++
-        continue
-      }
 
       index++
+      if (shouldStopTake(index, take))
+        break
     }
 
     return null
@@ -247,6 +252,8 @@ export const findSync = (...args) => {
       strategy = collect, take, total,
       onError, onFailure, onSourceError,
     } = opts
+    assertTake(take, 'findSync')
+    assertTotal(total, 'findSync')
     const plannedTotal = getPlannedTotal({items: inputItems, take, total})
 
     let found
