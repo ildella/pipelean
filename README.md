@@ -68,101 +68,68 @@ if (errors.length) report(errors)                 // [{item, error, index}]
 No `try/catch`, no hand-rolled loop, no silent swallow. Works on arrays,
 generators and any async iterable.
 
-## Choose your operation
+<a id="around-the-four-models"></a>
 
-Pipelean has four mental models. Find the shape of your problem, then pick the
-tool — you only need to know one category to start.
+## The shape of the library
 
-| Your problem | Model | Tools |
+One core, one cross-cutting policy, a set of shortcuts derived from the core,
+and a few orthogonal tools. Find the layer, then the API.
+
+| Layer | APIs | Role |
 |---|---|---|
-| many items, each independent | **Independent items** | `series`, `filter`, `mapSeries` |
-| each item needs the previous result | **Accumulation** | `scan`, `reduce`, `foldSync` |
-| one input, many steps that add fields | **Enrichment** | `enrich` |
-| one value through ordered steps, or a few named tasks at once | **Composition & concurrency** | `pipe`, `join` |
+| **Core: iteration** | `series` | many independent items, one at a time |
+| **Core: accumulation** | `scan`, `reduce` | a fold, where each item needs the previous value |
+| **Policy** | `collect`, `failFast`, `failLate`, `skip`, `rethrow` | the failure policy of a run, chosen per call |
+| **Shortcuts over the core** | `filter`, `mapSeries`, `findSync`, `foldSync`, `enrich` | the core with one decision already made |
+| **Composition & concurrency** | `pipe`, `join` | orthogonal: one value through steps, or a few named branches at once |
+| **Operation tools** | `tryCatch`, `retry` | one function, wrapped |
+| **Guards & helpers** | `assertOk`, `where`, `assign`, `delay` | results, predicates, steps, waits |
+| **Sources & lifecycle** | `stopWhen`, `forever`; `signal`, `pause`, `take` | what feeds a run, and how it stops |
+| **Sync mirror** | `*Sync` | the same layers, synchronous |
 
-### Independent items — `series`, `filter`, `mapSeries`
+`series`, `scan` and `reduce` are the core: everything else either picks a
+policy, fixes a decision the core already implements, or works beside it.
+The immediate call form is eager — it starts when you call it. The curried form
+(`series(fn, opts)`) builds the reusable run and starts when you apply it to
+items.
+
+### Core: iteration — `series`
 
 Many inputs, no dependency between them: import/sync jobs, API fan-in with a
 rate limit, paging generators, anything with a progress bar. `series` maps and
-drops (`drop` from the mapper drops the item; `undefined` still drops in 0.18), `filter` selects,
-`mapSeries` is the sequential map that throws on the first failure and returns
-a bare array.
+drops (`drop` from the mapper drops the item; `undefined` still drops in 0.18),
+with progress, pacing, `take` and cancellation.
 
 ```js
-await filter(users, where({active: true}))  // keep matches, same report shape
-await mapSeries(files, parseFile)           // bare array, or the original error
+import {series, collect} from 'pipelean'
+
+const {results, errors, failure} = await series(urls, fetchJson, {
+  strategy: collect,
+  pause: 200,
+  onProgress: ({index, total}) => setStatus(`${index + 1}/${total}`),
+})
 ```
 
 → [guide](docs/guide.md#independent-vs-dependent-operations) · [reference](docs/reference.md#iterators)
 
-### Accumulation — `scan`, `reduce`, `foldSync`
+### Core: accumulation — `scan` and `reduce`
 
 Step N needs step N-1's output: you are **folding** over items. Keep every
 intermediate value (`scan`) or only the last (`reduce`). Both return a report
-with an explicit failure policy. A pure sync fold where a throw means a bug —
-sums, counts, grouping — is `foldSync`: it returns the value directly.
+with an explicit failure policy, and both default to `failFast`.
 
 |  | keep every intermediate | keep only the final |
 |---|---|---|
 | fold over **items** (many inputs) | `scan` | `reduce` |
-| fold over **steps** (one input) | — | `enrich` |
 
 ```js
-const {value: total} = await reduce(tracks, (sum, {duration}) => sum + duration, 0)
-const byArtist = foldSync(tracks, (acc, t) => ({...acc, [t.artist]: t}), {})
+const {results} = await scan(tracks, insertAfter, 0)       // every accumulator
+const {value: total} = await reduce(tracks, addDuration, 0) // the last one
 ```
 
 → [guide](docs/guide.md#which-fold) · [reference](docs/reference.md#scan)
 
-### Enrichment — `enrich`
-
-One input, many steps that each add or override fields and need to see
-everything added so far: raw payload → normalised entity, request → enriched
-context, form → validated model. Each step returns an object **patch**,
-shallow-merged into the state. The pipeline is defined once and reused.
-
-```js
-const processAlbum = enrich([prepareAlbum, extractYear, extractArtists])
-const {value, errors, failure} = await processAlbum(input)
-```
-
-`enrich` **is** a `reduce` over your operations. `assign(property, parse)`
-builds steps that set a property only when the parse is neither `drop` nor
-`undefined`.
-
-→ [guide](docs/guide.md#accumulation-vs-enrichment) · [reference](docs/reference.md#enrich)
-
-### Composition & concurrency — `pipe`, `join`
-
-`pipe` composes value-in/value-out steps into one reusable function (it
-composes into `series` mappers); `drop` (and, in 0.18, `undefined`) short-circuits, errors escape to
-the caller. `join` runs a handful of **named, heterogeneous** tasks at the same
-time and reports them together — it is not a concurrent map (use p-map for
-that).
-
-```js
-const normalize = pipe(user => user.active ? user : drop, user => user.email)
-const {value, errors} = await join({ping: () => pingHost(host), scan: () => scanPort(host, 443)})
-```
-
-→ [guide](docs/guide.md#pipeline-composition) · [reference](docs/reference.md#composition)
-
-### Around the four models
-
-- **Sources & loops** — `stopWhen(items, predicate)` stops a source on a
-  condition; `forever()` yields unbounded ticks for daemon loops; `signal`
-  cancels any run cleanly between items. See
-  [patterns](docs/patterns.md#pattern-10-daemon-loop-with-forever--signal).
-- **Resilience wrappers** — `retry(fn)` and `tryCatch(fn)` wrap a single
-  function and compose into `pipe`/`series`; they are not error strategies.
-- **Guards & helpers** — `assertOk(result)` throws when a failure would
-  otherwise be ignored; `where` / `findSync` search; `assign` builds `enrich`
-  steps.
-- **Sync variants** — synchronous counterparts of the core APIs, returning directly instead of a Promise. They reject async iterables, async-only options, and callbacks that return thenables. Each API's reference documents its specific contract.
-
-Full contracts: [reference](docs/reference.md).
-
-## The error model
+### The error model
 
 Errors are **data**: every iterator returns a structured result instead of
 throwing, and you choose the failure policy with a strategy.
@@ -175,8 +142,9 @@ throwing, and you choose the failure policy with a strategy.
 | `skip` | `[]` | `false` | no |
 | `rethrow` | throws | — | on first error |
 
-Defaults: `series`, `filter`, `enrich`, `join` use `collect`; `scan` and
+Defaults: `series`, `filter`, `enrich` and `join` use `collect`; `scan` and
 `reduce` use `failFast`, because a half-finished fold is usually meaningless.
+On `join`, `failFast` behaves as `failLate`: the branches have already started.
 
 Three rules worth knowing up front:
 
@@ -191,11 +159,78 @@ The full model — source errors, fold recovery (`recover`), callbacks, result
 shapes: [guide](docs/guide.md#error-strategies) ·
 [reference](docs/reference.md#error-strategies).
 
+### Shortcuts over the core
+
+Each shortcut is the core with one decision already made — the same engine, not
+a second semantics. Use the core when you need the report or a different policy;
+use the shortcut when its fixed decision is exactly what you want.
+
+| Shortcut | It is |
+|---|---|
+| `filter(items, predicate)` | `series(items, x => predicate(x) ? x : drop)` — truthiness decides, and `drop` counts as falsy |
+| `mapSeries(items, fn)` | `series(items, fn, {strategy: rethrow}).results` — a bare array or the original error |
+| `findSync(items, predicate)` | the sync first match: `filterSync`'s decision with early exit at the match |
+| `foldSync(xs, fn, initial)` | `reduceSync(xs, fn, initial, {strategy: rethrow}).value` — no report at all |
+| `enrich(ops)(input)` | `reduce(ops, (state, op) => ({...state, ...op(state)}), input)` — folds the steps, not the items |
+
+They inherit the core's options where they can honour them and reject known
+options that would be dead configuration: `filter` and `findSync` read
+truthiness, so neither takes `onUndefined`; `enrich` folds a fixed array in
+memory, so it rejects the run lifecycle (`signal`, `pause`, `take`, …). The
+full table is [Unsupported options](docs/reference.md#unsupported-options).
+
+```js
+await filter(users, where({active: true}))  // keep matches, same report shape
+await mapSeries(files, parseFile)           // bare array, or the original error
+const byArtist = foldSync(tracks, (acc, t) => ({...acc, [t.artist]: t}), {})
+const processAlbum = enrich([prepareAlbum, extractYear, extractArtists])
+```
+
+→ [guide](docs/guide.md#accumulation-vs-enrichment) ·
+[reference](docs/reference.md#enrich)
+
+### Orthogonal tools
+
+The rest of the library does not extend the core; it works beside it.
+
+- **Composition & concurrency** — `pipe` chains value-in/value-out steps into
+  one reusable function (`drop`, and `undefined` in 0.18, short-circuits; errors
+  escape). `join` runs a handful of **named, heterogeneous** tasks at the same
+  time and reports them together — it is not a concurrent map (use p-map for
+  that). [guide](docs/guide.md#pipeline-composition) ·
+  [reference](docs/reference.md#composition)
+- **Operation tools** — `tryCatch(fn)` is the execution boundary for one
+  function: hooks observe, `recover` is the only seam that substitutes, and a
+  failure is rethrown by default. `retry(fn)` retries one call, then rethrows.
+  Neither is an error strategy. [guide](docs/guide.md#wrappers-retry-and-trycatch)
+- **Guards & helpers** — `assertOk(result)` throws when a failure would
+  otherwise be ignored; `where(pattern)` builds a strict-equality predicate;
+  `assign(property, parse)` builds an `enrich` step; `delay(ms)` is a plain
+  wait. [reference](docs/reference.md#assertok)
+- **Sources & lifecycle** — `stopWhen(items, predicate)` ends a source on a
+  condition; `forever()` yields unbounded ticks for daemon loops; `signal`,
+  `pause` and `take` belong to the run. See
+  [patterns](docs/patterns.md#pattern-10-daemon-loop-with-forever--signal).
+- **Sync mirror** — the core and most shortcuts have `*Sync` counterparts that
+  return directly instead of a `Promise` (`seriesSync`, `filterSync`,
+  `mapSeriesSync`, `scanSync`, `reduceSync`, `pipeSync`, `enrichSync`), plus the
+  source adapters; `findSync` and `foldSync` are sync-only. They reject async
+  iterables, async-only options (`signal`, `pause`, `pauseOnErrors`) and
+  callbacks that return thenables. [Sync variants](docs/reference.md#sync-variants).
+
+```js
+const normalize = pipe(user => user.active ? user : drop, user => user.email)
+const {value, errors} = await join({ping: () => pingHost(host), scan: () => scanPort(host, 443)})
+```
+
+Full contracts: [reference](docs/reference.md#how-to-choose).
+
 ## Limitations
 
 Worth knowing before you adopt it:
 
-- **Eager execution.** Work starts immediately; there are no lazy pipelines.
+- **Eager execution.** The immediate form starts work when you call it; the
+  curried form builds a reusable run. There are no lazy pipelines.
 - **Sequential by design.** The only concurrency is `join`: no cap, no
   scheduler, no cancellation.
 - **Cancellation stops between items.** `signal` never interrupts an in-flight
