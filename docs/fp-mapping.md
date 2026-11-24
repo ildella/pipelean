@@ -5,13 +5,21 @@ sequential** folds and maps that carry errors as data. If you know Elixir,
 Scala/cats, or Haskell, this page maps the vocabulary — and says where the
 analogy stops.
 
+The map has a core (`series`, `scan`, `reduce`), a policy axis (the strategies),
+and **shortcuts** that are derived from the core. If the analogy you need is not
+on this page, the answer may be another library:
+[when to reach for another library](alternatives.md).
+
 ## The model in one table
+
+**Shortcuts** — `filter`, `mapSeries`, `findSync`, `foldSync`, `enrich` — are
+the same shapes with one decision already made; the table below marks them.
 
 |  | keep every intermediate | keep only the final |
 |---|---|---|
 | fold over **items** (many inputs), managed | `scan` | `reduce` |
-| fold over **items**, pure sync, raw | — | `foldSync` |
-| fold over **steps** (one input) | — | `enrich` |
+| fold over **items**, pure sync, raw — *shortcut* | — | `foldSync` |
+| fold over **steps** (one input) — *shortcut* | — | `enrich` |
 
 `foldSync` is the raw `foldl`: pure, synchronous, no strategy and no report. It
 is the same fold as `reduce`, returned as a value instead of a record — the FP
@@ -29,21 +37,21 @@ shallow `merge` combiner.
 
 ## Mapping
 
-| Pipelean | Haskell | cats | Scala / Akka | Elixir |
-|---|---|---|---|---|
-| `series(items, f)` | `traverse f` / `mapM f` over an effectful function | `traverse` with a sequential `Async`/`Future` | `Source.mapAsync(1)`, sequential `traverse` | `Enum.map` + `Task`, `Task.async_stream(max_concurrency: 1)` |
-| `mapSeries(items, f)` | `mapM f` with `throw` semantics (failure aborts) | `traverse` with a throwing `Async`, no `Either` accumulation | `Future.traverse` (first failure short-circuits) | `Task.async_stream` with `on_timeout: :exit`-style fail-fast |
-| `filter(items, p)` | `filterM` | `filterA` / `filterM` | `Source.filter` | `Enum.filter` |
-| `scan(items, f, z)` | `scanl f z` (`mapAccumL` for state + output) | `scanLeft` | `scanLeft`, `Source.scan` | `Enum.scan` |
-| `reduce(items, f, z)` | `foldl f z` / `foldM` | `foldLeft` / `foldM` | `foldLeft`, `Source.runFold` | `Enum.reduce` |
-| `foldSync(xs, f, z)` | `foldl f z` — pure, total functions, no effect | `foldLeft` — no `Either` | `foldLeft` — no `Try` | `Enum.reduce` — pure |
-| `pipe(f, g, h)` | Kleisli composition `f >=> g >=> h` for `A -> Maybe B`, with `drop` as the empty case | `andThen` chain on `Option` | `Option.andThen` chain | `with` pipeline |
-| `enrich([f, g])` | `foldl` over `A -> A` values with `merge` | `foldLeft` over endomorphisms | `foldLeft` over `A => A` | `Enum.reduce(ops, acc, &Map.merge(&2, &1.(&2)))` |
-| `join({a, b})` | `traverse` over a record of effects | `parTraverse` over a record (no cancellation) | `Future.sequence` on a `Map` | `Task.async` + `Task.await_many` |
-| `stopWhen(xs, p)` | lazy list + `takeWhile` | `takeWhile` | `Source.takeWhile` | `Stream.take_while` |
-| `forever()` | `iterate (+1) 0` | `iterate` | `Source.unfold` | `Stream.iterate(0, &(&1 + 1))` |
-| `failFast` | `Either` short-circuit | `Either` / `IO` failure | `Try` failure | `with` / `:error` tuple |
-| `collect` / `failLate` | accumulating validation | `Validated` (`ValidatedNel`) | `Validated` | collect into `{:ok, _}` / list of errors |
+| Pipelean | layer | Haskell | cats | Scala / Akka | Elixir |
+|---|---|---|---|---|---|
+| `series(items, f)` | core | `traverse f` / `mapM f` over an effectful function | `traverse` with a sequential `Async`/`Future` | `Source.mapAsync(1)`, sequential `traverse` | `Enum.map` + `Task`, `Task.async_stream(max_concurrency: 1)` |
+| `mapSeries(items, f)` | shortcut | `mapM f` with `throw` semantics (failure aborts) | `traverse` with a throwing `Async`, no `Either` accumulation | `Future.traverse` (first failure short-circuits) | `Task.async_stream` with `on_timeout: :exit`-style fail-fast |
+| `filter(items, p)` | shortcut | `filterM` | `filterA` / `filterM` | `Source.filter` | `Enum.filter` |
+| `scan(items, f, z)` | core | `scanl f z` (`mapAccumL` for state + output) | `scanLeft` | `scanLeft`, `Source.scan` | `Enum.scan` |
+| `reduce(items, f, z)` | core | `foldl f z` / `foldM` | `foldLeft` / `foldM` | `foldLeft`, `Source.runFold` | `Enum.reduce` |
+| `foldSync(xs, f, z)` | shortcut | `foldl f z` — pure, total functions, no effect | `foldLeft` — no `Either` | `foldLeft` — no `Try` | `Enum.reduce` — pure |
+| `pipe(f, g, h)` | composition | Kleisli composition `f >=> g >=> h` for `A -> Maybe B`, with `drop` as the empty case | `andThen` chain on `Option` | `Option.andThen` chain | `with` pipeline |
+| `enrich([f, g])` | shortcut | `foldl` over `A -> A` values with `merge` | `foldLeft` over endomorphisms | `foldLeft` over `A => A` | `Enum.reduce(ops, acc, &Map.merge(&2, &1.(&2)))` |
+| `join({a, b})` | concurrency | `traverse` over a record of effects | `parTraverse` over a record (no cancellation) | `Future.sequence` on a `Map` | `Task.async` + `Task.await_many` |
+| `stopWhen(xs, p)` | source | lazy list + `takeWhile` | `takeWhile` | `Source.takeWhile` | `Stream.take_while` |
+| `forever()` | source | `iterate (+1) 0` | `iterate` | `Source.unfold` | `Stream.iterate(0, &(&1 + 1))` |
+| `failFast` | policy | `Either` short-circuit | `Either` / `IO` failure | `Try` failure | `with` / `:error` tuple |
+| `collect` / `failLate` | policy | accumulating validation | `Validated` (`ValidatedNel`) | `Validated` | collect into `{:ok, _}` / list of errors |
 
 ## Where the analogy breaks
 
@@ -55,9 +63,11 @@ that Pipelean satisfies the monad laws.
    flowing. That is a deliberate JavaScript pragmatism, and it means `pipe` is
    not lawful `Option` composition. (`tryCatch` rethrows by default; it only
    produces the `drop` signal when you opt in with `recover: () => drop`;
-   `recover: () => undefined` also drops in 0.18.) In 1.0 `undefined` stops
-   short-circuiting and only the explicit `drop` remains, which makes the
-   Maybe analogy honest.
+   `recover: () => undefined` also drops in 0.18.)
+   **1.0 preview, not 0.18:** `undefined` stops being the sentinel — `pipe`
+   keeps `undefined` as an ordinary value and `series` / `mapSeries` flip
+   `onUndefined` to `'error'`. Only the explicit `drop` remains, which makes the
+   Maybe analogy honest. See the [migration notes](migration.md).
 2. **Iterators are not `Either`.** `series`, `scan` and `reduce` return a record
    `{results | value, errors, sourceErrors, failure}`. They always return; they
    never short-circuit into a failure channel that you `flatMap` over. Errors are
