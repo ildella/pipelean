@@ -3,10 +3,6 @@ import {
   filterSync, findSync, mapSeriesSync, seriesSync,
 } from '$src/index'
 
-// Guard ownership: the sync policy inspects USER callback results only. A
-// thenable ITEM travelling through an internal pass-through transform is data,
-// not a violation (filterSync's transform returns the item unchanged).
-
 const report = {
   errors: [], sourceErrors: [], failure: false,
 }
@@ -58,8 +54,6 @@ test('mapSeriesSync still rejects a mapper that returns a promise', () => {
     .toThrow('mapSeriesSync() mapper returned a Promise; use mapSeries()')
 })
 
-// Detection is result-based, not item-based: the mapper RETURNS the thenable
-// item, so the guard fires. Wrap it as data (`{promise}`) to carry it through.
 test('seriesSync rejects a mapper that returns a thenable item', () => {
   expect(() => seriesSync([Promise.resolve(1)], x => x))
     .toThrow('seriesSync() mapper returned a Promise; use series()')

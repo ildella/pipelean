@@ -123,8 +123,6 @@ const reportOnly = (node, sourceCode) => {
   return !isValueAccess(member) || isWriteTarget(member)
 }
 
-// Swallow the comma plus surrounding whitespace from the end of the third
-// argument through the end of the options object.
 const commaRange = (sourceCode, node) => {
   const third = node.arguments[2]
   const opts = node.arguments[3]

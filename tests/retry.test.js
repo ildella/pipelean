@@ -35,18 +35,13 @@ test('respects delay between retries', async () => {
 
   const retryFn = retry(fn, {attempts: 2, delay: 1000})
 
-  // Start execution
   const promise = retryFn()
 
-  // Allow first attempt to fail (flush microtasks)
   await Promise.resolve()
-  // At this point, the delay should have started
   expect(fn).toHaveBeenCalledTimes(1)
 
-  // Advance time by 1000ms
   await vi.advanceTimersByTimeAsync(1000)
 
-  // Now the second attempt should run
   const result = await promise
   expect(result).toBe('ok')
   expect(fn).toHaveBeenCalledTimes(2)
@@ -61,8 +56,6 @@ test('does not delay after last attempt fails', async () => {
 
   const promise = retryFn()
 
-  // Use Promise.all to attach the assertion handler immediately
-  // while also advancing the timers.
   await Promise.all([
     vi.advanceTimersByTimeAsync(200),
     expect(promise).rejects.toThrow('fail'),

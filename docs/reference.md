@@ -1668,7 +1668,8 @@ Every hook and `recover` receive **one context object**. `args` is a copy of
 the wrapper invocation's argument list (an array), so mutating it cannot change
 what `fn` received; `name` is the `name` option. There is no other field, and
 the hooks' and `recover`'s return values are ignored (except `recover`'s, which
-is the substitute).
+is the substitute). The context is shared, not cloned per hook: `args` is the
+same array in every hook, and a mutation by one hook is visible to later hooks.
 
 **Returns**: a wrapper with the same signature as `fn`. On success it resolves
 to `fn`'s result (or `recover`'s substitute). On failure, with no `recover`, it
@@ -1697,11 +1698,13 @@ change the outcome when there is no operation error to preserve:
   `error.hookErrors` (an array), best effort. If the primary cannot carry the
   property (a primitive, a frozen / non-extensible object, or one that rejects
   the write), the hook error is dropped: the primary is thrown **unchanged**.
-  Attaching mutates the primary; a reused error keeps only the latest
-  `hookErrors`.
-- **After a successful `recover` the operation counts as successful**: if a
-  hook threw earlier on the failure path (for example `onError`), that hook
-  error is thrown as itself.
+  Attaching mutates the primary and appends to any existing `hookErrors`, so
+  an error object reused across calls accumulates hook errors.
+- **After a successful `recover` the operation counts as successful**: the
+  next throwing hook becomes the primary error and is thrown as itself, with
+  any earlier failure-path hook error (for example from `onError`) attached to
+  it as `hookErrors`. If no later hook throws, that earlier hook error is
+  thrown as itself.
 
 **Caveats**: not an error strategy — strategies belong to the iterators. Not a
 Result library: returning `{ok, value|error}` is an app-layer composition, not

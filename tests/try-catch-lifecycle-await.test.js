@@ -1,9 +1,6 @@
 import {test, expect, vi} from 'vitest'
 import {delay, tryCatch} from '$src/functional'
 
-// All four lifecycle hooks are awaited. These tests use a real timer in the
-// hooks so "the wrapper resolved first" is unambiguous, not a microtask race.
-
 test('awaits onStart and onSuccess before onFinally', async () => {
   const order = []
   const wrapped = tryCatch(

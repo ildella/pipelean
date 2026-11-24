@@ -34,14 +34,13 @@ const observeHook = async (outcome, hook, context) => {
 }
 
 const handleFailure = async (outcome, {onError, recover}, context) => {
-  await observeHook(
-    outcome, onError, {...context, error: outcome.primaryError()},
-  )
+  const failureContext = {...context, error: outcome.primaryError()}
+  await observeHook(outcome, onError, failureContext)
   if (!recover)
     return undefined
 
   try {
-    const value = await recover({...context, error: outcome.primaryError()})
+    const value = await recover(failureContext)
     outcome.clear()
     return value
   } catch (recoverError) {
@@ -146,10 +145,6 @@ const withFailure = (error, failure) => {
   return error
 }
 
-// Attaching `.failure` can fail even on an extensible object: a non-writable
-// own property, an accessor without a setter, or a Proxy trap that throws.
-// Both the extensibility probe and the assignment are guarded, so a hostile
-// object never replaces the original error with an unrelated TypeError.
 const attachFailure = (error, failure) => {
   try {
     if (!isExtensibleObject(error))
@@ -297,7 +292,6 @@ const runAsyncStrategy = async ({
 const attemptSeriesItem = async (plan, runFn, {item, index}) => {
   try {
     const result = await runFn(item, index)
-    // undefined means "drop this item" (this is how filter() works).
     if (result !== undefined)
       plan.state.results.push(result)
 
@@ -311,7 +305,6 @@ const attemptSeriesItem = async (plan, runFn, {item, index}) => {
   }
 }
 
-// `skip` keeps spacing; a collected error only pauses when asked.
 const shouldPauseAfter = (plan, failed, errorOutcome) =>
   !failed || Boolean(errorOutcome?.skip) || plan.pauseOnErrors
 
@@ -423,9 +416,6 @@ const runScan = ({
       }
     }
 
-    // The pause runs after the accumulator update, so it sees the new state.
-    // A recovered item is a success, so it always pauses. With pauseOnErrors,
-    // a handled error (including `skip`) pauses too.
     if (!failed || plan.pauseOnErrors)
       await waitForPause(plan.pause, plan.signal, [acc, item, index])
 
@@ -529,7 +519,6 @@ export const enrich = (operations, opts = {}) => {
 }
 
 const runBranch = (fn, key, index) =>
-  // Start from a resolved promise so a synchronous throw becomes a rejection.
   Promise.resolve().then(() => fn(key, index))
 
 /**
@@ -581,7 +570,6 @@ export const join = async (tasks, opts = {}) => {
 
   const {strategy = collect, onError, onFailure} = opts
   const strategyName = strategy.name ?? strategy
-  // failFast cannot stop branches that already started; treat it as failLate.
   const isFailLate = strategyName === 'failLate' || strategyName === 'failFast'
 
   const value = {}
@@ -600,7 +588,6 @@ export const join = async (tasks, opts = {}) => {
       continue
     }
 
-    // rethrow: defer to a single throw once every branch has settled.
     if (strategyName === 'throw')
       continue
 
@@ -624,9 +611,6 @@ export const join = async (tasks, opts = {}) => {
 
   const failure = isFailLate && errors.length > 0 ? {errors} : false
 
-  // join awaits its failure callback so an async onFailure that rejects cannot
-  // fire after the result has resolved (an unhandled rejection). The iteration
-  // combinators call onFailure synchronously; join is stricter on purpose.
   if (failure && onFailure)
     await onFailure(failure)
 

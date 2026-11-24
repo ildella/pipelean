@@ -73,7 +73,6 @@ test('abort during an in-flight scanner keeps its accumulator', async () => {
 
   expect(result.value).toBe(1)
   expect(result.failure).toBe(false)
-  // The completed step is kept and the pause is skipped entirely.
   expect(pause).not.toHaveBeenCalled()
 })
 

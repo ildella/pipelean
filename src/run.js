@@ -36,8 +36,6 @@ const assertSyncOptions = opts => {
   }
 }
 
-// `recover` is a fold-local seam: it turns one scanner error into the next
-// accumulator. Nothing else has an accumulator to recover into.
 const assertRecover = (opts, fold) => {
   const {recover} = opts
 

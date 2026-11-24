@@ -2,7 +2,6 @@ import {test, expect} from 'vitest'
 import {pipe} from '$src/functional'
 
 test('composes functions left-to-right', async () => {
-  // Must await because pipe is now async-safe
   const result = await pipe(x => x * 2, x => x + 1)(5)
   expect(result).toBe(11)
 })
@@ -24,7 +23,6 @@ test('propagates errors', async () => {
     () => { throw new Error('pipe broke') },
     x => x + 1,
   )
-  // Promise rejection must be caught with rejects
   await expect(pipeline(1)).rejects.toThrow('pipe broke')
 })
 

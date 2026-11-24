@@ -73,7 +73,6 @@ test('series with pause waits between successful items', async () => {
   const elapsed = Date.now() - start
   expect(result.results).toEqual([2, 4, 6])
   expect(result.errors).toEqual([])
-  // Should take at least 20ms (2 delays of 10ms each)
   expect(elapsed).toBeGreaterThanOrEqual(20)
 })
 
@@ -87,11 +86,7 @@ test('series with pause does NOT wait after errors by default', async () => {
   const elapsed = Date.now() - start
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(1)
-  // Should take at least 10ms (only 1 delay, error at 2 skips pause)
   expect(elapsed).toBeGreaterThanOrEqual(10)
-  // And less than 60ms: only one pause should run (error at 2 skips its
-  // pause). The margin is generous because a loaded machine can add tens of
-  // ms of overhead; it still catches a gross extra-waiting regression.
   expect(elapsed).toBeLessThan(60)
 })
 
@@ -105,7 +100,6 @@ test('series with pauseOnErrors waits after errors too', async () => {
   const elapsed = Date.now() - start
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(1)
-  // Should take at least 20ms (2 delays - after all items including errors)
   expect(elapsed).toBeGreaterThanOrEqual(20)
 })
 
@@ -120,8 +114,7 @@ test(
     }, {pause: 10, strategy: 'skip'})
     const elapsed = Date.now() - start
     expect(result.results).toEqual([2, 6])
-    expect(result.errors).toEqual([]) // skip doesn't collect errors
-    // Should take at least 20ms (2 delays - maintain spacing)
+    expect(result.errors).toEqual([])
     expect(elapsed).toBeGreaterThanOrEqual(20)
   },
 )
@@ -139,9 +132,6 @@ test(
     expect(result.results).toEqual([])
     expect(result.failure).toBeTruthy()
     expect(elapsed).toBeGreaterThanOrEqual(8)
-    // Generous upper bound: failFast must not pause after the final error,
-    // but loaded machines can add tens of ms of overhead on top of the one
-    // real pause. It still catches a gross extra-waiting regression.
     expect(elapsed).toBeLessThan(60)
   },
 )
@@ -155,9 +145,7 @@ test('series with pause works with take option', async () => {
   )
   const elapsed = Date.now() - start
   expect(result.results).toEqual([2, 4, 6])
-  // Should take at least 20ms (2 delays for 3 items)
   expect(elapsed).toBeGreaterThanOrEqual(20)
-  // Generous upper bound: only 2 delays, but loaded CI can add tens of ms.
   expect(elapsed).toBeLessThan(60)
 })
 
@@ -280,7 +268,6 @@ test('does not call onProgress for undefined results', async () => {
     onProgress: value => progress.push(value),
   })
   expect(result.results).toEqual([10, 30])
-  // undefined items are dropped — onProgress should not be called for them
   expect(progress).toEqual([
     {
       item: 1, result: 10, index: 0, total: 3,

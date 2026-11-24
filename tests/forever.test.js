@@ -11,9 +11,6 @@ const collectStopped = async predicate => {
   return items
 }
 
-// forever is unbounded: every consumption below is bounded by stopWhen, take,
-// or a counter — a bare collect(forever()) would never end.
-
 test('yields the natural numbers from zero', async () => {
   const items = await collectStopped((_, index) => index === 4)
   expect(items).toEqual([0, 1, 2, 3])

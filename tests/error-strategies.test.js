@@ -204,7 +204,7 @@ test('skip works with filter', async () => {
 
   const result = await filter(items, predicate, {strategy: skip})
 
-  expect(result.results).toEqual([]) // 2 and 4 failed
+  expect(result.results).toEqual([])
   expect(result.errors).toHaveLength(0)
   expect(result.failure).toBe(false)
 })
@@ -219,7 +219,6 @@ test('failLate with series returns success before error', async () => {
 
   const result = await series(items, fn, {strategy: failLate})
 
-  // All items processed: 1, 2, 4, 5 succeed, 3 fails
   expect(result.results).toEqual([2, 4, 8, 10])
   expect(result.errors).toHaveLength(1)
   expect(result.failure).toEqual({errors: result.errors})

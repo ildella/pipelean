@@ -2,8 +2,6 @@ import {test, expect} from 'vitest'
 import {tryCatch} from '$src/functional'
 import {tryCatchSync} from '$src/index'
 
-// A falsy thrown value is still a failure: presence is tracked explicitly,
-// never by truthiness. This covers fn, every hook and recover, both twins.
 const FALSY = [undefined, null, 0, '', false, NaN]
 
 const settleAsync = async promise => {

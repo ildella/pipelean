@@ -108,7 +108,6 @@ test('onFailure NOT called for skip (failure: false)', async () => {
 test('onFailure is optional', async () => {
   const items = [1, 2, 3]
 
-  // Should not throw without onFailure
   const result = await series(items, fnThatFailsAt(2), {strategy: failFast})
 
   expect(result.failure).toEqual({
@@ -184,14 +183,12 @@ test('onFailure works with scan', async () => {
 })
 
 test('Application-layer wrapper with default onFailure', async () => {
-  // Simulating an application-layer wrapper
   let lastFailure = false
 
   const withDefaultOnFailure = (fn, opts) => ({
     ...opts,
     onFailure: failure => {
       lastFailure = failure
-      // Could trigger UI update, notification, etc.
       if (opts.onFailure) {
         opts.onFailure(failure)
       }
@@ -225,7 +222,6 @@ test('onFailure with skip strategy still allows onError', async () => {
     onFailure,
   })
 
-  // onError should be called even with skip
   expect(onError).toHaveBeenCalledTimes(1)
   expect(onError).toHaveBeenCalledWith({
     item: 2,
@@ -234,7 +230,6 @@ test('onFailure with skip strategy still allows onError', async () => {
     total: 3,
   })
 
-  // onFailure should NOT be called (failure is false)
   expect(onFailure).not.toHaveBeenCalled()
   expect(result.failure).toBe(false)
   expect(result.errors).toHaveLength(0)

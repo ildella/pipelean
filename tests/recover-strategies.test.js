@@ -67,7 +67,6 @@ test('throwing recover under rethrow rejects', async () => {
   }, 0, {strategy: rethrow, recover: recoverThrows, onError}))
     .rejects.toThrow('recover boom')
 
-  // Only the original scanner error was reported: rethrow does not notify.
   expect(onError).toHaveBeenCalledTimes(1)
   expect(onError.mock.calls[0][0].error.message).toBe('boom')
 })

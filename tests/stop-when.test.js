@@ -10,8 +10,6 @@ const collect = async iterable => {
   return items
 }
 
-// Adapter contract — ported from nucube-app stop-when.test.js
-
 test('yields items until the predicate fires', async () => {
   const items = await collect(stopWhen([1, 2, 3, 4], n => n === 3))
   expect(items).toEqual([1, 2])
@@ -61,8 +59,6 @@ test('stops pulling from the source once the predicate fired', async () => {
   expect(items).toEqual([1])
   expect(produced).toEqual([1, 2])
 })
-
-// Pipelean additions
 
 test('passes the index as second argument', async () => {
   const seen = []
@@ -180,8 +176,6 @@ test('filter inherits the stopped source', async () => {
   )
   expect(result.results).toEqual([1])
 })
-
-// isPatternObject fix — iterable objects were misread as where() patterns
 
 test('filter accepts async generator sources directly', async () => {
   async function * numbers () {

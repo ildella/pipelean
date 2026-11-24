@@ -69,16 +69,16 @@ const observeSync = (outcome, hookName, call) => {
 }
 
 const handleFailureSync = (outcome, {onError, recover}, context) => {
+  const failureContext = {...context, error: outcome.primaryError()}
   if (onError) {
-    const call = () =>
-      onError({...context, error: outcome.primaryError()})
+    const call = () => onError(failureContext)
     observeSync(outcome, 'onError', call)
   }
   if (!recover)
     return undefined
 
   try {
-    const value = recover({...context, error: outcome.primaryError()})
+    const value = recover(failureContext)
     assertSyncResult(value, 'tryCatchSync() recover', 'tryCatch')
     outcome.clear()
     return value
@@ -148,14 +148,6 @@ export const tryCatchSync = (fn, opts = {}) => {
   }
 }
 
-// Shared by seriesSync, filterSync and mapSeriesSync: the label carries the
-// public api the run was started from, so error and telemetry messages name
-// that api (and its async twin) instead of an internal delegation target.
-//
-// Guard ownership: a value is inspected only where a USER callback produced
-// it, never where this engine merely passes it through. filterSync's internal
-// transform returns the item unchanged, so thenable ITEMS must flow as data.
-// Each entry point guards its own callback before delegating here.
 const runSeriesSync = ({
   items, fn, opts, label,
 }) => {
@@ -188,8 +180,6 @@ const runSeriesSync = ({
   })
 }
 
-// The mapper is a user callback, so its result is guarded at the boundary that
-// owns it; the shared engine must not re-inspect what it is handed.
 const guardMapper = fn => (item, index) =>
   assertSyncCallback('seriesSync', 'mapper', fn(item, index))
 
@@ -488,8 +478,6 @@ export const mapSeriesSync = (...args) => {
         'mapSeriesSync() does not support async iterables; use mapSeries()',
       )
 
-    // The only mapper guard: mapSeriesSync owns the user callback, so the
-    // shared engine does not guard it a second time.
     const mapper = (item, index) =>
       assertSyncCallback('mapSeriesSync', 'mapper', fn(item, index))
 

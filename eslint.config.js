@@ -16,7 +16,6 @@ export default [
   ...nostandard.recommended,
   vitest,
   {
-    // A library has no layers: the one promise is an acyclic import graph.
     name: 'Pipelean/Cycles',
     files: ['src/**/*.js'],
     plugins: {'import-x': importX},
