@@ -123,8 +123,25 @@ export const tryCatch = (fn, opts = {}) => {
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
-  async (...args) => {
+const isRetryAttempts = attempts =>
+  Number.isInteger(attempts) && attempts >= 1
+
+const isRetryDelay = delayMs =>
+  typeof delayMs === 'number' &&
+  Number.isFinite(delayMs) &&
+  delayMs >= 0
+
+export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) => {
+  if (typeof fn !== 'function')
+    throw new TypeError('retry() requires a function')
+
+  if (!isRetryAttempts(attempts))
+    throw new TypeError('retry() attempts must be an integer >= 1')
+
+  if (!isRetryDelay(delayMs))
+    throw new TypeError('retry() delay must be a finite number >= 0')
+
+  return async (...args) => {
     let lastError
     for (let i = 0; i < attempts; i++) {
       try {
@@ -142,6 +159,7 @@ export const retry = (fn, {attempts = 3, delay: delayMs = 0} = {}) =>
     }
     throw lastError
   }
+}
 
 const failureCause = failure =>
   Array.isArray(failure.errors)
