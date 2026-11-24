@@ -290,3 +290,41 @@ test('bad cleanup: finally throwing supersedes the source error', async () => {
   expect(result.sourceErrors[0].error).toBe(cleanup)
   expect(result.sourceErrors[0].error).not.toBe(original)
 })
+
+test('collect: a source throwing undefined is still a source error', async () => {
+  const onSourceError = vi.fn()
+  const gen = async function * () {
+    // eslint-disable-next-line no-throw-literal
+    throw undefined
+  }
+
+  const result = await series(gen(), async x => x, {
+    strategy: collect, onSourceError,
+  })
+
+  expect(result.sourceErrors).toHaveLength(1)
+  expect(result.sourceErrors[0].index).toBe(0)
+  expect(result.sourceErrors[0].error).toBeUndefined()
+  expect(result.failure).toBe(false)
+  expect(onSourceError).toHaveBeenCalledTimes(1)
+  expect(onSourceError).toHaveBeenCalledWith({error: undefined, index: 0})
+})
+
+test('rethrow: a source throwing undefined rethrows undefined itself', async () => {
+  const gen = async function * () {
+    // eslint-disable-next-line no-throw-literal
+    throw undefined
+  }
+
+  let threw = false
+  let caught = 'not thrown'
+  try {
+    await series(gen(), async x => x, {strategy: rethrow})
+  } catch (error) {
+    threw = true
+    caught = error
+  }
+
+  expect(threw).toBe(true)
+  expect(caught).toBeUndefined()
+})
