@@ -94,7 +94,9 @@ export const planSeries = (opts, items, {sync = false, label} = {}) => {
   assertTotal(total, api)
 
   return {
-    state: createRunState(strategy, {onFailure, onSourceError}, label),
+    state: createRunState(strategy, {
+      onFailure, onSourceError, strategyLabel: label ?? 'series',
+    }, label),
     total: getPlannedTotal({items, take, total}),
     take,
     onProgress,
@@ -131,6 +133,7 @@ const createFoldState = (opts, {keepPartials, readAcc}, label) => {
     onFailure: opts.onFailure,
     onSourceError: opts.onSourceError,
     shape,
+    strategyLabel: label ?? 'scan/reduce',
   }, label)
 }
 

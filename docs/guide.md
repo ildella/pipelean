@@ -514,12 +514,13 @@ inspect a structured result instead of writing consumer-side `try/catch`.
 All iteration functions (`series`, `filter`, `scan`, `reduce`) support five error
 strategies:
 
-**failFast** (aliases: `fail`, `stopOnError` — deprecated in 0.16, removal planned for 0.18; use `failFast`)
+**failFast**
 - Sets `failure: {item, error, index}` on first error
 - Calls `onError({item, error, index, total})`, then `onFailure({item, error, index})` immediately
 - Stops iteration; results array is empty on failure
 
-**rethrow** (strategy name is `'throw'`)
+**rethrow** (strategy name is `'throw'`; the string `'rethrow'` is accepted as
+an alias of `'throw'`)
 - Throws the error on first failure
 - Does NOT return a structured result on failure
 - Does NOT call `onError`, `onFailure` or `onSourceError` (a fold item error

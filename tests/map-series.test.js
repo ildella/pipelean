@@ -173,11 +173,11 @@ test('empty input returns an empty array', async () => {
   await expect(mapSeries([], x => Promise.resolve(x))).resolves.toEqual([])
 })
 
-test('rejects a null strategy with the intended configuration error', () => {
+test('rejects an unknown strategy with the shared validation error', () => {
   expect(() => mapSeries([1], x => Promise.resolve(x), {strategy: null}))
     .toThrow(
-      'mapSeries() always rethrows on the first error; ' +
-      'remove the "null" strategy',
+      'mapSeries() unknown strategy "null"; ' +
+      'use collect, failFast, failLate, skip or rethrow',
     )
 })
 

@@ -6,8 +6,6 @@ import {
   failLate,
   skip,
   rethrow,
-  fail,
-  stopOnError,
   series,
   filter,
 } from '$src/functional'
@@ -30,18 +28,6 @@ test('failLate is a frozen object with name "failLate"', () => {
 test('skip is a frozen object with name "skip"', () => {
   expect(skip).toEqual({name: 'skip'})
   expect(Object.isFrozen(skip)).toBe(true)
-})
-
-test('fail is an alias for failFast', () => {
-  expect(fail).toEqual({name: 'failFast'})
-  expect(fail).toBe(failFast)
-  expect(Object.isFrozen(fail)).toBe(true)
-})
-
-test('stopOnError is an alias for failFast', () => {
-  expect(stopOnError).toEqual({name: 'failFast'})
-  expect(stopOnError).toBe(failFast)
-  expect(Object.isFrozen(stopOnError)).toBe(true)
 })
 
 test('strategies are distinct references', () => {
@@ -129,44 +115,6 @@ test('skip: calls onError if present', async () => {
   expect(result.results).toEqual([2, 6])
   expect(result.errors).toHaveLength(0)
   expect(result.failure).toBe(false)
-})
-
-test('fail alias works as failFast in series', async () => {
-  const items = [1, 2, 3]
-  const fn = item => {
-    if (item === 2)
-      throw new Error(`Error at ${item}`)
-    return item * 2
-  }
-
-  const result = await series(items, fn, {strategy: fail})
-
-  expect(result.results).toEqual([])
-  expect(result.errors).toHaveLength(0)
-  expect(result.failure).toEqual({
-    item: 2,
-    error: new Error('Error at 2'),
-    index: 1,
-  })
-})
-
-test('stopOnError alias works as failFast in series', async () => {
-  const items = [1, 2, 3]
-  const fn = item => {
-    if (item === 2)
-      throw new Error(`Error at ${item}`)
-    return item * 2
-  }
-
-  const result = await series(items, fn, {strategy: stopOnError})
-
-  expect(result.results).toEqual([])
-  expect(result.errors).toHaveLength(0)
-  expect(result.failure).toEqual({
-    item: 2,
-    error: new Error('Error at 2'),
-    index: 1,
-  })
 })
 
 test('failLate works with filter', async () => {

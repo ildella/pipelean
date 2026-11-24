@@ -35,8 +35,7 @@ For the mental model see the [guide](guide.md); for recipes see
 
 ### Error strategies
 
-- [failFast](#failfast) — stop on first error (aliases `fail`, `stopOnError`,
-  deprecated)
+- [failFast](#failfast) — stop on first error
 - [rethrow](#rethrow) — throw on first error
 - [failLate](#faillate) — collect, report failure at the end
 - [collect](#collect) — collect, keep going
@@ -152,8 +151,8 @@ Folds (`scan`, `scanSync`, `reduce`, `reduceSync`, `foldSync`) never drop, so
 | `assign` | helper (enrich step) | sync | `property` + `parse(state)` | enrich step returning `{}` or `{[property]: value}` | none | `parse` returns `undefined` → `{}` no-op | a throw is a step error under the active `enrich` strategy |
 
 The `strategy` column accepts five identifiers, documented under
-[Error strategies](#error-strategies): `collect`, `failFast` (aliases `fail`,
-`stopOnError`, both deprecated), `failLate`, `skip`, `rethrow`. They are not
+[Error strategies](#error-strategies): `collect`, `failFast`, `failLate`,
+`skip`, `rethrow`. They are not
 combinators, so they have no row here. `normalizeOperationError` is exported for
 internal error-payload normalization; it is not a combinator and has no
 documented contract.
@@ -212,8 +211,8 @@ envelope can be read the same way.
 
 **Purpose**: Error strategy identifier that stops immediately on the first error.
 
-**Aliases**: `fail`, `stopOnError` — **deprecated in 0.16**, removal planned
-for 0.18; use `failFast`.
+**Removed aliases**: `fail` and `stopOnError` were removed in 0.18; use
+`failFast`. Passing either now throws a `TypeError` at construction.
 
 **Use when**: Critical operations where failure means the entire pipeline is invalid.
 
@@ -241,6 +240,11 @@ const result = await series([1, 2, 3], async item => {
 ### rethrow
 
 **Purpose**: Error strategy identifier that throws the error immediately on the first failure. Does NOT return a structured result on failure.
+
+**Aliases**: the string `'rethrow'` is accepted as an alias of `'throw'`.
+Note that `rethrow` is the exported constant (`{name: 'throw'}`), so both forms
+name the same strategy. Any other strategy string is rejected with a
+`TypeError` at construction.
 
 **Use when**: "Let it crash" / fail-early patterns where the caller is expected to handle errors externally (e.g. via try/catch) — async I/O with no meaningful partial report, a daemon loop that must exit, an error that is a bug rather than data.
 
@@ -1424,9 +1428,8 @@ guarantee.
 **Failure behavior / strategies**:
 - `collect` (default): keep successes in `value`, failures in `errors`, `failure: false`.
 - `failLate`: like `collect`, then `failure: {errors}` if anything failed.
-- `failFast` (aliases `fail`, `stopOnError` — deprecated in 0.16, removal
-  planned for 0.18): behaves as `failLate`. Branches already started and cannot
-  be stopped without an `AbortSignal`.
+- `failFast`: behaves as `failLate`. Branches already started and cannot be
+  stopped without an `AbortSignal`.
 - `skip`: `errors` stays empty, but `onError` still fires.
 - `rethrow`: throw the original error of the first failed branch, by declaration order, once every branch has settled.
 

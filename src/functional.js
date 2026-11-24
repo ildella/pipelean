@@ -7,6 +7,7 @@ import {
 import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
+import {strategyNameOf} from './strategy-name.js'
 import {
   collect, failOnSource, normalizeOperationError, rethrow, settle, toResult,
 } from './strategy.js'
@@ -29,7 +30,7 @@ import {waitWithSignal} from './wait.js'
 
 export {where} from './search.js'
 export {
-  collect, fail, failFast, failLate, rethrow, skip, stopOnError,
+  collect, failFast, failLate, rethrow, skip,
 } from './strategy.js'
 
 const observeHook = async (outcome, hook, context) => {
@@ -609,7 +610,7 @@ export const join = async (tasks, opts = {}) => {
   }
 
   const {strategy = collect, onError, onFailure} = opts
-  const strategyName = strategy.name ?? strategy
+  const strategyName = strategyNameOf(strategy, 'join')
   const isFailLate = strategyName === 'failLate' || strategyName === 'failFast'
 
   const value = {}

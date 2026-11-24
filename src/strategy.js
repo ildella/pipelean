@@ -1,22 +1,11 @@
 import {assertSyncCallback} from './shared.js'
+import {strategyNameOf} from './strategy-name.js'
 
 export const failFast = Object.freeze({name: 'failFast'})
 export const collect = Object.freeze({name: 'collect'})
 export const failLate = Object.freeze({name: 'failLate'})
 export const skip = Object.freeze({name: 'skip'})
 export const rethrow = Object.freeze({name: 'throw'})
-
-/**
- * @deprecated Alias of `failFast`. Use `failFast` instead. Scheduled for
- * removal in 0.18.
- */
-export const fail = failFast
-
-/**
- * @deprecated Alias of `failFast`. Use `failFast` instead. Scheduled for
- * removal in 0.18.
- */
-export const stopOnError = failFast
 
 const seriesShape = ({
   results, errors, sourceErrors, failure,
@@ -35,11 +24,13 @@ const seriesShape = ({
  *
  * `label` is the sync api name ('seriesSync'); it is set only on the sync path
  * so the telemetry dispatch below can reject an async callback there.
+ * `strategyLabel` names the api in a strategy validation error; it defaults to
+ * `label` so sync apis report their own name.
  */
 export const createRunState = (strategy, {
-  onFailure, onSourceError, shape = seriesShape, results = [],
+  onFailure, onSourceError, shape = seriesShape, results = [], strategyLabel,
 }, label) => ({
-  strategyName: strategy.name ?? strategy,
+  strategyName: strategyNameOf(strategy, strategyLabel ?? label ?? 'run'),
   onFailure,
   onSourceError,
   results,

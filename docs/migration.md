@@ -6,8 +6,8 @@ How to replace common imperative and error-prone patterns with pipelean equivale
 
 The managed result is now the same envelope everywhere: `{payload, errors,
 sourceErrors, failure}`, where the payload is `results` when a run keeps many
-values and `value` when it keeps one. No breaking changes; one soft deprecation
-and two additive ones.
+values and `value` when it keeps one. One soft deprecation, two additive changes
+and two breaking ones (the removed strategy aliases and invalid strategies).
 
 ### Deprecated: `findSync.result`, use `value`
 
@@ -39,6 +39,38 @@ key stays so every envelope can be read the same way. Destructuring that ignored
 context (`{error, index}`) for a dead source, or an aggregate `{errors}` under
 `failLate`. No runtime change: the JSDoc names the variants instead of the old
 `false|object`.
+
+### Removed: `fail` / `stopOnError`
+
+The deprecated aliases are gone. Import `failFast`:
+
+```js
+// Before (0.17)
+import {series, stopOnError} from 'pipelean'
+
+// After (0.18)
+import {series, failFast} from 'pipelean'
+```
+
+The strings `'fail'` and `'stopOnError'` are rejected as strategies too:
+`TypeError: series() strategy "fail" was removed in 0.18; use failFast`.
+
+### Breaking: invalid strategies throw at construction
+
+An unknown strategy used to be treated like `collect` (the run continued and
+collected errors). It is now a `TypeError` naming the API and the accepted
+values, raised when the operation is constructed — before the source is pulled:
+
+```js
+// Before (0.17): silently behaved like collect
+series(items, fn, {strategy: 'FailFast'})
+
+// After (0.18)
+// TypeError: series() unknown strategy "FailFast";
+// use collect, failFast, failLate, skip or rethrow
+```
+
+`'rethrow'` keeps working as an alias of `'throw'`.
 
 ## 0.17.0: `tryCatch` rethrows by default; `recover` is the explicit seam
 

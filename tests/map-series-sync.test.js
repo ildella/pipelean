@@ -110,11 +110,11 @@ test('empty input returns an empty array', () => {
   expect(mapSeriesSync([], x => x)).toEqual([])
 })
 
-test('rejects a null strategy with the intended configuration error', () => {
+test('rejects an unknown strategy with the shared validation error', () => {
   expect(() => mapSeriesSync([1], x => x, {strategy: null}))
     .toThrow(
-      'mapSeriesSync() always rethrows on the first error; ' +
-      'remove the "null" strategy',
+      'mapSeriesSync() unknown strategy "null"; ' +
+      'use collect, failFast, failLate, skip or rethrow',
     )
 })
 
