@@ -13,16 +13,19 @@ The envelope itself was already shared — one strategy engine, one
 in the payload name, in the presence of the source-error channel, and in the
 absence of a type. 0.18 closes those three seams.
 
-## Changed: `findSync` returns `value`
+## Deprecated: `findSync.result`
 
 `findSync` was the only single-value API whose payload key was not `value`. Its
 payload means exactly what `reduce`'s does — the one value the run selected, or
 `undefined` when nothing matched — so the name now matches.
 
-This is the release's one breaking change:
+`result` stays as a non-enumerable, deprecated alias of `value` so existing
+destructuring keeps working. It is removed in 1.0; no code change is required in
+0.18:
 
 ```js
-const {value} = findSync(items, predicate)
+const {value} = findSync(items, predicate)   // preferred
+const {result} = findSync(items, predicate)  // still works until 1.0
 ```
 
 ## Added: `sourceErrors` on `enrich`, `enrichSync` and `join`
@@ -55,5 +58,6 @@ byte-for-byte what they were.
 
 ## Migration
 
-The `findSync` rename is the only code change required. See
+No code change is required in 0.18: `findSync.result` is a deprecated alias
+until 1.0. See
 [migration.md](../migration.md#0180-one-result-envelope-everywhere).
