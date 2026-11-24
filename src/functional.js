@@ -282,6 +282,9 @@ const runAsyncStrategy = async ({
   let index = 0
 
   const iterate = async () => {
+    if (shouldStopPull(signal, 0, take))
+      return null
+
     for await (const item of items) {
       if (shouldStopPull(signal, index, take))
         break
@@ -289,12 +292,10 @@ const runAsyncStrategy = async ({
       const outcome = await step(item, index)
       if (outcome?.stop)
         return outcome.result
-      if (outcome?.skip) {
-        index++
-        continue
-      }
 
       index++
+      if (shouldStopPull(signal, index, take))
+        break
     }
 
     return null

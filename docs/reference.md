@@ -518,8 +518,10 @@ one at a time.
 
 **Options**:
 - `strategy`: Error strategy (default: `collect`). `failFast`, `collect`, `failLate`, `skip`, `rethrow`.
-- `take`: Limit items processed.
-- `total`: Explicit planned input count for progress/error callbacks. If omitted, `series` uses a cheap known input size when available. If `take` is set, callback `total` is limited to `Math.min(take, knownTotal)`. If no total is known, the `total` key is omitted.
+- `take`: Limit items processed. Must be a non-negative integer: `take: 0`
+  pulls nothing from the source at all. Anything else (negative, fractional,
+  `NaN`, `Infinity`) is a `TypeError` thrown before the run starts.
+- `total`: Explicit planned input count for progress/error callbacks. If omitted, `series` uses a cheap known input size when available. If `take` is set, callback `total` is limited to `Math.min(take, knownTotal)`. If no total is known, the `total` key is omitted. Must be a finite non-negative number (`total: 0` is valid); anything else is a `TypeError`.
 - `pause`: Spacing between items — a number of milliseconds, or `(item, index) => number | Promise<number>` resolved after the result update. `0`, a negative number, `undefined` or `NaN` means no wait.
 - `pauseOnErrors`: Whether to also pause after handled errors (default: `false`). Under `skip`, the pause always applies.
 - `signal`: An `AbortSignal`. Checked before each item and while waiting in `pause`; aborting ends the run cleanly — `failure: false`, no `sourceErrors` — with collected `results` preserved. It never interrupts the in-flight mapper or a pending `source.next()`. See [Cancellation with signal](#cancellation-with-signal).
