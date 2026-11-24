@@ -259,5 +259,6 @@ With [skills-npm](https://github.com/antfu/skills-npm/): `yarn add -D skills-npm
 - [Patterns](docs/patterns.md) — error-handling recipes, daemon loops.
 - [ESLint plugin](docs/eslint.md) — rules and setup.
 - [FP mapping](docs/fp-mapping.md) — coming from Elixir, Scala/cats or Haskell.
+- [Alternatives](docs/alternatives.md) — when to reach for p-map, RxJS, exstream-js.
 - [Architecture](docs/architecture.md) — philosophy and design principles.
 - [Migration](docs/migration.md) — upgrading from earlier versions.

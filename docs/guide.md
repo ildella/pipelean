@@ -118,6 +118,10 @@ the rule at that site — see [ESLint plugin](eslint.md). For rewriting a loop
 that *does* pass the gate, the before/after checklist is
 [Rewriting a hand-rolled loop safely](patterns.md#rewriting-a-hand-rolled-loop-safely).
 
+Some problems are not plain JavaScript either: concurrent mapping, scheduling,
+streams, typed effects. Those belong to another library —
+[When to reach for another library](alternatives.md) maps them.
+
 ## Independent vs dependent operations
 
 **The question**: does item N need item N-1's output? If not, the items are

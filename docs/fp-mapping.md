@@ -84,3 +84,10 @@ The old name collided with two established meanings:
 
 `enrich` says what it does: fold steps that enrich one record. In FP terms, it is
 the `foldLeft` you would have written by hand over a list of patch functions.
+
+## When you want a different tool
+
+This page maps vocabulary; it does not turn Pipelean into an effects library. If
+you need typed effects, a `Result` type, concurrent mapping or streams, the
+honest answer is another library —
+[When to reach for another library](alternatives.md) says which one and why.
