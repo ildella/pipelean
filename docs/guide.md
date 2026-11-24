@@ -299,7 +299,8 @@ functions**. They compose with `pipe` and `series`.
 - **`retry(fn, options?)`**
   Automatic retries: `attempts` (default 3), `delay` in ms (default 0). Re-throws
   the last error once attempts are exhausted, so the surrounding strategy still
-  sees the failure.
+  sees the failure. Options are validated when the wrapper is built: `attempts`
+  must be an integer `>= 1` and `delay` a finite number `>= 0`.
 
 Neither wrapper is an error strategy: strategies belong to the iterators.
 
