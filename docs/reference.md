@@ -191,7 +191,8 @@ The payload key names its cardinality: `results` keeps every value the run
 produced — mapped items, kept items, every intermediate accumulator — while
 `value` keeps the single one: `reduce`'s final accumulator, `findSync`'s first
 match (or `undefined` when nothing matched), `enrich`'s state, `join`'s record of
-branch values.
+branch values. `findSync` also exposes that value as the deprecated,
+non-enumerable `result` alias until 1.0.
 
 `failure` is `false` when the run did not fail; otherwise it is the strategy's
 payload: an item context `{item, error, index}` (a step context
@@ -947,6 +948,10 @@ item satisfying the predicate. Sync-only — there is no async `find`.
 **Returns**: `{value, errors, sourceErrors, failure}`. `value` is the first
 matching item; when no item matches,
 `{value: undefined, errors: [], sourceErrors: [], failure: false}`.
+
+`result` is a deprecated, non-enumerable alias of `value`, kept so existing
+destructuring still works; it is removed in 1.0. `Object.keys` reports only the
+four envelope keys.
 
 **Default strategy**: `collect`
 

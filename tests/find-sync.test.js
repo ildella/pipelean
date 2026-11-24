@@ -47,6 +47,25 @@ test('envelope keys are value, errors, sourceErrors, failure', () => {
   ])
 })
 
+test('result is a deprecated alias of value', () => {
+  const result = findSync([1, 2, 3], x => x === 2)
+
+  expect(result.result).toBe(2)
+  expect(result.result).toBe(result.value)
+})
+
+test('result alias is non-enumerable and configurable', () => {
+  const result = findSync([1, 2, 3], x => x === 2)
+
+  expect(Object.keys(result)).toEqual([
+    'value', 'errors', 'sourceErrors', 'failure',
+  ])
+  expect(Object.getOwnPropertyDescriptor(result, 'result')).toMatchObject({
+    enumerable: false,
+    configurable: true,
+  })
+})
+
 test('stops after first matching item', () => {
   const processed = []
 

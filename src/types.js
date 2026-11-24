@@ -11,6 +11,15 @@
  */
 
 /**
+ * A strategy identifier accepted by the managed APIs: one of the exported
+ * strategy objects or its name. `'rethrow'` is accepted as an alias of
+ * `'throw'`; `fail` / `stopOnError` are removed in 0.18.
+ *
+ * @typedef {{name: 'collect'|'failFast'|'failLate'|'skip'|'throw'}
+ *   |'collect'|'failFast'|'failLate'|'skip'|'throw'|'rethrow'} StrategyFn
+ */
+
+/**
  * One input item failed inside the mapper, predicate or scanner.
  *
  * @typedef {object} ItemError
@@ -102,8 +111,12 @@
 /**
  * Result of `findSync`: the first matching item.
  *
+ * `result` is a deprecated, non-enumerable alias of `value`, kept so existing
+ * destructuring keeps working. It is removed in 1.0.
+ *
  * @typedef {object} FindResult
  * @property {*} value The first match, or `undefined` when none matched.
+ * @property {*} [result] Deprecated alias of `value`; removed in 1.0.
  * @property {Array<ItemError>} errors Handled item errors, in run order.
  * @property {Array<SourceError>} sourceErrors Handled source errors.
  * @property {IterationFailure} failure The run's failure, or `false`.

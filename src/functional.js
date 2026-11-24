@@ -19,6 +19,7 @@ import {
 import {waitWithSignal} from './wait.js'
 
 /**
+ * @typedef {import('./types.js').StrategyFn} StrategyFn
  * @typedef {import('./types.js').Failure} Failure
  * @typedef {import('./types.js').IterationResult} IterationResult
  * @typedef {import('./types.js').ReduceResult} ReduceResult
