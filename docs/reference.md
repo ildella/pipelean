@@ -99,56 +99,85 @@ twin of the async row with the same name minus `Sync`: it returns directly and
 rejects async callbacks, `signal` and `pause` (see [sync rules](#sync-variants)).
 The default strategy is what runs when `opts.strategy` is omitted.
 
-| API | model | sync / async | input | output | default strategy | `undefined` / no-op | error semantics |
+| API | model | sync / async | input | output | default strategy | `drop` / no-op | error semantics |
 |---|---|---|---|---|---|---|---|
-| `series` | items | async | iterable + `fn(item, index)` | `{results, errors, sourceErrors, failure}` | `collect` | mapper returns `undefined` → item dropped | item error → strategy; source death → `sourceErrors` (per strategy) |
+| `series` | items | async | iterable + `fn(item, index)` | `{results, errors, sourceErrors, failure}` | `collect` | mapper returns `drop` or `undefined` → item dropped; `onUndefined: 'error'` makes `undefined` fatal | item error → strategy; source death → `sourceErrors` (per strategy) |
 | `seriesSync` | items | sync | sync iterable + sync `fn` | `{results, errors, sourceErrors, failure}` | `collect` | as `series` | as `series`; async callback → fatal `TypeError` |
-| `filter` | items (selection) | async | iterable + predicate (function or object pattern) | shape of `series`; `results` holds the original items | `collect` | falsy predicate → item dropped | item error → strategy, as `series` |
+| `filter` | items (selection) | async | iterable + predicate (function or object pattern) | shape of `series`; `results` holds the original items | `collect` | falsy or `drop` predicate → item dropped | item error → strategy, as `series` |
 | `filterSync` | items (selection) | sync | sync iterable + predicate | shape of `filter` | `collect` | as `filter` | as `filter`; async predicate → fatal `TypeError` |
-| `mapSeries` | items (map) | async | iterable + `fn(item, index)` | `Array` of kept values, no report | `rethrow` (locked) | mapper returns `undefined` → item dropped | first throw rejects with the original error; error callbacks are rejected at build time |
+| `mapSeries` | items (map) | async | iterable + `fn(item, index)` | `Array` of kept values, no report | `rethrow` (locked) | mapper returns `drop` or `undefined` → item dropped | first throw rejects with the original error; error callbacks are rejected at build time |
 | `mapSeriesSync` | items (map) | sync | sync iterable + sync `fn` | `Array` | `rethrow` (locked) | as `mapSeries` | as `mapSeries`; async callback → fatal `TypeError` |
-| `scan` | items (fold) | async | iterable + `scanner(acc, item, index)` + initial value | `{results, errors, sourceErrors, failure}`; `results` = every accumulator | `failFast` | never drops; `undefined` is a legal accumulator | item error → strategy; `recover` seam; `failFast` clears `results` |
+| `scan` | items (fold) | async | iterable + `scanner(acc, item, index)` + initial value | `{results, errors, sourceErrors, failure}`; `results` = every accumulator | `failFast` | never drops; `drop` and `undefined` are ordinary accumulator values | item error → strategy; `recover` seam; `failFast` clears `results` |
 | `scanSync` | items (fold) | sync | sync iterable + sync scanner + initial value | shape of `scan` | `failFast` | as `scan` | as `scan`; `recover` must be sync |
-| `reduce` | items (fold) | async | iterable + `scanner(acc, item, index)` + initial value | `{value, errors, sourceErrors, failure}` | `failFast` | never drops; `undefined` is a legal accumulator | item error → strategy; `recover` seam; `value` survives `failFast` |
+| `reduce` | items (fold) | async | iterable + `scanner(acc, item, index)` + initial value | `{value, errors, sourceErrors, failure}` | `failFast` | never drops; `drop` and `undefined` are ordinary accumulator values | item error → strategy; `recover` seam; `value` survives `failFast` |
 | `reduceSync` | items (fold) | sync | sync iterable + sync scanner + initial value | shape of `reduce` | `failFast` | as `reduce` | as `reduce`; `recover` must be sync |
-| `foldSync` | items (raw fold) | sync only | sync iterable + `reducer(acc, item, index)` + initial value | the final accumulator | none (raw) | never drops; `undefined` is a legal accumulator | any throw propagates unchanged |
-| `findSync` | items (first match) | sync only | sync iterable + predicate | `{value, errors, sourceErrors, failure}` | `collect` | no drop; no match → `value: undefined` | item error → strategy; stops at the first match |
-| `pipe` | value (steps) | async | value + steps | the last step's value | none | `undefined` short-circuits: later steps are skipped | throw escapes; no capture |
+| `foldSync` | items (raw fold) | sync only | sync iterable + `reducer(acc, item, index)` + initial value | the final accumulator | none (raw) | never drops; `drop` and `undefined` are ordinary accumulator values | any throw propagates unchanged |
+| `findSync` | items (first match) | sync only | sync iterable + predicate | `{value, errors, sourceErrors, failure}` | `collect` | no drop; falsy or `drop` predicate → no match | item error → strategy; stops at the first match |
+| `pipe` | value (steps) | async | value + steps | the last step's value | none | `drop` or `undefined` short-circuits: later steps are skipped, the sentinel is returned | throw escapes; no capture |
 | `pipeSync` | value (steps) | sync | value + sync steps | value | none | as `pipe` | as `pipe`; async step → fatal `TypeError` |
-| `enrich` | steps (fold over one input) | async | `[op(state) → patch]` + initial state | `{value, errors, sourceErrors, failure}` | `collect` | `{}` = no-op; an `undefined` patch is a step error | step error → strategy; an invalid patch is a step error; no `recover` |
+| `enrich` | steps (fold over one input) | async | `[op(state) → patch]` + initial state | `{value, errors, sourceErrors, failure}` | `collect` | `{}` = no-op; a `drop` or `undefined` patch is a step error | step error → strategy; an invalid patch is a step error; no `recover` |
 | `enrichSync` | steps (fold over one input) | sync | same, sync ops | `{value, errors, sourceErrors, failure}` | `collect` | as `enrich` | as `enrich`; async op, hook or callback → fatal `TypeError` |
-| `join` | tasks (concurrent) | async | record `name → task(key, index)` | `{value, errors, sourceErrors, failure}` | `collect` (`failFast` behaves as `failLate`) | no drop; `undefined` is a successful branch value | per branch → strategy; `rethrow` after all settle; `sourceErrors` always `[]` |
+| `join` | tasks (concurrent) | async | record `name → task(key, index)` | `{value, errors, sourceErrors, failure}` | `collect` (`failFast` behaves as `failLate`) | no drop; `drop` and `undefined` are successful branch values | per branch → strategy; `rethrow` after all settle; `sourceErrors` always `[]` |
 | `stopWhen` | source adapter | async | iterable + predicate | async iterable | none | n/a | a throwing predicate becomes a source error downstream; stopping is a clean end |
 | `stopWhenSync` | source adapter | sync | sync iterable + predicate | iterable | none | n/a | as `stopWhen` |
 | `forever` | source adapter | async | none | infinite async iterable `0, 1, 2, …` | none | n/a | unbounded: the consumer must bound it |
 | `foreverSync` | source adapter | sync | none | infinite iterable `0, 1, 2, …` | none | n/a | as `forever` |
 
-### The `undefined` sentinel
+<a id="the-undefined-sentinel"></a>
+<a id="the-drop-sentinel"></a>
 
-**`undefined` is the drop sentinel in iteration and composition, and an error in
-`enrich`.** In `series` / `seriesSync`, `mapSeries` / `mapSeriesSync`, `pipe` /
-`pipeSync`, returning `undefined` drops the item or short-circuits the pipeline,
+### The `drop` sentinel
+
+**`drop` is the explicit drop sentinel in iteration and composition, and an
+error in `enrich`.** It is a registered symbol exported from `pipelean`
+(`Symbol.for('pipelean.drop')`), so two copies of the library agree on its
+identity. In `series` / `seriesSync`, `mapSeries` / `mapSeriesSync`, `pipe` /
+`pipeSync`, returning `drop` removes the item or short-circuits the pipeline,
 so `results` (or the returned array) can be shorter than the input; a `filter` /
-`filterSync` predicate drops on any falsy value. `tryCatch` / `tryCatchSync`
-rethrow by default; they only produce the drop signal when you opt in with
-`recover: () => undefined`. In `enrich` / `enrichSync` it is the
-opposite: a step must return a patch object, and `undefined` is an **invalid
-patch** that fails the step through the strategy — return `{}` for a no-op.
-Folds (`scan`, `scanSync`, `reduce`, `reduceSync`, `foldSync`) never drop, so
-`undefined` is a legal accumulator; `join` never drops, so a branch resolving
-`undefined` is a successful branch value.
+`filterSync` predicate drops on `drop` or any falsy value, and `findSync` treats
+`drop` as no match.
+
+**`undefined` still drops in 0.18.** This release is additive: a mapper
+returning `undefined` drops the item exactly as before, so existing code keeps
+working. The default of the `onUndefined` option is `'drop'`; `onUndefined` is
+accepted only by `series` / `seriesSync` and `mapSeries` / `mapSeriesSync`.
+`onUndefined: 'error'` turns an `undefined` result into a **fatal `TypeError`**
+that escapes the run — it is never collected in `errors` / `sourceErrors` /
+`failure`. `drop` is unaffected by the policy and keeps dropping. In 1.0 the
+default flips to `'error'` and `undefined` stops being a sentinel (see
+[migration](migration.md)).
+
+`tryCatch` / `tryCatchSync` rethrow by default; they produce the drop signal
+when you opt in with `recover: () => drop` (or `recover: () => undefined` in
+0.18). In `enrich` / `enrichSync` the opposite holds: a step must return a patch
+object, and `drop` or `undefined` is an **invalid patch** that fails the step
+through the strategy — a `drop` patch has its own error, `enrich steps cannot
+drop; return {} for a no-op`; return `{}` for a no-op. Folds (`scan`,
+`scanSync`, `reduce`, `reduceSync`, `foldSync`) never drop, so `drop` and
+`undefined` are ordinary accumulator values; `join` never drops either, so a
+branch resolving `drop` or `undefined` is a successful branch value.
+
+| Consumer | `drop` | `undefined` in 0.18 |
+|---|---|---|
+| `series` / `seriesSync`, `mapSeries` / `mapSeriesSync` | item dropped, `onProgress` not called | item dropped by default; fatal with `onUndefined: 'error'` |
+| `pipe` / `pipeSync` | short-circuit, returns `drop` | short-circuit, returns `undefined` |
+| `filter` / `filterSync`, `findSync` | treated as falsy / no match | same as any other falsy value |
+| `where` | never matches | no special casing (pattern lookup may throw, as before) |
+| `assign` | `{}` no-op patch | `{}` no-op patch |
+| `enrich` / `enrichSync` | step error: *enrich steps cannot drop* | step error: invalid patch |
+| `scan` / `reduce` / `foldSync` / `join` | ordinary value | ordinary value |
 
 ### Wrappers, guards and helpers
 
-| API | model | sync / async | input | output | default strategy | `undefined` / no-op | error semantics |
+| API | model | sync / async | input | output | default strategy | `drop` / no-op | error semantics |
 |---|---|---|---|---|---|---|---|
-| `tryCatch` | wrapper | async | `fn` + lifecycle hooks + `name` + `recover` | wrapper returning `fn`'s result (or `recover`'s substitute) | none | `recover: () => undefined` is the explicit drop | rethrows by default; `recover` substitutes; hook errors never mask the primary (attached best effort) |
+| `tryCatch` | wrapper | async | `fn` + lifecycle hooks + `name` + `recover` | wrapper returning `fn`'s result (or `recover`'s substitute) | none | `recover: () => drop` is the explicit drop (`undefined` also works in 0.18) | rethrows by default; `recover` substitutes; hook errors never mask the primary (attached best effort) |
 | `tryCatchSync` | wrapper | sync | sync `fn` + sync hooks + sync `recover` | same, direct | none | as `tryCatch` | as `tryCatch`; async callback → fatal `TypeError` |
 | `retry` | wrapper | async | `fn` + `{attempts, delay}` | wrapper returning the result after retries | none | n/a | retries, then throws the last error |
 | `assertOk` | guard | sync (works on both result kinds) | a settled result object | the same result | none | n/a | throws the original error with `.failure` when `failure` is truthy |
 | `delay` | utility | async | `ms` | `Promise<void>` | none | n/a | n/a; prefer the iterator's abort-aware `pause` |
-| `where` | helper (predicate) | sync | pattern object | `(item) => boolean` | none | n/a; strict `===` on the pattern's keys, no deep match | none |
-| `assign` | helper (enrich step) | sync | `property` + `parse(state)` | enrich step returning `{}` or `{[property]: value}` | none | `parse` returns `undefined` → `{}` no-op | a throw is a step error under the active `enrich` strategy |
+| `where` | helper (predicate) | sync | pattern object | `(item) => boolean` | none | `drop` never matches; otherwise strict `===` on the pattern's keys, no deep match | none |
+| `assign` | helper (enrich step) | sync | `property` + `parse(state)` | enrich step returning `{}` or `{[property]: value}` | none | `parse` returns `drop` or `undefined` → `{}` no-op | a throw is a step error under the active `enrich` strategy |
 
 The `strategy` column accepts five identifiers, documented under
 [Error strategies](#error-strategies): `collect`, `failFast`, `failLate`,
@@ -467,7 +496,7 @@ Optional live progress callback, **`series` / `filter` only** (and
 `mapSeries` / `mapSeriesSync`, which pass it through).
 
 - Receives `{item, result, index, total}` after each **kept** success
-- NOT called for errors or `undefined` drops
+- NOT called for errors or `drop` / `undefined` drops
 - Awaited before the next item; `total` is omitted when the size is unknown
 - `scan` and `reduce` do **not** support it
 
@@ -514,7 +543,7 @@ one at a time.
 
 **Parameters**:
 - `items`: An iterable (array, async iterable, generator)
-- `fn(item, index)`: The function to apply. Returns the mapped value, or throws, or returns `undefined` to drop the item.
+- `fn(item, index)`: The function to apply. Returns the mapped value, or throws, or returns `drop` (or `undefined`, in 0.18) to drop the item.
 
 **Returns**: `{results, errors, sourceErrors, failure}` where `failure` is `false` on success. Collected `errors` are `{item, error, index}`. `sourceErrors` is an array of source-error contexts, empty when the source completed cleanly (see [Source errors](#source-errors)).
 
@@ -528,12 +557,13 @@ one at a time.
 - `total`: Explicit planned input count for progress/error callbacks. If omitted, `series` uses a cheap known input size when available. If `take` is set, callback `total` is limited to `Math.min(take, knownTotal)`. If no total is known, the `total` key is omitted. Must be a finite non-negative number (`total: 0` is valid); anything else is a `TypeError`.
 - `pause`: Spacing between items — a number of milliseconds, or `(item, index) => number | Promise<number>` resolved after the result update. `0`, a negative number, `undefined` or `NaN` means no wait.
 - `pauseOnErrors`: Whether to also pause after handled errors (default: `false`). Under `skip`, the pause always applies.
+- `onUndefined`: What an `undefined` mapper result means. `'drop'` (default) drops the item, preserving 0.18 behaviour. `'error'` throws a fatal `TypeError` that escapes the run and is never collected in `errors` / `sourceErrors` / `failure`; `drop` still drops. Any other value is a `TypeError`. Accepted only by `series` / `seriesSync` and `mapSeries` / `mapSeriesSync`.
 - `signal`: An `AbortSignal`. Checked before each item and while waiting in `pause`; aborting ends the run cleanly — `failure: false`, no `sourceErrors` — with collected `results` preserved. It never interrupts the in-flight mapper or a pending `source.next()`. See [Cancellation with signal](#cancellation-with-signal).
 - `recover`: **not** supported by `series`. The fold `recover` option belongs to
   `scan` / `reduce` — see [recover](#recover).
 
 **Callbacks**:
-- `onProgress({item, result, index, total})`: Called after each successful item. NOT called for errors or `undefined` drops.
+- `onProgress({item, result, index, total})`: Called after each successful item. NOT called for errors or `drop` / `undefined` drops.
 - `onError({item, error, index, total})`: Called for each handled item error. Does not affect control flow.
 - `onFailure(failure)`: Called when failure is truthy. Receives `{item, error, index}` for `failFast`, `{errors}` for `failLate`.
 - `onSourceError({error, index})`: Called when the iteration itself throws (a source error). Never called under `rethrow`; mutually exclusive with `onError`.
@@ -542,8 +572,8 @@ one at a time.
 [source error](#source-errors), distinct from an item error.
 
 **Caveats**:
-- Returning `undefined` from `fn` **drops the item** — the output can be shorter
-  than the input (see [the `undefined` sentinel](#the-undefined-sentinel)).
+- Returning `drop` (or `undefined`, in 0.18) from `fn` **drops the item** — the output can be shorter
+  than the input (see [the `drop` sentinel](#the-drop-sentinel)).
 - Works on anything `for await` accepts; not a Node/`ReadableStream` adapter.
 - Sync twin: [seriesSync](#seriessync).
 
@@ -578,9 +608,9 @@ const double = series(x => x * 2)
 const { results } = await double([1, 2, 3])
 
 // Integration with pipe for filtering
-import { pipe } from 'pipelean'
+import { pipe, drop } from 'pipelean'
 const { results } = await series(items, pipe(
-  x => x.active ? x : undefined,  // drop inactive
+  x => x.active ? x : drop,  // drop inactive
   x => x.name,                     // extract name
 ))
 ```
@@ -591,7 +621,8 @@ const { results } = await series(items, pipe(
 
 Stateless selection: keeps the original items whose predicate is truthy.
 Delegates to `series` internally — the predicate becomes a transform that
-returns the item (keep) or `undefined` (drop).
+returns the item (keep) or `drop` (drop). A predicate returning `drop` is
+treated as falsy; `undefined` is falsy like any other value.
 
 **Signature**: `filter(items, predicate, opts?) => Promise<{results, errors, sourceErrors, failure}>`
 
@@ -651,8 +682,8 @@ time, and if any one fails the whole thing must fail".
 
 **Parameters**:
 - `items`: An iterable (array, async iterable, generator)
-- `fn(item, index)`: The mapper, sync or async. Returning `undefined` drops the
-  item.
+- `fn(item, index)`: The mapper, sync or async. Returning `drop` (or
+  `undefined`, in 0.18) drops the item.
 
 **Returns**: `Promise<Array>` of the kept mapped values, in input order. No
 report object.
@@ -660,9 +691,9 @@ report object.
 **Default strategy**: `rethrow` (locked).
 
 **Options**: every `series` option except a conflicting `strategy` and the three
-error callbacks. `take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and
-`signal` pass through untouched. `recover` is not supported (the fold `recover`
-option belongs to `scan` / `reduce`).
+error callbacks. `take`, `total`, `onProgress`, `pause`, `pauseOnErrors`,
+`signal` and `onUndefined` pass through untouched. `recover` is not supported
+(the fold `recover` option belongs to `scan` / `reduce`).
 
 **Failure behavior**:
 - **Stops at the first failure**: no later item runs, and the error is the
@@ -683,8 +714,8 @@ option belongs to `scan` / `reduce`).
   Both call forms validate, so the curried form fails at build time. These
   callbacks could never fire under the locked `rethrow`, so accepting them would
   be dead configuration.
-- **`undefined` drops the item**: the result can be shorter than the input. This
-  is **not** `Array.prototype.map` (see [the `undefined` sentinel](#the-undefined-sentinel)).
+- **`drop` / `undefined` drop the item**: the result can be shorter than the input. This
+  is **not** `Array.prototype.map` (see [the `drop` sentinel](#the-drop-sentinel)).
 - Sync twin: [mapSeriesSync](#mapseriessync).
 
 **When to use `mapSeries` vs `series`**: use `mapSeries` when a failure must
@@ -699,7 +730,7 @@ managed API.
 
 **Example**:
 ```javascript
-import {mapSeries} from 'pipelean'
+import {mapSeries, drop} from 'pipelean'
 
 // All-or-nothing sequential map
 const parsed = await mapSeries(files, file => parseFile(file))
@@ -712,8 +743,8 @@ const fetchAll = mapSeries(id => api.get(id), {
 })
 const records = await fetchAll(ids)
 
-// Selection still works: undefined drops
-const adults = await mapSeries(users, user => user.age >= 18 ? user : undefined)
+// Selection still works: drop removes the item
+const adults = await mapSeries(users, user => user.age >= 18 ? user : drop)
 ```
 
 ---
@@ -876,7 +907,7 @@ unwrap.
 - `reducer(accumulator, item, index)`: The fold function. It must be
   **synchronous**: a returned Promise is rejected with a `TypeError` pointing at
   `reduce()`.
-- `initialValue`: The starting accumulator. `undefined` is a legal accumulator — folds never drop.
+- `initialValue`: The starting accumulator. `drop` and `undefined` are legal accumulator values — folds never drop.
 
 **Returns**: the final accumulator, whatever type it is.
 
@@ -1055,7 +1086,7 @@ on top.
 - **Unbounded**: yields forever until the consumer stops pulling — every consumption must be bounded by `signal`, `stopWhen`, `take`, or a `break`. A bare `collect(forever())` never ends
 - **Composable**: `stopWhen(forever(), predicate)` is a predicate-stopped tick source; the predicate (usually a domain limit) is checked before each tick. For lifecycle cancellation prefer `reduce(..., {signal, pause, strategy})`
 - **Index semantics**: the yielded numbers are the tick indices a consumer receives — a cycle counter for free
-- **Non-accumulating consumers recommended**: a daemon has no items, so `reduce`/`scan` (stateful, no `results` array) fit better than `series`, which would otherwise rely on the `undefined` drop signal every tick
+- **Non-accumulating consumers recommended**: a daemon has no items, so `reduce`/`scan` (stateful, no `results` array) fit better than `series`, which would otherwise rely on the `drop` sentinel every tick
 
 **Caveats**: sync twin [foreverSync](#foreversync).
 
@@ -1164,7 +1195,7 @@ rounds with no `try/catch` inside the scanner.
 | --- | --- | --- |
 | `recover` | one fold item | error → next accumulator, then keep folding |
 | `strategy: collect` | the whole run | record the error, continue with the *previous* accumulator |
-| `tryCatch` | one function | rethrow by default; `recover({error})` substitutes a value (`recover: () => undefined` drops) |
+| `tryCatch` | one function | rethrow by default; `recover({error})` substitutes a value (`recover: () => drop` drops; `undefined` also works in 0.18) |
 | `retry` | one function | retry the same call, then rethrow |
 | `assertOk` | one finished result | throw the original error if `failure` is truthy, with `.failure` attached |
 
@@ -1175,7 +1206,7 @@ rounds with no `try/catch` inside the scanner.
 ### pipe
 
 Pipelean operation composer — chains functions left-to-right and preserves
-Pipelean's `undefined` drop signal.
+Pipelean's `drop` (and, in 0.18, `undefined`) drop signal.
 
 **Signature**: `pipe(...fns) => (input) => Promise<ReturnType<LastFn>>`
 
@@ -1192,15 +1223,15 @@ the final result.
 - Supports both synchronous and asynchronous functions
 - Natural data flow from input through transformations
 - Designed for composing reusable operations passed to `series()` or used directly
-- **Undefined Short-Circuit**: If any step returns `undefined`, remaining steps are skipped and `undefined` is returned. This enables selection within a composed operation — see [the `undefined` sentinel](#the-undefined-sentinel).
+- **Drop Short-Circuit**: If any step returns `drop` (or `undefined`, in 0.18), remaining steps are skipped and that same value is returned — `pipe` keeps `drop` as `drop`, never converting it to `undefined`. This enables selection within a composed operation — see [the `drop` sentinel](#the-drop-sentinel).
 
 **Best practice**: use `pipe()` when you need to chain operations that form a
 coherent data processing pipeline.
 
 **Failure behavior**: `pipe` does **not** catch errors: a throw escapes to the
-caller. Only `undefined` short-circuits — `null`, `false`, `0` and `''` are
-values and keep flowing. This is composition in the `Maybe`/`Option` sense
-(`A => Option<B>`), not plain composition as in Ramda or fp-ts `flow`.
+caller. Only `drop` and `undefined` short-circuit — `null`, `false`, `0` and
+`''` are values and keep flowing. This is composition in the `Maybe`/`Option`
+sense (`A => Option<B>`), not plain composition as in Ramda or fp-ts `flow`.
 
 **Caveats**: sync twin [pipeSync](#pipesync); for failures captured as data use
 a `series` strategy or [tryCatch](#trycatch) with `recover`; for steps that need
@@ -1208,12 +1239,12 @@ the accumulated state use [enrich](#enrich).
 
 **Example**:
 ```javascript
-import { pipe } from 'pipelean'
+import { pipe, drop } from 'pipelean'
 
 const normalizeUser = pipe(
   async id => validateUserId(id),
   async id => fetchUser(id),
-  user => user.active ? user : undefined,
+  user => user.active ? user : drop,
   user => ({...user, email: user.email.toLowerCase()}),
 )
 
@@ -1227,14 +1258,14 @@ const result = await pipe(
 )(input)
 ```
 
-**Selection in pipe** (via undefined short-circuit):
+**Selection in pipe** (via drop short-circuit):
 ```javascript
-import { pipe, series } from 'pipelean'
+import { pipe, series, drop } from 'pipelean'
 
 // Merge filter and transform in a single operation
 const result = await series(items, pipe(
-  x => x.active ? x : undefined,  // drop inactive items
-  x => x.name,                     // extract name
+  x => x.active ? x : drop,  // drop inactive items
+  x => x.name,               // extract name
 ))
 // Items where active is false are skipped entirely
 ```
@@ -1293,8 +1324,9 @@ The returned function:
 - **Empty operations array** is valid and returns the initial state untouched.
 
 **Caveats**:
-- `{}` is the no-op patch: an `undefined` patch is invalid, not a skip — see
-  [the `undefined` sentinel](#the-undefined-sentinel).
+- `{}` is the no-op patch: a `drop` or `undefined` patch is invalid, not a
+  skip. `drop` has its own step error — *enrich steps cannot drop; return {} for
+  a no-op* — see [the `drop` sentinel](#the-drop-sentinel).
 - No `sourceErrors`: the steps are a fixed array, so a source error is
   impossible.
 - Options bind at build time (`enrich(ops, opts)`); hooks fire on every run.
@@ -1418,7 +1450,7 @@ guarantee.
   - `onFailure(failure)`: Called (and awaited) when `failure` is truthy. Receives `{errors}` for `failLate` / `failFast`.
 
 **Returns**: `Promise<{value, errors, sourceErrors, failure}>`:
-- `value`: Object mapping the **successful** branch names to their resolved values, in declaration order. A branch resolving `undefined` is still a success (`value[key] === undefined`).
+- `value`: Object mapping the **successful** branch names to their resolved values, in declaration order. A branch resolving `undefined` or `drop` is still a success (`value[key]` is that value).
 - `errors`: Array of `{operation, error, index}`, ordered by declaration (not completion). Empty for `skip` (and for `rethrow`, which throws instead).
 - `sourceErrors`: Always `[]` — the branches are a fixed record, not an external source.
 - `failure`: `false` for `collect` and `skip`; `{errors}` for `failLate` and `failFast`. For `rethrow`, the original error of the first failed branch is thrown instead of returning a result.
@@ -1437,8 +1469,8 @@ guarantee.
 - **Throws (before any branch starts)**: `TypeError` if `tasks` is not a non-null, non-array object, if any value is not a function, or if it is a thenable (e.g. an un-awaited `Promise`).
 - **All branches settle**: `join` starts from a resolved promise, so a synchronous throw becomes a rejection; `allSettled` always captures it and nothing is left unhandled.
 - **Completion order is irrelevant**: `value` keys follow declaration order, and so does `errors`.
-- **No drop signal**: `undefined` is a legitimate branch value; the
-  [drop rule](#the-undefined-sentinel) belongs to iteration, not forks.
+- **No drop signal**: `undefined` and `drop` are legitimate branch values; the
+  [drop rule](#the-drop-sentinel) belongs to iteration, not forks.
 - **Empty record** is valid: resolves to `{value: {}, errors: [], sourceErrors: [], failure: false}`.
 - **Not a concurrent map**: for a homogeneous collection use p-map.
 - **`sourceErrors` is always `[]`**: the branches are a fixed record.
@@ -1485,22 +1517,22 @@ const strict = await join(
 ### assign
 
 Creates an `enrich()` operation that conditionally assigns a property to state.
-If `parse(state)` returns `undefined`, the property is skipped (empty patch).
-Otherwise the property is set to the parsed value.
+If `parse(state)` returns `drop` or `undefined`, the property is skipped (empty
+patch). Otherwise the property is set to the parsed value.
 
 **Signature**: `assign(property, parse) => (state) => {} | {[property]: value}`
 
 **Parameters**:
 - `property`: The property name (string) to set on state.
-- `parse`: A function `(state) => value | undefined`. Return `undefined` to skip the property.
+- `parse`: A function `(state) => value | drop | undefined`. Return `drop` or `undefined` to skip the property.
 
 **Returns**: A function suitable as an `enrich()` operation. Returns `{}` when
 the parse is skipped, or `{[property]: value}` to merge into the accumulated
 state.
 
 **Key Characteristics**:
-- **Conditional assignment**: Only sets the property when `parse` returns a non-undefined value.
-- **Skip sentinel**: Only `undefined` triggers skip — `null`, `false`, `0`, `""` are all assigned normally.
+- **Conditional assignment**: Only sets the property when `parse` returns a non-`drop`, non-`undefined` value.
+- **Skip sentinel**: `drop` and `undefined` trigger skip — `null`, `false`, `0`, `""` are all assigned normally.
 - **Composable**: Multiple `assign()` calls compose naturally inside `enrich()`.
 
 **Example**:
@@ -1720,8 +1752,9 @@ to `fn`'s result (or `recover`'s substitute). On failure, with no `recover`, it
   `series`, the run's strategy therefore still decides policy.
 - **`recover` present → substitute.** `onError` observes, then
   `recover({error, args, name})` supplies the result and the error is consumed.
-  `recover: () => undefined` is the explicit [drop signal](#the-undefined-sentinel):
-  it short-circuits `pipe` and drops the item in `series`.
+  `recover: () => drop` is the explicit [drop signal](#the-drop-sentinel):
+  it short-circuits `pipe` and drops the item in `series`. `recover: () =>
+  undefined` still drops in 0.18.
 - **A throwing `recover` propagates its own error** (the original was already
   observed by `onError`), and `onSuccess` does **not** run on a recovered value.
 
@@ -1753,7 +1786,7 @@ twin: [tryCatchSync](#trycatchsync).
 
 **Example**:
 ```javascript
-import { tryCatch } from 'pipelean'
+import { tryCatch, drop } from 'pipelean'
 
 // Observe + rethrow (default): the caller still sees the failure.
 const fetchJson = tryCatch(
@@ -1772,8 +1805,8 @@ const safeFetch = tryCatch(fetchJson, {
 const data = await safeFetch('https://api.example.com')
 // parsed JSON on success, the substitute object on failure
 
-// The explicit drop: undefined, the drop signal.
-const maybeFetch = tryCatch(fetchJson, {recover: () => undefined})
+// The explicit drop: drop, the drop signal.
+const maybeFetch = tryCatch(fetchJson, {recover: () => drop})
 ```
 
 ---
@@ -2112,7 +2145,7 @@ from `fn` or a hook is handled by the contract, not fatal.
 
 **Example**:
 ```javascript
-import {tryCatchSync} from 'pipelean'
+import {tryCatchSync, drop} from 'pipelean'
 
 // Observe + rethrow (default).
 const parse = tryCatchSync(JSON.parse, {
@@ -2128,8 +2161,8 @@ const safeParse = tryCatchSync(JSON.parse, {
 safeParse('{bad json') // the substitute object
 
 // The explicit drop.
-const maybeParse = tryCatchSync(JSON.parse, {recover: () => undefined})
-maybeParse('{bad json') // undefined
+const maybeParse = tryCatchSync(JSON.parse, {recover: () => drop})
+maybeParse('{bad json') // drop
 ```
 
 ---

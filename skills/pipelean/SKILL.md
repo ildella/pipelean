@@ -63,7 +63,7 @@ Fold over **items** → `scan` / `reduce` / `foldSync`. Fold over **steps** of o
 input → `enrich`. Many items with a concurrent map over a homogeneous
 collection: p-map, not `join`. This table routes the common cases; for every
 combinator and source adapter — sync twins included, with input, output, default
-strategy and `undefined` handling — the single comparison is
+strategy and `drop` handling — the single comparison is
 [How to choose](node_modules/pipelean/docs/reference.md#how-to-choose).
 
 ## 3. Consult only what you need
@@ -97,15 +97,17 @@ A rewrite is a behavior change until proven otherwise. Apply the full checklist:
 - **Concurrency changes behavior.** `Promise.all` was concurrent; `series` is
   sequential with an order guarantee. Do not "modernize" a concurrent run into a
   serial one by accident.
-- **`undefined` is the drop sentinel** in `series`, `filter`, `pipe`,
+- **`drop` is the drop sentinel** in `series`, `filter`, `pipe`,
   `mapSeries`: `mapSeries` is not `Array.prototype.map`, and a loop that
-  legitimately yielded `undefined` loses items. In `enrich`, `undefined` is an
-  error — return `{}` for a no-op. The authoritative rule:
-  [the `undefined` sentinel](node_modules/pipelean/docs/reference.md#the-undefined-sentinel).
+  legitimately yielded `drop` loses items. In 0.18 `undefined` still drops too;
+  `series` / `mapSeries` accept `onUndefined: 'error'` to make legacy
+  `undefined` fatal, and 1.0 flips the default. In `enrich`, `drop` and
+  `undefined` are errors — return `{}` for a no-op. The authoritative rule:
+  [the `drop` sentinel](node_modules/pipelean/docs/reference.md#the-drop-sentinel).
 - **`tryCatch` rethrows by default.** It is the single-operation execution
   boundary: `onStart` gates the call, the other hooks observe, and
   `recover({error}) => value` is the explicit swallow/substitute seam
-  (`recover: () => undefined` is the drop). Hooks and `recover` receive
+  (`recover: () => drop` is the drop). Hooks and `recover` receive
   `{args, name}` plus `result` or `error`; `args` is a copy, and the optional
   `name` option labels the operation. Do not assume it swallows into `undefined`
   — that was the pre-0.17 default. A hook failure never masks the operation

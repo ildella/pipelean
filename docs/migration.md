@@ -6,8 +6,9 @@ How to replace common imperative and error-prone patterns with pipelean equivale
 
 The managed result is now the same envelope everywhere: `{payload, errors,
 sourceErrors, failure}`, where the payload is `results` when a run keeps many
-values and `value` when it keeps one. One soft deprecation, two additive changes
-and two breaking ones (the removed strategy aliases and invalid strategies).
+values and `value` when it keeps one. One soft deprecation, three additive
+changes and two breaking ones (the removed strategy aliases and invalid
+strategies).
 
 ### Deprecated: `findSync.result`, use `value`
 
@@ -31,6 +32,59 @@ fixed list of steps or branches, so a source error is impossible there, but the
 key stays so every envelope can be read the same way. Destructuring that ignored
 `sourceErrors` keeps working; generic code no longer needs
 `result.sourceErrors ?? []`.
+
+### Additive: `drop` and `onUndefined`
+
+`drop` is now exported: a registered symbol (`Symbol.for('pipelean.drop')`) that
+explicitly drops an item in `series` / `mapSeries` / `filter` / `pipe`, is
+falsy for `findSync` / `where`, produces an empty patch in `assign`, and is an
+ordinary value in folds and `join`. In `enrich` it is a dedicated step error.
+
+`undefined` still drops in 0.18. The new `onUndefined` option on `series` /
+`seriesSync` / `mapSeries` / `mapSeriesSync` lets you opt into the future
+behaviour early:
+
+```js
+// 0.18, legacy behaviour (default)
+series(items, fn) // undefined drops
+
+// 0.18, future behaviour: undefined is a fatal TypeError, drop still drops
+series(items, fn, {onUndefined: 'error'})
+```
+
+The policy error is fatal: under `collect` it is thrown, never collected in
+`errors` / `sourceErrors` / `failure`.
+
+No code change is required for 0.18. To adopt `drop` gradually, replace the
+selection returns:
+
+```diff
+-const rows = await mapSeries(items, x => x.ok ? x : undefined)
++import {drop, mapSeries} from 'pipelean'
++const rows = await mapSeries(items, x => x.ok ? x : drop)
+```
+
+`tryCatch` `recover` is the same idea:
+
+```diff
+-tryCatch(fn, {recover: () => undefined})
++tryCatch(fn, {recover: () => drop})
+```
+
+### 1.0 preview: `undefined` stops being the sentinel
+
+In 1.0 the default for `onUndefined` flips to `'error'` and `undefined` stops
+being a sentinel: `drop` is the only drop signal. Folds and `join` already treat
+both `drop` and `undefined` as ordinary values, so they do not change.
+
+The codemod that makes 0.18 code 1.0-ready:
+
+1. Import `drop` wherever selection is used.
+2. Replace `x => cond ? x : undefined` with `x => cond ? x : drop` in
+   `series` / `mapSeries` / `filter` / `pipe` transforms.
+3. Replace `recover: () => undefined` with `recover: () => drop`.
+4. Run `series` / `mapSeries` with `onUndefined: 'error'` in tests to find any
+   remaining implicit `undefined` drops.
 
 ### Typed failures
 

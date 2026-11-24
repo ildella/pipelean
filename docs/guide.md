@@ -74,7 +74,7 @@ enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), in
 The comparative table lives in the reference:
 [How to choose](reference.md#how-to-choose) lists every public combinator and
 source adapter, sync twins included, with its model (items, steps, value,
-tasks, source), input, output, default strategy and `undefined` handling. Read
+tasks, source), input, output, default strategy and `drop` handling. Read
 it when you are choosing between two APIs; the chapters below explain the mental
 model behind it, and [Errors as data vs errors as
 exceptions](#errors-as-data-vs-errors-as-exceptions) explains the strategy
@@ -142,8 +142,10 @@ running together (`join`).
 
 * **Universal mapper**
   - Handles sync and async mapper functions automatically.
-  - Returning `undefined` **drops the item** — this is how selection works in
-    `series` and `pipe`; it is not a valid value to map to.
+  - Returning `drop` **drops the item** — this is how selection works in
+    `series` and `pipe`; it is not a valid value to map to. In 0.18 `undefined`
+    still drops too, with the same effect; `onUndefined: 'error'` turns that
+    legacy behaviour into a fatal `TypeError`.
   - `filter` accepts patterns via `where()`: `filter(users, {active: true})` is
     equivalent to `filter(users, where({active: true}))`.
   - `findSync` accepts the same predicate forms and stops at the first match.
@@ -182,14 +184,15 @@ await parseAll(files)
 ```
 
 Every other option passes through (`take`, `total`, `onProgress`, `pause`,
-`pauseOnErrors`, `signal`), so it is still a *sequential* map with progress and
+`pauseOnErrors`, `signal`, `onUndefined`), so it is still a *sequential* map with progress and
 pacing (`mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and
 `signal` with a `TypeError`, like every sync twin). A
 `strategy` other than `rethrow` / `'throw'` is a `TypeError` rather than a silent
 override, and `onError` / `onFailure` / `onSourceError` are rejected with a
 `TypeError` naming the offending key: under the locked `rethrow` they could never
 fire, so they are dead configuration. Two inherited behaviors matter: returning
-`undefined` **drops** the item (this is not `Array.prototype.map`), and a failure
+`drop` (or `undefined`, in 0.18) **drops** the item (this is not
+`Array.prototype.map`), and a failure
 throws before any callback. `mapSeriesSync` rejects an async iterable with an
 explicit `TypeError` naming `mapSeries()`, and its callbacks — the mapper and
 `onProgress` alike — fall under the shared sync rule: a returned thenable is a
@@ -242,10 +245,10 @@ p-map.
 Compose ordered steps into a single reusable function for `series()`:
 
 ```js
-import { series, pipe } from 'pipelean'
+import { series, pipe, drop } from 'pipelean'
 
 const normalizeActiveUser = pipe(
-  user => user.active ? user : undefined,
+  user => user.active ? user : drop,
   user => user.email,
   email => email.toLowerCase()
 )
@@ -254,24 +257,25 @@ const result = await series(users, normalizeActiveUser)
 ```
 
 `pipe()` chains functions left-to-right and preserves Pipelean's drop signal:
-when any step returns `undefined`, the remaining steps are skipped and
-`undefined` propagates out. Combined with `series` (which drops items whose mapper
-returns `undefined`), this merges transformation and selection in one pass:
+when any step returns `drop` (or `undefined`, in 0.18), the remaining steps are
+skipped and that same value propagates out. Combined with `series` (which drops
+items whose mapper returns `drop`), this merges transformation and selection in
+one pass:
 
 ```js
-import { series, pipe } from 'pipelean'
+import { series, pipe, drop } from 'pipelean'
 
 const result = await series(numbers, pipe(
-  x => x % 2 === 0 ? x : undefined, // select: drop odds
-  x => x * 2,                        // transform: double
+  x => x % 2 === 0 ? x : drop, // select: drop odds
+  x => x * 2,                 // transform: double
 ))
 // result.results = [4, 8, 12] from inputs [2, 4, 6]
 ```
 
-`pipe` does **not** catch errors: a throw escapes to the caller. Only `undefined`
-short-circuits — `null`, `false`, `0` and `''` are values. This is composition in
-the `Maybe`/`Option` sense (`A => Option<B>`), not plain composition as in Ramda
-or fp-ts `flow`.
+`pipe` does **not** catch errors: a throw escapes to the caller. Only `drop` and
+`undefined` short-circuit — `null`, `false`, `0` and `''` are values. This is
+composition in the `Maybe`/`Option` sense (`A => Option<B>`), not plain
+composition as in Ramda or fp-ts `flow`.
 
 **Use `pipe` when** one value goes through value-in/value-out steps and any step
 may bail. **Don't use it when** steps need the state accumulated so far
@@ -293,8 +297,9 @@ functions**. They compose with `pipe` and `series`.
   argument list and `name` is the optional `name` label. **By default a failure
   is rethrown** — the wrapper never swallows.
   `recover({error}) => value` is the explicit seam that turns a failure into a
-  value; `recover: () => undefined` is the spelled-out drop that short-circuits
-  `pipe` and drops the item in `series`. Without `recover`, a `tryCatch` inside
+  value; `recover: () => drop` is the spelled-out drop that short-circuits
+  `pipe` and drops the item in `series` (`recover: () => undefined` still drops
+  in 0.18). Without `recover`, a `tryCatch` inside
   `series` just observes and the run's strategy still decides policy. A hook
   failure never masks the operation error: on the failure path it is attached as
   `error.hookErrors` best effort, and dropped if the primary cannot carry it;
@@ -354,7 +359,7 @@ const totalDuration = foldSync(
 ```
 
 `foldSync` takes exactly three arguments (a fourth is a `TypeError`), throws the
-original error, and keeps `undefined` as a legal accumulator. Use `reduce` when
+original error, and keeps `drop` and `undefined` as legal accumulator values. Use `reduce` when
 the fold's input can be bad as data, or when you need `recover`, `signal` or
 `pause`. `scan` and `reduce` default to `failFast`. Under `failFast` the
 `results` array is cleared on failure (the `value` of a `reduce` survives: only
@@ -439,15 +444,15 @@ pipeline.
 #### Conditional property assignment with `assign`
 
 `assign(property, parse)` builds an `enrich` step that sets a property only when
-`parse(state)` is not `undefined`:
+`parse(state)` is neither `drop` nor `undefined`:
 
 ```js
-import { assign, enrich } from 'pipelean'
+import { assign, enrich, drop } from 'pipelean'
 
 const extractName = assign('name', state => state.rawName.trim())
 const extractYear = assign('year', state => {
   const n = Number.parseInt(state.rawYear, 10)
-  return Number.isNaN(n) ? undefined : n
+  return Number.isNaN(n) ? drop : n
 })
 
 const {value} = await enrich([extractName, extractYear])({
@@ -457,8 +462,8 @@ const {value} = await enrich([extractName, extractYear])({
 // year is skipped because rawYear was missing
 ```
 
-`assign()` skips only on `undefined` — `null`, `false`, `0` and `""` are assigned
-normally.
+`assign()` skips on `drop` or `undefined` — `null`, `false`, `0` and `""` are
+assigned normally.
 
 `enrich` differs from `pipe` in three ways:
 
@@ -469,7 +474,9 @@ normally.
   throws on handled errors.
 
 Operations can be sync or async. Return an empty object `{}` when a step has
-nothing to add — `undefined` is **not** a no-op signal here. The merge is
+nothing to add — `drop` and `undefined` are **not** no-op signals here. A `drop`
+patch fails with its own step error (*enrich steps cannot drop; return {} for a
+no-op*), and an `undefined` patch is an invalid patch. The merge is
 **shallow**: a later patch overwrites a top-level key but does not deep-merge
 nested objects.
 
@@ -720,11 +727,14 @@ A service loop that survives failed rounds — `forever()` + `signal` + `recover
    throws on handled errors unless you pick `rethrow`. `value` is the last
    successful state; `sourceErrors` is always `[]`.
 7. **Patches are shallow-merged in `enrich()`**: top-level keys are overwritten;
-   nested objects are not deep-merged. Return `{}` (not `undefined`) for a no-op.
-8. **`undefined` is the drop signal** in `series`, `filter`, `pipe`, `mapSeries`
-   and `mapSeriesSync`; it is not a valid value to map to. In `enrich` it is the
-   opposite — an invalid patch — so return `{}` for a no-op. Full rule:
-   [the `undefined` sentinel](reference.md#the-undefined-sentinel).
+   nested objects are not deep-merged. Return `{}` (not `drop` or `undefined`) for a no-op.
+8. **`drop` is the explicit drop signal** in `series`, `filter`, `pipe`,
+   `mapSeries` and `mapSeriesSync`; it is not a valid value to map to. In 0.18
+   `undefined` still drops everywhere `drop` does; `series` and `mapSeries`
+   accept `onUndefined: 'error'` to make legacy `undefined` fatal. In `enrich`
+   the opposite holds — `drop` and `undefined` are invalid patches — so return
+   `{}` for a no-op. Full rule:
+   [the `drop` sentinel](reference.md#the-drop-sentinel).
 9. **Bug or data?** A thrown error that means "this cannot happen" belongs in
    `foldSync`, `mapSeries` / `mapSeriesSync`, or `rethrow`. A thrown error that
    means "this record is bad" is data: use `reduce` / `scan` / `series` with a
