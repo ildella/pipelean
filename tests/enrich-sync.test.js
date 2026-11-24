@@ -10,6 +10,7 @@ test('default collect: all operations execute, final state correct', () => {
   expect(result).toEqual({
     value: {a: 1, b: 2},
     errors: [],
+    sourceErrors: [],
     failure: false,
   })
 })

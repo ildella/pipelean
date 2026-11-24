@@ -111,6 +111,7 @@ const reduceOptions = ({strategy, onError, onFailure}, label) => ({
 const finishEnrich = result => ({
   value: result.value,
   errors: result.errors.map(normalizeOperationError),
+  sourceErrors: result.sourceErrors,
   failure: normalizeFailure(result.failure),
 })
 

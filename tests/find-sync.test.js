@@ -13,7 +13,7 @@ test('returns first matching item', () => {
   const result = findSync([1, 2, 3, 4], x => x > 2)
 
   expect(result).toEqual({
-    result: 3, errors: [], sourceErrors: [], failure: false,
+    value: 3, errors: [], sourceErrors: [], failure: false,
   })
 })
 
@@ -21,7 +21,7 @@ test('returns no-match shape when nothing matches', () => {
   const result = findSync([1, 2, 3], x => x > 10)
 
   expect(result).toEqual({
-    result: undefined, errors: [], sourceErrors: [], failure: false,
+    value: undefined, errors: [], sourceErrors: [], failure: false,
   })
 })
 
@@ -29,7 +29,7 @@ test('empty array returns no-match shape', () => {
   const result = findSync([], () => true)
 
   expect(result).toEqual({
-    result: undefined, errors: [], sourceErrors: [], failure: false,
+    value: undefined, errors: [], sourceErrors: [], failure: false,
   })
 })
 
@@ -37,6 +37,14 @@ test('returns value synchronously not a promise', () => {
   const result = findSync([1, 2, 3], x => x > 1)
 
   expect(result).not.toBeInstanceOf(Promise)
+})
+
+test('envelope keys are value, errors, sourceErrors, failure', () => {
+  const result = findSync([1, 2, 3], x => x === 2)
+
+  expect(Object.keys(result)).toEqual([
+    'value', 'errors', 'sourceErrors', 'failure',
+  ])
 })
 
 test('stops after first matching item', () => {
@@ -48,7 +56,7 @@ test('stops after first matching item', () => {
   })
 
   expect(result).toEqual({
-    result: 2, errors: [], sourceErrors: [], failure: false,
+    value: 2, errors: [], sourceErrors: [], failure: false,
   })
   expect(processed).toEqual([1, 2])
 })
@@ -61,7 +69,7 @@ test('does not visit later errors after a match', () => {
   })
 
   expect(result).toEqual({
-    result: 2, errors: [], sourceErrors: [], failure: false,
+    value: 2, errors: [], sourceErrors: [], failure: false,
   })
 })
 
@@ -87,7 +95,7 @@ test('curried form executes when called with items', () => {
   const result = findEven([1, 2, 3, 4])
 
   expect(result).toEqual({
-    result: 2, errors: [], sourceErrors: [], failure: false,
+    value: 2, errors: [], sourceErrors: [], failure: false,
   })
 })
 
@@ -101,7 +109,7 @@ test('object pattern immediate form returns first matching item', () => {
   const result = findSync(libs, {type: 'filesystem'})
 
   expect(result).toEqual({
-    result: {type: 'filesystem', name: 'b'},
+    value: {type: 'filesystem', name: 'b'},
     errors: [],
     sourceErrors: [],
     failure: false,
@@ -116,7 +124,7 @@ test('object pattern curried form returns first matching item', () => {
   ])
 
   expect(result).toEqual({
-    result: {type: 'filesystem', name: 'b'},
+    value: {type: 'filesystem', name: 'b'},
     errors: [],
     sourceErrors: [],
     failure: false,
@@ -133,7 +141,7 @@ test('default collect continues past errors until match', () => {
   })
 
   expect(result).toEqual({
-    result: 3,
+    value: 3,
     errors: [{item: 1, error: bang, index: 0}],
     sourceErrors: [],
     failure: false,
@@ -150,7 +158,7 @@ test('default collect returns collected errors when no item matches', () => {
   })
 
   expect(result).toEqual({
-    result: undefined,
+    value: undefined,
     errors: [{item: 2, error: bang, index: 1}],
     sourceErrors: [],
     failure: false,
@@ -167,7 +175,7 @@ test('failFast stops on first error with no collected errors', () => {
   }, {strategy: 'failFast'})
 
   expect(result).toEqual({
-    result: undefined,
+    value: undefined,
     errors: [],
     sourceErrors: [],
     failure: {item: 2, error: bang, index: 1},
@@ -184,7 +192,7 @@ test('failLate returns failure after errors before a match', () => {
   }, {strategy: 'failLate'})
 
   expect(result).toEqual({
-    result: 3,
+    value: 3,
     errors: [{item: 1, error: bang, index: 0}],
     sourceErrors: [],
     failure: {errors: result.errors},
@@ -205,7 +213,7 @@ test('failLate stops at the first match after earlier errors', () => {
   }, {strategy: 'failLate'})
 
   expect(result).toEqual({
-    result: 3,
+    value: 3,
     errors: [{item: 1, error: bang, index: 0}],
     sourceErrors: [],
     failure: {errors: result.errors},
@@ -221,7 +229,7 @@ test('skip ignores errors and continues until match', () => {
   }, {strategy: 'skip'})
 
   expect(result).toEqual({
-    result: 3, errors: [], sourceErrors: [], failure: false,
+    value: 3, errors: [], sourceErrors: [], failure: false,
   })
 })
 
@@ -244,7 +252,7 @@ test('take limits items processed', () => {
   }, {take: 2})
 
   expect(result).toEqual({
-    result: undefined, errors: [], sourceErrors: [], failure: false,
+    value: undefined, errors: [], sourceErrors: [], failure: false,
   })
   expect(processed).toEqual([1, 2])
 })
@@ -346,7 +354,7 @@ test('collect: source death records sourceErrors with no match', () => {
   const result = findSync(items, () => false, {strategy: 'collect'})
 
   expect(result).toEqual({
-    result: undefined,
+    value: undefined,
     errors: [],
     sourceErrors: [{error: boom, index: 2}],
     failure: false,
@@ -366,7 +374,7 @@ test('failFast: source failure stops the run and calls callbacks once', () => {
   })
 
   expect(result).toEqual({
-    result: undefined,
+    value: undefined,
     errors: [],
     sourceErrors: [{error: boom, index: 2}],
     failure: {error: boom, index: 2},
@@ -392,7 +400,7 @@ test('failLate: item errors and source errors merge in order', () => {
     return false
   }, {strategy: 'failLate'})
 
-  expect(result.result).toBeUndefined()
+  expect(result.value).toBeUndefined()
   expect(result.errors).toEqual([{item: 1, error: opError, index: 0}])
   expect(result.sourceErrors).toEqual([{error: srcError, index: 2}])
   expect(result.failure).toEqual({
@@ -411,7 +419,7 @@ test('skip: source errors are ignored but onSourceError still fires', () => {
   })
 
   expect(result).toEqual({
-    result: undefined,
+    value: undefined,
     errors: [],
     sourceErrors: [],
     failure: false,
@@ -451,7 +459,7 @@ test('a match before the death returns normally with no source errors', () => {
   const result = findSync(items, x => x === 2)
 
   expect(result).toEqual({
-    result: 2,
+    value: 2,
     errors: [],
     sourceErrors: [],
     failure: false,
@@ -475,7 +483,7 @@ test('take reached before the throw records no source error and closes', () => {
   const result = findSync(gen(), () => false, {take: 2})
 
   expect(result).toEqual({
-    result: undefined,
+    value: undefined,
     errors: [],
     sourceErrors: [],
     failure: false,
@@ -492,7 +500,7 @@ test('source throwing before the first item reports index 0', () => {
   const result = findSync(gen(), () => false, {strategy: 'collect'})
 
   expect(result).toEqual({
-    result: undefined,
+    value: undefined,
     errors: [],
     sourceErrors: [{error: boom, index: 0}],
     failure: false,

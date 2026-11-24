@@ -98,8 +98,12 @@ test('empty operations array returns initial state', async () => {
   expect(result).toEqual({
     value: {a: 1},
     errors: [],
+    sourceErrors: [],
     failure: false,
   })
+  expect(Object.keys(result)).toEqual([
+    'value', 'errors', 'sourceErrors', 'failure',
+  ])
 })
 
 test('repeated execution with different inputs', async () => {

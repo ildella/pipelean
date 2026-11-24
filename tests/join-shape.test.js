@@ -1,11 +1,15 @@
 import {test, expect} from 'vitest'
 import {join} from '$src/functional'
 
-test('success envelope has exactly value, errors, failure', async () => {
+test('success envelope has all four keys', async () => {
   const result = await join({a: () => 1})
 
-  expect(result).toEqual({value: {a: 1}, errors: [], failure: false})
-  expect(Object.keys(result)).toEqual(['value', 'errors', 'failure'])
+  expect(result).toEqual({
+    value: {a: 1}, errors: [], sourceErrors: [], failure: false,
+  })
+  expect(Object.keys(result)).toEqual([
+    'value', 'errors', 'sourceErrors', 'failure',
+  ])
 })
 
 test('error context is {operation, error, index}', async () => {

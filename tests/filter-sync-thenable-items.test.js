@@ -35,13 +35,13 @@ test('filterSync still rejects an async predicate, naming filter()', () => {
 test('findSync matches a thenable item with a sync predicate', () => {
   const result = findSync([Promise.resolve(1), 2], x => x === 2)
 
-  expect(result).toEqual({...report, result: 2})
+  expect(result).toEqual({...report, value: 2})
 })
 
 test('findSync returns the thenable item unchanged when it matches', () => {
   const first = Promise.resolve(1)
 
-  expect(findSync([first], () => true).result).toBe(first)
+  expect(findSync([first], () => true).value).toBe(first)
 })
 
 test('seriesSync still rejects a mapper that returns a promise', () => {

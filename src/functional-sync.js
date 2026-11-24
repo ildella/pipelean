@@ -183,6 +183,11 @@ const runSeriesSync = ({
 const guardMapper = fn => (item, index) =>
   assertSyncCallback('seriesSync', 'mapper', fn(item, index))
 
+/**
+ * Sequential execution over a sync iterable, one item at a time.
+ *
+ * @returns {IterationResult|((items) => IterationResult)}
+ */
 export const seriesSync = (...args) => {
   const {
     immediate, items, fn, opts,
@@ -195,6 +200,11 @@ export const seriesSync = (...args) => {
   return immediate ? run(items) : run
 }
 
+/**
+ * Sequential selection over a sync iterable.
+ *
+ * @returns {IterationResult|((items) => IterationResult)}
+ */
 export const filterSync = (...args) => {
   const {
     immediate, items, predicate, opts = {},
@@ -213,6 +223,11 @@ export const filterSync = (...args) => {
   return immediate ? run(items) : run
 }
 
+/**
+ * First match in a sync iterable, stopping as soon as the predicate accepts.
+ *
+ * @returns {FindResult|((items) => FindResult)}
+ */
 export const findSync = (...args) => {
   const {
     immediate, items, predicate, opts,
@@ -231,7 +246,7 @@ export const findSync = (...args) => {
     const shape = ({
       errors, sourceErrors, failure,
     }) => ({
-      result: found, errors, sourceErrors, failure,
+      value: found, errors, sourceErrors, failure,
     })
     const state = createRunState(
       strategy, {onFailure, onSourceError, shape}, 'findSync',
@@ -301,12 +316,22 @@ const runScanSync = ({
   return runSyncStrategy({state: plan.state, items: iterable, step})
 }
 
+/**
+ * Synchronous twin of `scan`.
+ *
+ * @returns {IterationResult}
+ */
 // eslint-disable-next-line max-params
 export const scanSync = (iterable, scanner, initialValue, opts = {}) =>
   runScanSync({
     iterable, scanner, initialValue, opts, keepPartials: true,
   })
 
+/**
+ * Synchronous twin of `reduce`.
+ *
+ * @returns {ReduceResult}
+ */
 // eslint-disable-next-line max-params
 export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
   runScanSync({
@@ -333,7 +358,7 @@ export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
  * @param {Array<(state) => object>} operations
  * @param {{strategy?: StrategyFn, onError?, onFailure?, onStepStart?,
  *   onStepSuccess?}} opts
- * @returns {(initialState) => {value, errors, failure}}
+ * @returns {(initialState) => EnrichResult}
  */
 export const enrichSync = (operations, opts = {}) => {
   const {
