@@ -28,6 +28,10 @@ Pipelean earns its place when the run needs at least one of: an explicit
 native code is clearer. "This is a `forEach`" is not a reason.
 → [When plain JavaScript is clearer](node_modules/pipelean/docs/guide.md#when-plain-javascript-is-clearer)
 
+For the run's edges — capped concurrency → p-map, streaming/backpressure →
+exstream-js, push-based sources → RxJS. Full map:
+[When to reach for another library](node_modules/pipelean/docs/alternatives.md).
+
 ## 1. Classify before choosing
 
 1. **Independent or dependent?** Item N needs item N-1's output → fold.
