@@ -30,8 +30,8 @@ policy again — a `tryCatch` mapper without `recover` just observes.
 
 ## Added: `recover` is the explicit failure→value seam
 
-`recover(error) => value` is the one place a failure becomes a value, spelled out
-at the call site:
+`recover({error}) => value` is the one place a failure becomes a value, spelled
+out at the call site:
 
 - `recover: () => undefined` is the explicit drop — behavior-identical to the
   0.16 default, and the way to keep a failed step short-circuiting `pipe` /
@@ -40,31 +40,62 @@ at the call site:
 - A throwing `recover` propagates its own error (the original was already
   observed by `onError`).
 - `onSuccess` does not run on a recovered value.
-- A non-function `recover` is a build-time `TypeError`.
+- A non-function `recover` is a `TypeError` when the wrapper is constructed.
 
 The name deliberately matches the fold `recover` seam: one library-wide
 vocabulary for "the explicit seam where a failure becomes a value and is
-consumed". The context is smaller (`error`, no accumulator), because there is no
-iteration. `tryCatch` is still not a strategy and not a Result library —
+consumed". The context has no accumulator, because there is no iteration. `tryCatch` is still not a strategy and not a Result library —
 returning `{ok, value|error}` is an app-layer composition built on `recover`.
 
-## Changed: hooks only observe; a hook failure never masks the operation
+## Added: one context object for hooks and `recover`
 
-The operation's outcome is primary. `onStart`, `onSuccess`, `onError`,
-`onFinally` are awaited and their return values ignored.
+Every hook and `recover` now receive a single context object, and the wrapper
+accepts an optional `name` label:
+
+```js
+const save = tryCatch(api.post, {
+  name: 'saveSettings',
+  onStart: ({args, name}) => log.info('start', name, args),
+  onSuccess: ({result, args, name}) => log.info('done', name, result),
+  onError: ({error, args, name}) => report({name, args, error}),
+  onFinally: ({args, name}) => metrics.timing(name, args[0]),
+  recover: ({error, name}) => ({ok: false, operation: name, error}),
+})
+```
+
+- `args` is a copy of the wrapper invocation's argument list (an array),
+  so a hook mutating it cannot change what `fn` received.
+- `name` is the `name` option, or `undefined` when it is omitted.
+
+There is no other context field. The hooks' and `recover`'s return values are
+ignored, except `recover`'s, which is the substitute.
+
+## Changed: a hook failure never masks the operation
+
+The operation's outcome is primary; `onStart` gates it and `recover`
+substitutes, while the other hooks never mask an operation error. All hooks are
+awaited and their return values ignored.
+
+The two rules:
+
+1. **The operation failed** → throw its error. A throwing `onError` /
+   `onFinally` never replaces it.
+2. **A hook throws while the operation succeeded** → throw the hook error.
+
+A hook error raised while the operation already failed is attached to the
+primary as `error.hookErrors` (an array), best effort: if the primary cannot
+carry the property (a primitive, a frozen / non-extensible object, or one that
+rejects the write), the hook error is dropped and the primary is thrown
+unchanged.
 
 - `onStart` is a **boundary guard**: a throw skips `fn` and flows through
   `onError` + the failure policy like a `fn` failure.
 - **Success path**: a throwing `onSuccess` / `onFinally` propagates as itself —
   a hook failure, never relabeled as the operation's failure. The first hook
-  failure is primary; a later one is secondary.
-- **Failure path**: the operation error is **never replaced** by a hook error. A
-  throwing `onError` / `onFinally` is preserved as a *secondary*, safe-attached
-  to the primary as `error.hookErrors` (an array). If the primary cannot carry
-  the property (a primitive, frozen / non-extensible object, or one that rejects
-  the write), the primary is thrown **unchanged** and the secondaries are
-  reported via `console.error` — never lost. A secondary surviving a successful
-  `recover` is likewise reported.
+  failure is the thrown error; a later one is attached to it as
+  `error.hookErrors`.
+- **After a successful `recover`** the operation counts as successful: if a
+  hook threw earlier on the failure path, that hook error is thrown as itself.
 
 This removes the old mislabels: a throwing `onSuccess` is no longer routed to
 `onError` as an operation failure, and a throwing `onError` / `onFinally` no
@@ -72,9 +103,8 @@ longer overrides the operation error. The old "augment-and-rethrow by throwing
 from `onError`" becomes: mutate the error in `onError` (it observes the same
 object) and let the default rethrow carry it.
 
-The safe-attachment reuses the extensibility-probe + guarded-assignment pattern
-already used by `assertOk`; attaching mutates the primary, so a reused error
-keeps only the latest `hookErrors` (same caveat as `.failure`).
+Attaching mutates the primary, so a reused error keeps only the latest
+`hookErrors` (same caveat as `.failure`).
 
 ## Changed: `tryCatchSync` guards `recover`; fatal violations abort
 
@@ -90,8 +120,10 @@ yet, including `onFinally`, are skipped.
   app-layer composition; forcing every caller to unwrap would change `tryCatch`
   from an execution boundary into a result-conversion utility.
 - **No new strategy surface.** Strategies still belong to the iterators.
-- **No configurable reporting sink.** The last-resort report for an unattachable
-  secondary is `console.error`; the app's real reporting stays in `onError`.
+- **No reporting sink at all.** The library never logs, and there is no
+  configurable destination: a hook error is attached to the primary best effort
+  and dropped when it cannot carry it. The app's own reporting stays in
+  `onError`, where the operation error is available.
 
 ## Unchanged on purpose
 

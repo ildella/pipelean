@@ -23,7 +23,7 @@ test('onError observes the error but the failure still rethrows', () => {
   }, {onError})
 
   expect(() => wrapped()).toThrow(error)
-  expect(onError).toHaveBeenCalledWith(error)
+  expect(onError).toHaveBeenCalledWith({args: [], name: undefined, error})
 })
 
 test('recover turns the failure into a value and consumes it', () => {
@@ -31,10 +31,13 @@ test('recover turns the failure into a value and consumes it', () => {
   const onError = vi.fn()
   const wrapped = tryCatchSync(() => {
     throw error
-  }, {onError, recover: e => `fallback:${e.message}`})
+  }, {
+    onError,
+    recover: ({error}) => `fallback:${error.message}`,
+  })
 
   expect(wrapped()).toBe('fallback:boom')
-  expect(onError).toHaveBeenCalledWith(error)
+  expect(onError).toHaveBeenCalledWith({args: [], name: undefined, error})
 })
 
 test('a throwing recover propagates its own error', () => {
@@ -81,6 +84,51 @@ test('returns value synchronously, not a promise', () => {
   expect(tryCatchSync(() => 42)()).not.toBeInstanceOf(Promise)
 })
 
+test('hooks receive {args, name} plus their value', () => {
+  const onStart = vi.fn()
+  const onSuccess = vi.fn()
+  const onFinally = vi.fn()
+  const wrapped = tryCatchSync((a, b) => a + b, {
+    name: 'add', onStart, onSuccess, onFinally,
+  })
+
+  expect(wrapped(3, 7)).toBe(10)
+  expect(onStart).toHaveBeenCalledWith({args: [3, 7], name: 'add'})
+  expect(onSuccess).toHaveBeenCalledWith({
+    args: [3, 7], name: 'add', result: 10,
+  })
+  expect(onFinally).toHaveBeenCalledWith({args: [3, 7], name: 'add'})
+})
+
+test('onError and recover receive {args, name, error}', () => {
+  const error = new Error('boom')
+  const onError = vi.fn()
+  const recover = vi.fn(() => 'fallback')
+  const wrapped = tryCatchSync(() => {
+    throw error
+  }, {name: 'op', onError, recover})
+
+  expect(wrapped('a', 1)).toBe('fallback')
+  expect(onError).toHaveBeenCalledWith({
+    args: ['a', 1], name: 'op', error,
+  })
+  expect(recover).toHaveBeenCalledWith({
+    args: ['a', 1], name: 'op', error,
+  })
+})
+
+test('onStart cannot change fn args by mutating context.args', () => {
+  const fn = vi.fn((a, b) => [a, b])
+  const wrapped = tryCatchSync(fn, {
+    onStart: ({args}) => {
+      args.push('extra')
+    },
+  })
+
+  expect(wrapped(1, 2)).toEqual([1, 2])
+  expect(fn).toHaveBeenCalledWith(1, 2)
+})
+
 test('onStart is a boundary guard: a throw skips fn and rethrows', () => {
   const startError = new Error('onStart failed')
   const fn = vi.fn()
@@ -94,7 +142,23 @@ test('onStart is a boundary guard: a throw skips fn and rethrows', () => {
 
   expect(() => wrapped()).toThrow(startError)
   expect(fn).not.toHaveBeenCalled()
-  expect(onError).toHaveBeenCalledWith(startError)
+  expect(onError).toHaveBeenCalledWith({
+    args: [], name: undefined, error: startError,
+  })
+})
+
+test('a hook that throws after a successful recover propagates itself', () => {
+  const hookError = new Error('onError failed')
+  const wrapped = tryCatchSync(() => {
+    throw new Error('op')
+  }, {
+    onError: () => {
+      throw hookError
+    },
+    recover: () => 'recovered',
+  })
+
+  expect(() => wrapped()).toThrow(hookError)
 })
 
 test('composes with seriesSync: recover() => undefined drops the item', () => {
@@ -115,7 +179,9 @@ test('without recover, seriesSync strategy still decides policy', () => {
       throw new Error('boom')
     return n
   })
-  const {results, errors} = seriesSync([1, 2, 3], observed, {strategy: collect})
+  const {results, errors} = seriesSync([1, 2, 3], observed, {
+    strategy: collect,
+  })
   expect(results).toEqual([1, 3])
   expect(errors).toHaveLength(1)
 })

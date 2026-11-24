@@ -20,7 +20,7 @@ test('onError observes the error but the failure still rethrows', async () => {
   const wrapped = tryCatch(() => Promise.reject(error), {onError})
 
   await expect(wrapped()).rejects.toBe(error)
-  expect(onError).toHaveBeenCalledWith(error)
+  expect(onError).toHaveBeenCalledWith({args: [], name: undefined, error})
 })
 
 test('a hook return value never substitutes for the result', async () => {
@@ -35,18 +35,20 @@ test('recover turns the failure into a value and consumes it', async () => {
   const onError = vi.fn()
   const wrapped = tryCatch(() => Promise.reject(error), {
     onError,
-    recover: e => `fallback:${e.message}`,
+    recover: ({error: recovered}) => `fallback:${recovered.message}`,
   })
 
   await expect(wrapped()).resolves.toBe('fallback:boom')
-  expect(onError).toHaveBeenCalledWith(error)
+  expect(onError).toHaveBeenCalledWith({args: [], name: undefined, error})
 })
 
 test('recover receives the original error', async () => {
   const error = new Error('charge failed')
   const recover = vi.fn(() => null)
   await tryCatch(() => Promise.reject(error), {recover})()
-  expect(recover).toHaveBeenCalledWith(error)
+  expect(recover).toHaveBeenCalledWith({
+    args: [], name: undefined, error,
+  })
 })
 
 test('a throwing recover propagates its own error', async () => {
@@ -84,6 +86,51 @@ test('works with no options', async () => {
   await expect(tryCatch(() => Promise.resolve('ok'))()).resolves.toBe('ok')
 })
 
+test('hooks receive {args, name} plus their value', async () => {
+  const onStart = vi.fn()
+  const onSuccess = vi.fn()
+  const onFinally = vi.fn()
+  const wrapped = tryCatch((a, b) => Promise.resolve(a + b), {
+    name: 'add', onStart, onSuccess, onFinally,
+  })
+
+  await expect(wrapped(3, 7)).resolves.toBe(10)
+  expect(onStart).toHaveBeenCalledWith({args: [3, 7], name: 'add'})
+  expect(onSuccess).toHaveBeenCalledWith({
+    args: [3, 7], name: 'add', result: 10,
+  })
+  expect(onFinally).toHaveBeenCalledWith({args: [3, 7], name: 'add'})
+})
+
+test('onError and recover receive {args, name, error}', async () => {
+  const error = new Error('boom')
+  const onError = vi.fn()
+  const recover = vi.fn(() => 'fallback')
+  const wrapped = tryCatch(() => Promise.reject(error), {
+    name: 'op', onError, recover,
+  })
+
+  await expect(wrapped('a', 1)).resolves.toBe('fallback')
+  expect(onError).toHaveBeenCalledWith({
+    args: ['a', 1], name: 'op', error,
+  })
+  expect(recover).toHaveBeenCalledWith({
+    args: ['a', 1], name: 'op', error,
+  })
+})
+
+test('onStart cannot change fn args by mutating context.args', async () => {
+  const fn = vi.fn((a, b) => Promise.resolve([a, b]))
+  const wrapped = tryCatch(fn, {
+    onStart: ({args}) => {
+      args.push('extra')
+    },
+  })
+
+  await expect(wrapped(1, 2)).resolves.toEqual([1, 2])
+  expect(fn).toHaveBeenCalledWith(1, 2)
+})
+
 test('onStart is a boundary guard: a throw skips fn and rethrows', async () => {
   const startError = new Error('onStart failed')
   const fn = vi.fn()
@@ -97,7 +144,9 @@ test('onStart is a boundary guard: a throw skips fn and rethrows', async () => {
 
   await expect(wrapped()).rejects.toBe(startError)
   expect(fn).not.toHaveBeenCalled()
-  expect(onError).toHaveBeenCalledWith(startError)
+  expect(onError).toHaveBeenCalledWith({
+    args: [], name: undefined, error: startError,
+  })
 })
 
 test('onStart failure can be recovered like a fn failure', async () => {
@@ -110,6 +159,18 @@ test('onStart failure can be recovered like a fn failure', async () => {
   })
   await expect(wrapped()).resolves.toBe('started-fallback')
   expect(fn).not.toHaveBeenCalled()
+})
+
+test('a hook that throws after a recover propagates itself', async () => {
+  const hookError = new Error('onError failed')
+  const wrapped = tryCatch(() => Promise.reject(new Error('op')), {
+    onError: () => {
+      throw hookError
+    },
+    recover: () => 'recovered',
+  })
+
+  await expect(wrapped()).rejects.toBe(hookError)
 })
 
 test('series: recover() => undefined drops the item', async () => {

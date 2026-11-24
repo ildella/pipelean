@@ -184,8 +184,8 @@ const {value} = await reduce(forever(), async state => {
 ```
 
 The recovered round is consumed (no `errors` entry, `failure: false`), and the
-pause sees the recovered state. `recover` is fold-only; the caller still owns
-`try/finally` for external resources.
+pause sees the recovered state. The fold `recover` option only exists on the
+folds; the caller still owns `try/finally` for external resources.
 
 #### Example: don't ignore a failure (`assertOk`)
 
@@ -217,7 +217,8 @@ import { appErrorQueue } from './state'        // e.g. Svelte store
 
 export const withErrorBoundary = (fn, { context = 'Unnamed' } = {}) =>
   tryCatch(fn, {
-    onError: (error) => {
+    name: context,
+    onError: ({ error }) => {
       // 1. Log to external monitoring
       captureException(error, { tags: { context } })
 

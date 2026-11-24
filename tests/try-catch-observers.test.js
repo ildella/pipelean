@@ -1,12 +1,5 @@
-import {
-  afterEach, test, expect, vi,
-} from 'vitest'
+import {test, expect, vi} from 'vitest'
 import {tryCatch} from '$src/functional'
-
-afterEach(() => vi.restoreAllMocks())
-
-const silenceConsole = () =>
-  vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
 test('onSuccess throw propagates, not relabeled as op failure', async () => {
   const hookError = new Error('onSuccess failed')
@@ -101,50 +94,27 @@ test('success path: first hook failure primary, later secondary', async () => {
   expect(thrown.hookErrors).toEqual([finallyError])
 })
 
-test('frozen primary thrown unchanged; secondary reported', async () => {
-  const spy = silenceConsole()
+test('frozen primary unchanged; its hook error is dropped', async () => {
   const frozen = Object.freeze(new Error('frozen'))
-  const hookError = new Error('onError failed')
   const wrapped = tryCatch(() => Promise.reject(frozen), {
     onError: () => {
-      throw hookError
+      throw new Error('onError failed')
     },
   })
 
   const thrown = await wrapped().catch(error => error)
   expect(thrown).toBe(frozen)
   expect(thrown.hookErrors).toBeUndefined()
-  expect(spy).toHaveBeenCalledOnce()
-  expect(spy.mock.calls[0][1]).toBe(hookError)
 })
 
-test('primitive primary thrown unchanged; secondary reported', async () => {
-  const spy = silenceConsole()
-  const hookError = new Error('onFinally failed')
+test('primitive primary unchanged; its hook error is dropped', async () => {
   // eslint-disable-next-line prefer-promise-reject-errors
   const wrapped = tryCatch(() => Promise.reject('primitive failure'), {
     onFinally: () => {
-      throw hookError
+      throw new Error('onFinally failed')
     },
   })
 
   const thrown = await wrapped().catch(error => error)
   expect(thrown).toBe('primitive failure')
-  expect(spy).toHaveBeenCalledOnce()
-  expect(spy.mock.calls[0][1]).toBe(hookError)
-})
-
-test('secondary surviving a recovery is reported, not lost', async () => {
-  const spy = silenceConsole()
-  const hookError = new Error('onError failed')
-  const wrapped = tryCatch(() => Promise.reject(new Error('op')), {
-    onError: () => {
-      throw hookError
-    },
-    recover: () => 'recovered',
-  })
-
-  await expect(wrapped()).resolves.toBe('recovered')
-  expect(spy).toHaveBeenCalledOnce()
-  expect(spy.mock.calls[0][1]).toBe(hookError)
 })

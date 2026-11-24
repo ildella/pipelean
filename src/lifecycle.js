@@ -1,79 +1,76 @@
-import {isExtensibleObject} from './shared.js'
-
 // Outcome bookkeeping for the single-operation boundary (tryCatch /
-// tryCatchSync). It keeps the operation's outcome separate from lifecycle-hook
-// failures, so an observer can never silently relabel or mask the operation:
+// tryCatchSync). Two rules, and no reporting sink:
 //
-// - The operation (or policy) error is PRIMARY. Lifecycle errors never replace
-//   it; they are preserved as secondaries and attached to it when it is thrown.
-// - On the success path there is no operation error, so the first hook failure
-//   becomes the propagated error and later hook failures are secondary to it.
-// - Secondaries are never lost: they are safe-attached to the primary error, or
-//   reported when the primary cannot carry them (or when recovery consumed the
-//   primary and no later hook failed).
-
-// Safe-attach secondary hook errors onto the primary error as `hookErrors`.
-// Returns true when attached, false when the primary cannot carry them (a
-// primitive, a frozen/non-extensible object, or one that rejects the write via
-// a non-writable property, setter-less accessor or throwing Proxy trap). The
-// probe and the assignment are both guarded, so a hostile primary never throws
-// here. Attaching MUTATES the primary; a reused error keeps only the latest
+// 1. The operation outcome is primary. A failure (or a throwing recover) is
+//    always thrown as itself, so identity, message, stack and instanceof
+//    survive.
+// 2. A hook that throws while there is no primary error (the success path, or
+//    after a successful recover consumed it) becomes the primary error and is
+//    thrown as itself.
+//
+// A hook error that arrives while an operation error is already primary is
+// attached to it as `hookErrors`, best effort. If the primary cannot carry the
+// property (a primitive, a frozen/non-extensible object, or one that rejects
+// the write), the hook error is dropped by contract: the primary is thrown
+// unchanged, nothing is written to the console — see the tryCatch reference.
+//
+// Attaching mutates the primary; a reused error keeps only the latest
 // `hookErrors` (same caveat as assertOk's `.failure`).
-const attachHookErrors = (primary, secondaries) => {
-  try {
-    if (!isExtensibleObject(primary))
-      return false
 
+const attachHookErrors = (primary, errors) => {
+  try {
     const existing = Array.isArray(primary.hookErrors) ? primary.hookErrors : []
-    primary.hookErrors = [...existing, ...secondaries]
-    return true
+    primary.hookErrors = [...existing, ...errors]
   } catch {
-    return false
+    // Primary cannot carry hookErrors: dropped by contract, no console.
   }
 }
 
-// Last-resort reporting for secondary hook errors that cannot be attached to a
-// primary error, or that survive a successful recovery. They are surfaced, not
-// swallowed; the app's real reporting still belongs in onError.
-const reportHookErrors = secondaries => {
-  for (const error of secondaries)
-    console.error('pipelean tryCatch: lifecycle hook failed', error)
-}
-
 export const createHookOutcome = () => {
-  const state = {primary: null, secondaries: []}
+  let primary
+  let hasPrimary = false
+  const hookErrors = []
+
+  const setPrimary = error => {
+    primary = error
+    hasPrimary = true
+  }
 
   return {
     // The operation error (or a throwing recover): always primary.
-    fail (error) {
-      state.primary = error
-    },
+    fail: setPrimary,
     // A lifecycle-hook failure: secondary when a primary exists, else primary.
     capture (error) {
-      if (state.primary)
-        state.secondaries.push(error)
+      if (hasPrimary)
+        hookErrors.push(error)
       else
-        state.primary = error
+        setPrimary(error)
     },
     // A successful recover consumed the primary error.
     clear () {
-      state.primary = null
+      primary = undefined
+      hasPrimary = false
     },
     primaryError () {
-      return state.primary
+      return primary
     },
-    // Throw the primary with secondaries attached (or reported), or report
-    // orphan secondaries and let the caller return the value.
+    // Throw the primary with hook errors attached best-effort, or the first
+    // orphan hook error when recovery consumed the primary. Falsy thrown
+    // values are preserved: presence is `hasPrimary`, never truthiness.
     settle () {
-      const {primary, secondaries} = state
-      if (primary) {
-        if (secondaries.length > 0 && !attachHookErrors(primary, secondaries))
-          reportHookErrors(secondaries)
+      if (hasPrimary) {
+        if (hookErrors.length > 0)
+          attachHookErrors(primary, hookErrors)
         throw primary
       }
 
-      if (secondaries.length > 0)
-        reportHookErrors(secondaries)
+      if (hookErrors.length === 0)
+        return
+
+      const [first, ...rest] = hookErrors
+      if (rest.length > 0)
+        attachHookErrors(first, rest)
+      throw first
     },
   }
 }

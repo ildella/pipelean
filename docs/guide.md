@@ -280,15 +280,21 @@ Pipelean provides lightweight wrappers that add behavior to **individual
 functions**. They compose with `pipe` and `series`.
 
 - **`tryCatch(fn, options?)`**
-  The composable execution boundary for one operation. Lifecycle hooks
-  (`onStart`, `onSuccess`, `onError`, `onFinally`) **observe**; they never drive
-  control flow. **By default a failure is rethrown** — the wrapper never
-  swallows. `recover(error) => value` is the explicit seam that turns a failure
-  into a value; `recover: () => undefined` is the spelled-out drop that
-  short-circuits `pipe` and drops the item in `series`. Without `recover`, a
-  `tryCatch` inside `series` just observes and the run's strategy still decides
-  policy. A hook failure never masks the operation error: on the failure path it
-  is attached as `error.hookErrors` (or reported if the error cannot carry it).
+  The composable execution boundary for one operation. `onStart` gates the call
+  and `recover` is the only seam that substitutes a failure; the other hooks
+  report what happened and never mask the operation outcome. Each hook and
+  `recover` receive one context object — `onStart({args, name})`,
+  `onSuccess({result, args, name})`, `onError({error, args, name})`,
+  `onFinally({args, name})` — where `args` is a copy of the invocation's
+  argument list and `name` is the optional `name` label. **By default a failure
+  is rethrown** — the wrapper never swallows.
+  `recover({error}) => value` is the explicit seam that turns a failure into a
+  value; `recover: () => undefined` is the spelled-out drop that short-circuits
+  `pipe` and drops the item in `series`. Without `recover`, a `tryCatch` inside
+  `series` just observes and the run's strategy still decides policy. A hook
+  failure never masks the operation error: on the failure path it is attached as
+  `error.hookErrors` best effort, and dropped if the primary cannot carry it;
+  on the success path the hook error is thrown as itself.
 
 - **`retry(fn, options?)`**
   Automatic retries: `attempts` (default 3), `delay` in ms (default 0). Re-throws
@@ -348,8 +354,8 @@ the fold's input can be bad as data, or when you need `recover`, `signal` or
 `pause`. `scan` and `reduce` default to `failFast`. Under `failFast` the
 `results` array is cleared on failure (the `value` of a `reduce` survives: only
 `results` is cleared), so use `collect`/`failLate` when partial progress matters.
-Both folds support `pause`, `pauseOnErrors`, `signal` and the fold-only
-`recover` seam; `take` and `onProgress` remain `series`-only.
+Both folds support `pause`, `pauseOnErrors`, `signal` and the fold `recover`
+seam; `take` and `onProgress` remain `series`-only.
 
 `recover` is what lets a fold survive a failed step while keeping the
 accumulator moving:
@@ -588,8 +594,8 @@ is `false` even with entries in `errors`, so `assertOk` returns the result. Use
 Each error tool owns one scope, and they do not stack into a hierarchy:
 
 - **Strategies** own the run's policy (this chapter).
-- **`recover`** is a fold-only seam: one scanner error → the next accumulator —
-  see [Fold recovery](#fold-recovery-recover).
+- **The fold `recover` option** is a fold-local seam: one scanner error → the
+  next accumulator — see [Fold recovery](#fold-recovery-recover).
 - **`retry` / `tryCatch`** wrap a single function — see
   [Wrappers](#wrappers-retry-and-trycatch).
 - **`assertOk`** guards a finished result that would otherwise be ignored.
@@ -679,8 +685,10 @@ await reduce(rounds, async state => {
 - `pause` runs after a successful recovery regardless of `pauseOnErrors`; an
   abort during recovery keeps the recovered accumulator, skips the pause and
   stops.
-- `recover` is fold-only: `series`, `filter`, `findSync`, `enrich`, `join` and
-  `pipe` throw a `TypeError` if given one. `enrich` points you at `reduce`.
+- The fold `recover` option is not supported elsewhere: `series`, `filter`,
+  `findSync`, `enrich`, `join` and `pipe` throw a `TypeError` if given one.
+  `enrich` points you at `reduce`. (`tryCatch` has its own single-operation
+  `recover`, with no accumulator.)
 - In `scanSync` / `reduceSync` it must be synchronous; a thenable is rejected
   with a `TypeError`.
 

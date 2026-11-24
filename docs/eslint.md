@@ -82,7 +82,7 @@ data. The rule flags the literal form, so the mistake surfaces before the run:
 seriesSync(items, async x => x)                       // warn
 enrichSync(ops, {onStepStart: async () => {}})         // warn
 tryCatchSync(fn, {onFinally: async () => {}})          // warn
-tryCatchSync(fn, {recover: async e => null})           // warn
+tryCatchSync(fn, {recover: async ({error}) => null})     // warn
 seriesSync(items, x => x, {onProgress: async p => p})  // warn
 ```
 

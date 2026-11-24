@@ -23,23 +23,25 @@ export {
   collect, fail, failFast, failLate, rethrow, skip, stopOnError,
 } from './strategy.js'
 
-const observeHook = async (outcome, hook, arg) => {
+const observeHook = async (outcome, hook, context) => {
   if (!hook)
     return
   try {
-    await hook(arg)
+    await hook(context)
   } catch (error) {
     outcome.capture(error)
   }
 }
 
-const handleFailure = async (outcome, {onError, recover}) => {
-  await observeHook(outcome, onError, outcome.primaryError())
+const handleFailure = async (outcome, {onError, recover}, context) => {
+  await observeHook(
+    outcome, onError, {...context, error: outcome.primaryError()},
+  )
   if (!recover)
     return undefined
 
   try {
-    const value = await recover(outcome.primaryError())
+    const value = await recover({...context, error: outcome.primaryError()})
     outcome.clear()
     return value
   } catch (recoverError) {
@@ -51,42 +53,50 @@ const handleFailure = async (outcome, {onError, recover}) => {
 /**
  * Wrap an async function as a composable execution boundary.
  *
- * The operation's outcome is primary; lifecycle hooks only observe it. By
- * default a failure is rethrown — the wrapper never swallows. `recover` is the
- * one explicit seam where a failure becomes a value: `recover(error)` returns
- * the substitute and consumes the error; `recover: () => undefined` is the
- * spelled-out drop that short-circuits `pipe` and drops the item in `series`.
- * Without `recover`, a `tryCatch` inside `series` just observes and the run's
- * strategy still decides policy.
+ * The operation's outcome is primary. By default a failure is rethrown — the
+ * wrapper never swallows. `recover({error, args, name})` is the one explicit
+ * seam where a failure becomes a value: it returns the substitute and consumes
+ * the error; `recover: () => undefined` is the spelled-out drop that
+ * short-circuits `pipe` and drops the item in `series`. Without `recover`, a
+ * `tryCatch` inside `series` just observes and the run's strategy still decides
+ * policy.
  *
- * Hooks (`onStart`, `onSuccess`, `onError`, `onFinally`) are awaited and their
- * return values ignored. `onStart` is a boundary guard: if it throws, `fn`
- * does not run and its error flows through `onError` + the failure policy like
- * a `fn` failure. The other hooks are pure observers:
+ * Every hook and `recover` receives one context object: `args` is a copy of the
+ * wrapper invocation's argument list and `name` is the optional `name` option.
+ * Hooks that observe a value also get it: `onSuccess({result, args, name})`,
+ * `onError({error, args, name})`, `onStart`/`onFinally` get `{args, name}`.
+ * Their return values are ignored.
  *
- * - On the success path a throwing `onSuccess`/`onFinally` propagates as itself
- *   (a hook failure, never relabeled as the operation's failure).
+ * Failure contract:
+ *
+ * - `onStart` is a boundary guard: if it throws, `fn` does not run and its
+ *   error flows through `onError` + the failure policy like a `fn` failure.
+ * - On the success path a throwing `onSuccess`/`onFinally` propagates as
+ *   itself (a hook failure, never relabeled as the operation's failure).
  * - On the failure path the operation error is never replaced by a hook error:
  *   a throwing `onError`/`onFinally` is kept as a secondary, attached to the
- *   primary as `error.hookErrors`, or reported if the primary cannot carry it.
+ *   primary as `error.hookErrors` best-effort. If the primary cannot carry the
+ *   property, the hook error is dropped — never reported or substituted.
  * - A throwing `recover` propagates its own error (the original was already
  *   observed by `onError`). `onSuccess` does not run on a recovered value.
  *
  * Sync twin: tryCatchSync.
  */
-export const tryCatch = (fn, {
-  onStart, onSuccess, onError, onFinally, recover,
-} = {}) => {
+export const tryCatch = (fn, opts = {}) => {
+  const {
+    onStart, onSuccess, onError, onFinally, recover, name,
+  } = opts
   assertRecover(recover, 'tryCatch')
 
   return async (...args) => {
     const outcome = createHookOutcome()
+    const context = {args: [...args], name}
     let result
     let failed = false
 
     try {
       if (onStart)
-        await onStart()
+        await onStart(context)
       result = await fn(...args)
     } catch (error) {
       failed = true
@@ -94,11 +104,11 @@ export const tryCatch = (fn, {
     }
 
     if (failed)
-      result = await handleFailure(outcome, {onError, recover})
+      result = await handleFailure(outcome, {onError, recover}, context)
     else
-      await observeHook(outcome, onSuccess, result)
+      await observeHook(outcome, onSuccess, {...context, result})
 
-    await observeHook(outcome, onFinally)
+    await observeHook(outcome, onFinally, context)
     outcome.settle()
     return result
   }

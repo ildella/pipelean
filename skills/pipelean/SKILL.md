@@ -99,11 +99,15 @@ A rewrite is a behavior change until proven otherwise. Apply the full checklist:
   error — return `{}` for a no-op. The authoritative rule:
   [the `undefined` sentinel](node_modules/pipelean/docs/reference.md#the-undefined-sentinel).
 - **`tryCatch` rethrows by default.** It is the single-operation execution
-  boundary: hooks (`onStart`/`onSuccess`/`onError`/`onFinally`) only observe, and
-  `recover(error) => value` is the explicit swallow/substitute seam
-  (`recover: () => undefined` is the drop). Do not assume it swallows into
-  `undefined` — that was the pre-0.17 default. A hook failure never masks the
-  operation error (it is attached as `error.hookErrors`, or reported).
+  boundary: `onStart` gates the call, the other hooks observe, and
+  `recover({error}) => value` is the explicit swallow/substitute seam
+  (`recover: () => undefined` is the drop). Hooks and `recover` receive
+  `{args, name}` plus `result` or `error`; `args` is a copy, and the optional
+  `name` option labels the operation. Do not assume it swallows into `undefined`
+  — that was the pre-0.17 default. A hook failure never masks the operation
+  error: it is attached best effort as `error.hookErrors` and dropped if the
+  primary cannot carry it (no console reporting); a hook failure after a
+  successful operation is thrown as itself.
 - **Cancellation has two seams.** `signal` stops between items and during
   `pause`; it never interrupts the in-flight mapper. Domain bounds ("stop after
   N", sentinel reached) are `stopWhen` on the source. Neither is a `break` in

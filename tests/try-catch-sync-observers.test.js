@@ -1,12 +1,5 @@
-import {
-  afterEach, test, expect, vi,
-} from 'vitest'
+import {test, expect, vi} from 'vitest'
 import {tryCatchSync} from '$src/index'
-
-afterEach(() => vi.restoreAllMocks())
-
-const silenceConsole = () =>
-  vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
 test('onSuccess throw propagates, not relabeled as op failure', () => {
   const hookError = new Error('onSuccess failed')
@@ -92,15 +85,13 @@ test('multiple secondary hook errors are all preserved', () => {
   expect(thrown.hookErrors).toEqual([onErrorError, finallyError])
 })
 
-test('a frozen primary is thrown unchanged; the secondary is reported', () => {
-  const spy = silenceConsole()
+test('a frozen primary is thrown unchanged; its hook error is dropped', () => {
   const frozen = Object.freeze(new Error('frozen'))
-  const hookError = new Error('onError failed')
   const wrapped = tryCatchSync(() => {
     throw frozen
   }, {
     onError: () => {
-      throw hookError
+      throw new Error('onError failed')
     },
   })
 
@@ -112,8 +103,6 @@ test('a frozen primary is thrown unchanged; the secondary is reported', () => {
   }
   expect(thrown).toBe(frozen)
   expect(thrown.hookErrors).toBeUndefined()
-  expect(spy).toHaveBeenCalledOnce()
-  expect(spy.mock.calls[0][1]).toBe(hookError)
 })
 
 test('a fatal sync-callback violation aborts before onFinally runs', () => {

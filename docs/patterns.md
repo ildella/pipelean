@@ -250,6 +250,9 @@ pointing at `enrich` (a synchronous throw still flows into the strategy).
 A command boundary is one function whose failure must be handled once: an HTTP
 handler, a CLI command, a button action. `tryCatch` **rethrows by default**; the
 flavours differ in the failure policy (`recover`) and what `onError` observes.
+Every hook and `recover` receive one context object: `{args, name}` plus
+`error` or `result` where relevant. Pass `name` to label the command in
+telemetry; `args` is a copy of the invocation's argument list.
 
 **1. Report and rethrow** — the default: observe, then let the failure propagate.
 
@@ -258,7 +261,10 @@ import {tryCatch} from 'pipelean'
 
 const saveSettings = tryCatch(
   async settings => api.post('/settings', settings),
-  {onError: error => logger.error({error})},
+  {
+    name: 'saveSettings',
+    onError: ({error, args}) => logger.error({error, settings: args[0]}),
+  },
 )
 
 await saveSettings(settings)   // throws on failure; the caller decides
@@ -273,7 +279,8 @@ import {tryCatch} from 'pipelean'
 const saveSettings = tryCatch(
   async settings => api.post('/settings', settings),
   {
-    onError: error => logger.error({error}),
+    name: 'saveSettings',
+    onError: ({error}) => logger.error({error}),
     recover: () => undefined,   // the command does not crash
   },
 )
@@ -289,7 +296,7 @@ import {tryCatch} from 'pipelean'
 
 const withOutcome = fn => tryCatch(
   async (...args) => ({ok: true, value: await fn(...args)}),
-  {recover: error => ({ok: false, error})},
+  {recover: ({error}) => ({ok: false, error})},
 )
 
 const runImport = withOutcome(importFile)
@@ -306,7 +313,8 @@ import {tryCatch} from 'pipelean'
 const chargeWithContext = tryCatch(
   () => gateway.charge(order),
   {
-    onError: error => {
+    name: 'charge',
+    onError: ({error}) => {
       Object.assign(error, {operation: 'charge', orderId: order.id})
     },
     onFinally: () => metrics.timing('charge', startedAt),
@@ -323,8 +331,9 @@ try {
 
 That identity preservation is why the rewrite mutates the original error rather
 than throwing a new one: callers that already match on the original error keep
-working. A *throwing* `onError` is a hook failure, not a rethrow — it is attached
-as `error.hookErrors` and never replaces the operation error.
+working. A *throwing* `onError` is a hook failure, not a rethrow — it is
+attached as `error.hookErrors` best effort and never replaces the operation
+error (if the primary cannot carry the property, the hook error is dropped).
 
 ### Pattern 4: Application Wrapper with Default `onFailure`
 
@@ -559,4 +568,6 @@ What makes this the recipe:
 - **A failing `recover` is not swallowed.** If your recovery logic itself throws, that error goes through the strategy: with `rethrow` the loop exits, with `collect` it is recorded.
 - **Source death and external cleanup stay outside the seam.** A generator dying mid-stream is a source error; the caller's `try/finally` for external resources remains the caller's business. There are no *run-level* lifecycle hooks (`enrich`'s per-step `onStepStart` / `onStepSuccess` are step telemetry, not resource cleanup).
 
-`recover` exists only on `scan` / `reduce` (and `scanSync` / `reduceSync`). On `series` / `filter` / `findSync` / `enrich` / `join` / `pipe` it is a `TypeError`, because there is no accumulator to recover into.
+The fold `recover` exists only on `scan` / `reduce` (and `scanSync` /
+`reduceSync`). On `series` / `filter` / `findSync` / `enrich` / `join` / `pipe`
+it is a `TypeError`, because there is no accumulator to recover into.

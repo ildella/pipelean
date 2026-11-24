@@ -70,7 +70,9 @@ test('async onStart rejection rethrown; fn never runs', async () => {
 
   await expect(wrapped()).rejects.toBe(startError)
   expect(fn).not.toHaveBeenCalled()
-  expect(onError).toHaveBeenCalledWith(startError)
+  expect(onError).toHaveBeenCalledWith({
+    args: [], name: undefined, error: startError,
+  })
   expect(order).toEqual(['start', 'error', 'finally'])
 })
 

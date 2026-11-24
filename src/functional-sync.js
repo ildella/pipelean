@@ -58,9 +58,9 @@ const runSyncStrategy = ({
   return toResult(state, settle(state))
 }
 
-const observeSync = (outcome, name, call) => {
+const observeSync = (outcome, hookName, call) => {
   try {
-    assertSyncResult(call(), `tryCatchSync() ${name}`, 'tryCatch')
+    assertSyncResult(call(), `tryCatchSync() ${hookName}`, 'tryCatch')
   } catch (error) {
     if (isSyncCallbackError(error))
       throw error
@@ -68,14 +68,17 @@ const observeSync = (outcome, name, call) => {
   }
 }
 
-const handleFailureSync = (outcome, {onError, recover}) => {
-  if (onError)
-    observeSync(outcome, 'onError', () => onError(outcome.primaryError()))
+const handleFailureSync = (outcome, {onError, recover}, context) => {
+  if (onError) {
+    const call = () =>
+      onError({...context, error: outcome.primaryError()})
+    observeSync(outcome, 'onError', call)
+  }
   if (!recover)
     return undefined
 
   try {
-    const value = recover(outcome.primaryError())
+    const value = recover({...context, error: outcome.primaryError()})
     assertSyncResult(value, 'tryCatchSync() recover', 'tryCatch')
     outcome.clear()
     return value
@@ -89,27 +92,36 @@ const handleFailureSync = (outcome, {onError, recover}) => {
 
 /**
  * Synchronous twin of tryCatch: the same composable execution boundary with
- * the same rethrow-by-default policy, `recover` seam and observer contract.
+ * the same rethrow-by-default policy, `recover` seam and hook contract.
  *
  * `fn`, every hook and `recover` must be synchronous: a returned Promise (or
  * any thenable) is a fatal TypeError pointing at tryCatch. That violation
  * escapes immediately and aborts the wrapper — hooks that have not run yet,
  * including onFinally, are skipped. A synchronous throw from fn or a hook is
  * handled by the contract, not fatal.
+ *
+ * Every hook and `recover` receives one context object: `{args, name}` plus
+ * `result` on `onSuccess` and `error` on `onError`/`recover`. `args` is a copy
+ * of the invocation's argument list, so mutating it cannot change what `fn`
+ * received.
  */
-export const tryCatchSync = (fn, {
-  onStart, onSuccess, onError, onFinally, recover,
-} = {}) => {
+export const tryCatchSync = (fn, opts = {}) => {
+  const {
+    onStart, onSuccess, onError, onFinally, recover, name,
+  } = opts
   assertRecover(recover, 'tryCatchSync')
 
   return (...args) => {
     const outcome = createHookOutcome()
+    const context = {args: [...args], name}
     let result
     let failed = false
 
     try {
-      if (onStart)
-        assertSyncResult(onStart(), 'tryCatchSync() onStart', 'tryCatch')
+      if (onStart) {
+        const start = onStart(context)
+        assertSyncResult(start, 'tryCatchSync() onStart', 'tryCatch')
+      }
       result = fn(...args)
       assertSyncResult(result, 'tryCatchSync() fn', 'tryCatch')
     } catch (error) {
@@ -120,12 +132,16 @@ export const tryCatchSync = (fn, {
     }
 
     if (failed)
-      result = handleFailureSync(outcome, {onError, recover})
-    else if (onSuccess)
-      observeSync(outcome, 'onSuccess', () => onSuccess(result))
+      result = handleFailureSync(outcome, {onError, recover}, context)
+    else if (onSuccess) {
+      const call = () => onSuccess({...context, result})
+      observeSync(outcome, 'onSuccess', call)
+    }
 
-    if (onFinally)
-      observeSync(outcome, 'onFinally', () => onFinally())
+    if (onFinally) {
+      const call = () => onFinally(context)
+      observeSync(outcome, 'onFinally', call)
+    }
 
     outcome.settle()
     return result
