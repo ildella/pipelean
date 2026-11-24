@@ -126,9 +126,9 @@ const finishEnrich = result => ({
  * `enrichSync` need: the steps, the step scanner, the reduce options and the
  * result shaping.
  *
- * `scannerFor` is the only coloured part: each twin passes its own sync/async
- * scanner builder, everything else is shared. `sync` selects how the step hooks
- * are dispatched: awaited by `enrich`, sync-checked by `enrichSync`.
+ * `scannerFor` is the only coloured part: `makeEnricher` passes the sync or
+ * async scanner builder, everything else is shared. `sync` selects how the
+ * step hooks are dispatched: awaited by `enrich`, sync-checked by `enrichSync`.
  *
  * @param {{
  *  operations: Array<(state) => object>,

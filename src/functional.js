@@ -6,7 +6,7 @@ import {
 } from './shared.js'
 import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
-import {prepareEnrich} from './enrich.js'
+import {makeEnricher} from './enrich-runner.js'
 import {
   drop, isDrop, isUndefinedPolicyError, undefinedPolicyError,
 } from './sentinel.js'
@@ -568,27 +568,8 @@ export const reduce = (iterable, scanner, initialValue, opts = {}) =>
  *   onStepSuccess?}} opts
  * @returns {(initialState) => Promise<EnrichResult>}
  */
-export const enrich = (operations, opts = {}) => {
-  const {
-    steps, scanner, reduceOpts, assertInitial, finish,
-  } = prepareEnrich({
-    operations,
-    opts,
-    label: 'enrich',
-    scannerFor: merge => async (state, operation, index) =>
-      merge({
-        state, operation, index, patch: await operation(state),
-      }),
-  })
-
-  return async initialState => {
-    assertInitial(initialState)
-
-    return finish(await reduce(
-      steps, scanner, initialState, reduceOpts,
-    ))
-  }
-}
+export const enrich = (operations, opts = {}) =>
+  makeEnricher({operations, opts, label: 'enrich'}, reduce)
 
 const runBranch = (fn, key, index) =>
   Promise.resolve().then(() => fn(key, index))
