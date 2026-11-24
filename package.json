@@ -41,7 +41,7 @@
     "check": "yarn lint && yarn dup && yarn knip",
     "check:lint": "eslint --report-unused-disable-directives .",
     "dup.inspect": "jsinspect ./src --threshold 40",
-    "dup.cpd": "jscpd src --min-tokens 40 --threshold 1 --reporters console,html,json",
+    "dup.cpd": "jscpd src --min-tokens 30 --threshold 1 --reporters console,html,json",
     "dup": "yarn dup.inspect && yarn dup.cpd",
     "knip": "knip",
     "knip.quick": "yarn knip --max-show-issues 5",

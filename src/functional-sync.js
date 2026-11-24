@@ -7,12 +7,13 @@ import {
 } from './shared.js'
 import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
-import {prepareEnrich} from './enrich.js'
+import {makeEnricher} from './enrich-runner.js'
 import {
   drop, isDrop, isUndefinedPolicyError, undefinedPolicyError,
 } from './sentinel.js'
 import {
-  collect, createRunState, failOnSource, rethrow, settle, toResult,
+  collect, createRunState, finishRun, rethrow, settle, settleSourceError,
+  toResult,
 } from './strategy.js'
 import {
   handleItemError, settleFoldError,
@@ -66,12 +67,10 @@ const runSyncStrategy = ({
     if (isSyncCallbackError(error) || isUndefinedPolicyError(error))
       throw error
 
-    const handled = failOnSource(state, {error, index})
-    if (handled)
-      return handled
+    return settleSourceError(state, {error, index})
   }
 
-  return toResult(state, settle(state))
+  return finishRun(state)
 }
 
 const observeSync = (outcome, hookName, call) => {
@@ -418,31 +417,10 @@ export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
  *   onStepSuccess?}} opts
  * @returns {(initialState) => EnrichResult}
  */
-export const enrichSync = (operations, opts = {}) => {
-  const {
-    steps, scanner, reduceOpts, assertInitial, finish,
-  } = prepareEnrich({
-    operations,
-    opts,
-    label: 'enrichSync',
-    sync: true,
-    scannerFor: merge => (state, operation, index) => {
-      const patch = operation(state)
-      assertSyncResult(patch, 'enrichSync() operation', 'enrich')
-      return merge({
-        state, operation, index, patch,
-      })
-    },
-  })
-
-  return initialState => {
-    assertInitial(initialState)
-
-    return finish(reduceSync(
-      steps, scanner, initialState, reduceOpts,
-    ))
-  }
-}
+export const enrichSync = (operations, opts = {}) =>
+  makeEnricher({
+    operations, opts, label: 'enrichSync', twin: 'enrich', sync: true,
+  }, reduceSync)
 
 export const pipeSync = (...fns) => input =>
   fns.reduce((acc, fn) => {
