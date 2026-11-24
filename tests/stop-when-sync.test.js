@@ -105,6 +105,16 @@ test('forwards array length so seriesSync keeps progress totals', () => {
   ])
 })
 
+test('rejects a thenable predicate result and names stopWhen', () => {
+  expect(() => [...stopWhenSync([1, 2], async () => {
+    await Promise.resolve()
+    return false
+  })])
+    .toThrow('stopWhenSync() predicate returned a Promise; use stopWhen()')
+  expect(() => [...stopWhenSync([1, 2], () => Promise.resolve(false))])
+    .toThrow(TypeError)
+})
+
 test('a throwing predicate surfaces as a source error downstream', () => {
   const bang = new Error('bang')
   const result = seriesSync(

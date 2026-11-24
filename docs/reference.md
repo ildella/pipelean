@@ -191,7 +191,8 @@ The payload key names its cardinality: `results` keeps every value the run
 produced — mapped items, kept items, every intermediate accumulator — while
 `value` keeps the single one: `reduce`'s final accumulator, `findSync`'s first
 match (or `undefined` when nothing matched), `enrich`'s state, `join`'s record of
-branch values.
+branch values. `findSync` also exposes that value as the deprecated,
+non-enumerable `result` alias until 1.0.
 
 `failure` is `false` when the run did not fail; otherwise it is the strategy's
 payload: an item context `{item, error, index}` (a step context
@@ -950,6 +951,10 @@ item satisfying the predicate. Sync-only — there is no async `find`.
 matching item; when no item matches,
 `{value: undefined, errors: [], sourceErrors: [], failure: false}`.
 
+`result` is a deprecated, non-enumerable alias of `value`, kept so existing
+destructuring still works; it is removed in 1.0. `Object.keys` reports only the
+four envelope keys.
+
 **Default strategy**: `collect`
 
 **Options / Callbacks**: a subset of [seriesSync](#seriessync) options —
@@ -992,7 +997,9 @@ truthy. The standard way to cancel or predicate-stop any source consumed by
 
 **Parameters**:
 - `items`: An array or (async) iterable — generators and paging sources included
-- `predicate(item, index)`: Checked **before** each item is yielded. Truthy → stop. Defaults to `() => false` (never stops). Sync only.
+- `predicate(item, index)`: Checked **before** each item is yielded. Truthy →
+  stop. Defaults to `() => false` (never stops). Sync or async — an async
+  predicate is awaited before the item is yielded
 
 **Returns**: an async iterable wrapper — consumers see a source that ends early.
 
@@ -1005,8 +1012,10 @@ truthy. The standard way to cancel or predicate-stop any source consumed by
 - **Predicate throws are source errors**: reported through `onSourceError` / `sourceErrors`, never `onError`
 - This is **not** intra-item abort: work already started on an item is not interrupted (use `AbortController` in your operation for that)
 
-**Caveats**: sync twin [stopWhenSync](#stopwhensync); for lifecycle cancellation
-prefer `signal` — see [Cancellation with signal](#cancellation-with-signal).
+**Caveats**: sync twin [stopWhenSync](#stopwhensync); the predicate may be sync
+or async (it is awaited, so a `Promise<false>` keeps the item); for lifecycle
+cancellation prefer `signal` — see
+[Cancellation with signal](#cancellation-with-signal).
 
 **Example**:
 ```javascript
@@ -2124,7 +2133,9 @@ maybeParse('{bad json') // undefined
 
 ### stopWhenSync
 
-Sync twin of [stopWhen](#stopwhen): same contract, sync iterables only.
+Sync twin of [stopWhen](#stopwhen): same contract, sync iterables only — the
+predicate must be sync. A predicate that returns a thenable is rejected with a
+`TypeError` naming `stopWhen()` as the async alternative.
 
 **Signature**: `stopWhenSync(items, predicate?) => iterable`
 

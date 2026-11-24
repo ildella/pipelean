@@ -20,6 +20,7 @@ import {
 } from './run.js'
 
 /**
+ * @typedef {import('./types.js').StrategyFn} StrategyFn
  * @typedef {import('./types.js').IterationResult} IterationResult
  * @typedef {import('./types.js').ReduceResult} ReduceResult
  * @typedef {import('./types.js').FindResult} FindResult
@@ -235,6 +236,22 @@ export const filterSync = (...args) => {
   return immediate ? run(items) : run
 }
 
+const toFindResult = (found, {
+  errors, sourceErrors, failure,
+}) => {
+  const result = {
+    value: found, errors, sourceErrors, failure,
+  }
+
+  Object.defineProperty(result, 'result', {
+    get: () => found,
+    enumerable: false,
+    configurable: true,
+  })
+
+  return result
+}
+
 /**
  * First match in a sync iterable, stopping as soon as the predicate accepts.
  *
@@ -259,9 +276,7 @@ export const findSync = (...args) => {
     let found
     const shape = ({
       errors, sourceErrors, failure,
-    }) => ({
-      value: found, errors, sourceErrors, failure,
-    })
+    }) => toFindResult(found, {errors, sourceErrors, failure})
     const state = createRunState(
       strategy, {onFailure, onSourceError, shape}, 'findSync',
     )
