@@ -143,6 +143,7 @@ These are useful outside iteration and accumulation:
 - [ESLint plugin](docs/eslint.md) — lint rules and suggestions.
 - [Architecture](docs/architecture.md) — design principles.
 - [Migration](docs/migration.md) — upgrading between versions.
+- [Alternatives](docs/alternatives.md) — when another library owns the problem.
 
 ## ESLint
 
