@@ -2,19 +2,31 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
-## 0.18.0: one result envelope everywhere
+<a id="0180-one-result-envelope-everywhere"></a>
+
+## 0.18.0: one envelope, validated policy, no silent configuration
 
 The managed result is now the same envelope everywhere: `{payload, errors,
 sourceErrors, failure}`, where the payload is `results` when a run keeps many
-values and `value` when it keeps one. One soft deprecation, three additive
-changes and two breaking ones (the removed strategy aliases and invalid
-strategies).
+values and `value` when it keeps one. The rest of 0.18 closes the configuration
+seams: strategies, limits, `retry`, known-but-inert options and async
+`stopWhen` predicates all fail at construction now, and `drop` gives the drop
+signal a name.
+
+One soft deprecation, three additive changes and three classes of code-visible
+change (the removed strategy aliases, invalid strategies, invalid
+configuration). None of them requires rewriting a call that was already
+correct.
 
 ### Deprecated: `findSync.result`, use `value`
 
 `findSync` was the only single-value API whose payload key was not `value`.
 It now returns `value`; `result` stays as a non-enumerable, deprecated alias so
 existing code keeps working. It is removed in 1.0.
+
+**This is a soft deprecation, not a breaking rename.** Both accesses work in
+0.18, and `result` is a configurable getter on the same object, so
+`Object.keys` / spread see only the four envelope keys:
 
 ```js
 const {value} = findSync(items, predicate)   // preferred
@@ -71,21 +83,6 @@ selection returns:
 +tryCatch(fn, {recover: () => drop})
 ```
 
-### 1.0 preview: `undefined` stops being the sentinel
-
-In 1.0 the default for `onUndefined` flips to `'error'` and `undefined` stops
-being a sentinel: `drop` is the only drop signal. Folds and `join` already treat
-both `drop` and `undefined` as ordinary values, so they do not change.
-
-The codemod that makes 0.18 code 1.0-ready:
-
-1. Import `drop` wherever selection is used.
-2. Replace `x => cond ? x : undefined` with `x => cond ? x : drop` in
-   `series` / `mapSeries` / `filter` / `pipe` transforms.
-3. Replace `recover: () => undefined` with `recover: () => drop`.
-4. Run `series` / `mapSeries` with `onUndefined: 'error'` in tests to find any
-   remaining implicit `undefined` drops.
-
 ### Typed failures
 
 `failure` is documented as a union: `false` on success, an item or step context
@@ -94,7 +91,7 @@ context (`{error, index}`) for a dead source, or an aggregate `{errors}` under
 `failLate`. No runtime change: the JSDoc names the variants instead of the old
 `false|object`.
 
-### Removed: `fail` / `stopOnError`
+### Changed: the `fail` / `stopOnError` aliases are removed
 
 The deprecated aliases are gone. Import `failFast`:
 
@@ -109,7 +106,7 @@ import {series, failFast} from 'pipelean'
 The strings `'fail'` and `'stopOnError'` are rejected as strategies too:
 `TypeError: series() strategy "fail" was removed in 0.18; use failFast`.
 
-### Breaking: invalid strategies throw at construction
+### Changed: invalid strategies throw at construction
 
 An unknown strategy used to be treated like `collect` (the run continued and
 collected errors). It is now a `TypeError` naming the API and the accepted
@@ -124,7 +121,108 @@ series(items, fn, {strategy: 'FailFast'})
 // use collect, failFast, failLate, skip or rethrow
 ```
 
-`'rethrow'` keeps working as an alias of `'throw'`.
+`'rethrow'` keeps working as an alias of `'throw'`; it is the one alias that
+survives.
+
+### Changed: invalid limits are rejected
+
+`take` must be a non-negative integer; `total` must be a finite non-negative
+number. Invalid values used to reach the comparison or the callbacks: `take:
+NaN` behaved like no limit, `take: 1.5` stopped after two items, `take: -1`
+pulled one item and stopped, `total: NaN` was reported to `onProgress`. All of
+them are now a `TypeError` raised before the run starts:
+
+```text
+series() take must be a non-negative integer
+series() total must be a finite non-negative number
+```
+
+`take: 0` and `total: 0` are valid. `take` is accepted by `series`, `filter`
+and `mapSeries` (and their sync twins), and by `findSync`. Folds, `enrich` and
+`join` reject it.
+
+### Changed: a stopped run pulls nothing
+
+`take: 0` and an already-aborted `signal` used to pull the first item from the
+source before stopping. Both now pull zero items; an abort during `pause` or
+during a step also prevents the next pull. No code change is needed unless you
+were relying on that first pull for a side effect — the source was never
+supposed to be touched.
+
+### Changed: `retry` validates at construction
+
+`retry(fn, opts)` used to accept any configuration and fail on the first call.
+`attempts: 0` ran an empty loop and threw `undefined`. It now throws a
+`TypeError` when the wrapper is built:
+
+- `fn` must be a function;
+- `attempts` must be an integer `>= 1` (default `3`);
+- `delay` must be a finite number `>= 0` (default `0`).
+
+The retry loop is unchanged.
+
+### Changed: known-but-inert options are rejected
+
+An option an API cannot honour is now a `TypeError` naming the option, raised
+before any work starts, instead of being accepted and ignored:
+
+| API | rejected options |
+|---|---|
+| `scan` / `reduce` (+ sync twins) | `take`, `total`, `onProgress`, `onUndefined` |
+| `findSync` | `onProgress`, `onUndefined` |
+| `filter` / `filterSync` | `onUndefined` |
+| `enrich` / `enrichSync`, `join` | `signal`, `pause`, `pauseOnErrors`, `onSourceError`, `onProgress`, `take`, `total`, `onUndefined` |
+
+`recover` keeps its own per-API message. A key passed explicitly as `undefined`
+is treated as omitted. Unknown keys are still ignored: this is a curated list,
+not the full allowlist planned for 0.19.
+
+If a call passed one of those options, it was inert — drop it. If the intent was
+real, use the API that owns the option: `series` / `filter` for `take`,
+`scan` / `reduce` for `recover`.
+
+### Changed: `stopWhen` predicates are awaited
+
+`stopWhen` used to read the predicate result without awaiting it. An async
+predicate returned a Promise, which is always truthy, so iteration stopped on
+the first item. The predicate is now awaited, and `stopWhenSync` rejects a
+thenable result with a `TypeError` naming `stopWhen()` instead of silently
+treating the Promise as truthy.
+
+No change for synchronous predicates.
+
+### 1.0 preview: the sentinel, `pipe`, and the removals
+
+0.18 names the future shape but does not take it. These are the changes queued
+for 1.0:
+
+- **`onUndefined` default flips to `'error'`** on `series` / `seriesSync` /
+  `mapSeries` / `mapSeriesSync`: `undefined` stops being a sentinel and `drop`
+  becomes the only drop signal. Folds and `join` already treat both as ordinary
+  values, so they do not change.
+- **`pipe` / `pipeSync` keep `undefined`** as an ordinary value instead of
+  short-circuiting on it. Only `drop` short-circuits. Because the current
+  short-circuit is what makes a `Maybe`-style pipeline work, 1.0 also needs an
+  explicit way to configure that policy on `pipe`; that options design is not
+  part of 0.18.
+- **`findSync.result` is removed.** `value` is the only payload key.
+- **`normalizeOperationError` is removed.** Its deprecation is planned for
+  0.19; it has no documented contract today.
+- **`.d.ts` declarations ship.** JSDoc types are the contract until then.
+
+The codemod that makes 0.18 code 1.0-ready:
+
+1. Import `drop` wherever selection is used.
+2. Replace `x => cond ? x : undefined` with `x => cond ? x : drop` in
+   `series` / `mapSeries` / `filter` / `pipe` transforms.
+3. Replace `recover: () => undefined` with `recover: () => drop`.
+4. Run `series` / `mapSeries` with `onUndefined: 'error'` in tests to find any
+   remaining implicit `undefined` drops.
+
+The 0.19 items are outside this preview: the warning phase for implicit
+`undefined` drops, the full options allowlist, and `total` on `join`.
+
+Release narrative: [NOTES_17_18](releases/NOTES_17_18.md).
 
 ## 0.17.0: `tryCatch` rethrows by default; `recover` is the explicit seam
 
