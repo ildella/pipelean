@@ -90,25 +90,21 @@ export const handleItemErrorAsync = async (
   return failOnItem(state, context)
 }
 
+const recovered = acc => ({recovered: true, acc})
+const unrecovered = errorOutcome => ({recovered: false, errorOutcome})
+
 export const settleFoldError = (plan, errorContext, state) => {
   if (isSyncCallbackError(errorContext.error))
     throw errorContext.error
 
-  if (!plan.recover) {
-    return {
-      recovered: false,
-      errorOutcome: handleItemError(plan.state, errorContext, plan),
-    }
-  }
+  if (!plan.recover)
+    return unrecovered(handleItemError(plan.state, errorContext, plan))
 
   const outcome = tryRecover(plan, errorContext, state)
   if (outcome.ok)
-    return {recovered: true, acc: outcome.acc}
+    return recovered(outcome.acc)
 
-  return {
-    recovered: false,
-    errorOutcome: handleItemError(plan.state, outcome.error, plan),
-  }
+  return unrecovered(handleItemError(plan.state, outcome.error, plan))
 }
 
 export const settleFoldErrorAsync = async (plan, errorContext, state) => {
@@ -116,20 +112,16 @@ export const settleFoldErrorAsync = async (plan, errorContext, state) => {
     throw errorContext.error
 
   if (!plan.recover) {
-    return {
-      recovered: false,
-      errorOutcome: await handleItemErrorAsync(
-        plan.state, errorContext, plan,
-      ),
-    }
+    return unrecovered(
+      await handleItemErrorAsync(plan.state, errorContext, plan),
+    )
   }
 
   const outcome = await tryRecoverAsync(plan, errorContext, state)
   if (outcome.ok)
-    return {recovered: true, acc: outcome.acc}
+    return recovered(outcome.acc)
 
-  return {
-    recovered: false,
-    errorOutcome: await handleItemErrorAsync(plan.state, outcome.error, plan),
-  }
+  return unrecovered(
+    await handleItemErrorAsync(plan.state, outcome.error, plan),
+  )
 }
