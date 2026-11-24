@@ -2,7 +2,7 @@
 
 import {
   assertNoErrorCallbacks, assertRecover, assertRethrowStrategy,
-  isExtensibleObject, isThenable, parseCallArgs,
+  assertUnsupportedOptions, isExtensibleObject, isThenable, parseCallArgs,
 } from './shared.js'
 import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
@@ -18,7 +18,7 @@ import {
   handleItemErrorAsync, settleFoldErrorAsync,
 } from './errors.js'
 import {
-  notifyProgress, planFold, planSeries,
+  LIFECYCLE_OPTIONS, notifyProgress, planFold, planSeries,
 } from './run.js'
 import {waitWithSignal} from './wait.js'
 
@@ -402,12 +402,17 @@ export const series = (...args) => {
 /**
  * Sequential selection over an iterable.
  *
+ * `onUndefined` belongs to the `series` family only: passing it here is
+ * rejected instead of silently ignored.
+ *
  * @returns {Promise<IterationResult>|((items) => Promise<IterationResult>)}
  */
 export const filter = (...args) => {
   const {
     immediate, items, predicate, opts,
   } = parseSearchArgs(args)
+
+  assertUnsupportedOptions(opts ?? {}, ['onUndefined'], 'filter')
 
   const transform = async (item, index) => {
     const keep = await predicate(item, index)
@@ -549,6 +554,11 @@ export const reduce = (iterable, scanner, initialValue, opts = {}) =>
  * operation, so `failFast` stops later hooks and a throwing `onStepSuccess`
  * leaves its patch uncommitted.
  *
+ * Only `strategy`, `onError`, `onFailure` and the two step hooks apply: the run
+ * lifecycle (`signal`, `pause`, `take`, `onProgress`, …) and `recover` are
+ * rejected with a `TypeError` when the pipeline is built, because a step fold
+ * has no source to pull or stop.
+ *
  * @param {Array<(state) => object>} operations
  * @param {{strategy?: StrategyFn, onError?, onFailure?, onStepStart?,
  *   onStepSuccess?}} opts
@@ -602,6 +612,10 @@ const runBranch = (fn, key, index) =>
  * Rejects with a `TypeError` for a non-record input — including a thenable
  * such as an un-awaited `Promise` — before any branch starts.
  *
+ * Only `strategy`, `onError` and `onFailure` apply: a branch is not an item, so
+ * the run lifecycle (`signal`, `pause`, `take`, `onProgress`, …) and `recover`
+ * are rejected with a `TypeError` before any branch starts, never ignored.
+ *
  * @param {Record<string, (key: string, index: number) => any>} tasks
  * @param {{strategy?: StrategyFn, onError?, onFailure?}} opts
  * @returns {Promise<JoinResult>}
@@ -610,6 +624,8 @@ const runBranch = (fn, key, index) =>
 export const join = async (tasks, opts = {}) => {
   if (opts.recover !== undefined)
     throw new TypeError('join() does not support recover')
+
+  assertUnsupportedOptions(opts, LIFECYCLE_OPTIONS, 'join')
 
   if (tasks === null || typeof tasks !== 'object' || Array.isArray(tasks))
     throw new TypeError('join() requires a record of named async functions')

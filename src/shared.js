@@ -92,6 +92,20 @@ export const assertNoErrorCallbacks = (opts, label) => {
   )
 }
 
+/**
+ * Reject options an API knows about but cannot honour.
+ *
+ * Known-but-inert options are a trap: the caller believes the run was
+ * configured and gets silence. Only a real value is rejected — an explicit
+ * `undefined` is indistinguishable from "not passed".
+ */
+export const assertUnsupportedOptions = (opts, keys, label) => {
+  for (const key of keys) {
+    if (opts[key] !== undefined)
+      throw new TypeError(`${label}() does not support the "${key}" option`)
+  }
+}
+
 export const parseCallArgs = args => {
   const immediate = typeof args[0] !== 'function'
   const [items, fn, opts = {}] = immediate

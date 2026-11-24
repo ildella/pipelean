@@ -2,8 +2,8 @@
 
 import {
   assertNoErrorCallbacks, assertRecover, assertRethrowStrategy,
-  assertSyncCallback, assertSyncResult, getPlannedTotal, isSyncCallbackError,
-  parseCallArgs,
+  assertSyncCallback, assertSyncResult, assertUnsupportedOptions,
+  getPlannedTotal, isSyncCallbackError, parseCallArgs,
 } from './shared.js'
 import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
@@ -231,12 +231,17 @@ export const seriesSync = (...args) => {
 /**
  * Sequential selection over a sync iterable.
  *
+ * `onUndefined` belongs to the `seriesSync` family only: passing it here is
+ * rejected instead of silently ignored.
+ *
  * @returns {IterationResult|((items) => IterationResult)}
  */
 export const filterSync = (...args) => {
   const {
     immediate, items, predicate, opts = {},
   } = parseSearchArgs(args)
+
+  assertUnsupportedOptions(opts, ['onUndefined'], 'filterSync')
 
   const transform = (item, index) => {
     const keep = predicate(item, index)
@@ -270,12 +275,17 @@ const toFindResult = (found, {
 /**
  * First match in a sync iterable, stopping as soon as the predicate accepts.
  *
+ * `onProgress` and `onUndefined` belong to the `series` family only: passing
+ * either here is rejected instead of silently ignored.
+ *
  * @returns {FindResult|((items) => FindResult)}
  */
 export const findSync = (...args) => {
   const {
     immediate, items, predicate, opts,
   } = parseSearchArgs(args, {})
+
+  assertUnsupportedOptions(opts, ['onProgress', 'onUndefined'], 'findSync')
 
   const run = inputItems => {
     validateOptions(opts, {sync: true})
@@ -398,6 +408,10 @@ export const reduceSync = (iterable, scanner, initialValue, opts = {}) =>
  * `enrich`, never silently ignored. A synchronous throw from an operation, a
  * hook or a callback still flows into the strategy like a throwing operation.
  * Errors stay on `onError`; there is no `onStepError`.
+ *
+ * Only `strategy`, `onError`, `onFailure` and the two step hooks apply: the run
+ * lifecycle (`signal`, `pause`, `take`, `onProgress`, …) and `recover` are
+ * rejected with a `TypeError` when the pipeline is built.
  *
  * @param {Array<(state) => object>} operations
  * @param {{strategy?: StrategyFn, onError?, onFailure?, onStepStart?,
