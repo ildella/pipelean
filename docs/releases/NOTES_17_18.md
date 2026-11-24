@@ -168,6 +168,30 @@ stopped on the first item. `stopWhenSync` now rejects a thenable predicate
 result with a `TypeError` naming `stopWhen()` instead of treating the Promise as
 truthy.
 
+## Fixed: post-recover hook errors keep their order
+
+After a successful `recover` the operation counts as successful, so the
+success-path rule applies: the **first** hook failure is the thrown error, a
+later one is attached to it as `error.hookErrors`. A hook error raised on the
+failure path (a throwing `onError`) is that first failure — 0.17 demoted it to
+secondary when a later hook threw:
+
+```js
+const h1 = new Error('onError hook')
+const wrapped = tryCatch(fn, {
+  onError: () => { throw h1 },
+  recover: () => 'recovered',
+  onFinally: () => { throw new Error('onFinally hook') },
+})
+// 0.17: threw the onFinally error, h1 in its hookErrors
+// 0.18: throws h1, the onFinally error in h1.hookErrors
+```
+
+This aligns the runtime with the 0.17 release notes and migration guide; the
+reference paragraph that documented the inverted order is corrected. A throwing
+`recover` is unchanged: its error stays primary, with the earlier hook error
+attached. Both `tryCatch` and `tryCatchSync` are fixed.
+
 ## Added: `drop`, and an opt-in for the 1.0 `undefined` policy
 
 `drop` is now exported: a registered symbol (`Symbol.for('pipelean.drop')`) that

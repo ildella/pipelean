@@ -1598,10 +1598,9 @@ change the outcome when there is no operation error to preserve:
   Attaching mutates the primary and appends to any existing `hookErrors`, so
   an error object reused across calls accumulates hook errors.
 - **After a successful `recover` the operation counts as successful**: the
-  next throwing hook becomes the primary error and is thrown as itself, with
-  any earlier failure-path hook error (for example from `onError`) attached to
-  it as `hookErrors`. If no later hook throws, that earlier hook error is
-  thrown as itself.
+  first hook failure is the thrown error, including one raised on the failure
+  path (for example a throwing `onError`); a later hook failure is attached to
+  it as `error.hookErrors`.
 
 **Caveats**: not an error strategy — strategies belong to the iterators. Not a
 Result library: returning `{ok, value|error}` is an app-layer composition, not
