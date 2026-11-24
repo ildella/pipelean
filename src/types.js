@@ -1,11 +1,11 @@
 /**
  * The result shapes returned by every managed combinator.
  *
- * One envelope, three keys in the same order: the payload, the handled errors
- * and the failure slot. The payload key names its cardinality — `results` for a
- * run that keeps many values, `value` for a run that keeps one. `failure` is a
- * tagged union, not an opaque object: `false` on success, an error context for
- * `failFast`, an aggregate for `failLate`.
+ * One envelope, four keys in the same order: the payload, the handled errors,
+ * the handled source errors and the failure slot. The payload key names its
+ * cardinality — `results` for a run that keeps many values, `value` for a run
+ * that keeps one. `failure` is a tagged union, not an opaque object: `false` on
+ * success, an error context for `failFast`, an aggregate for `failLate`.
  *
  * @module pipelean/types
  */

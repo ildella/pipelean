@@ -18,6 +18,13 @@ import {
   notifyProgress, planFold, planSeries, validateOptions,
 } from './run.js'
 
+/**
+ * @typedef {import('./types.js').IterationResult} IterationResult
+ * @typedef {import('./types.js').ReduceResult} ReduceResult
+ * @typedef {import('./types.js').FindResult} FindResult
+ * @typedef {import('./types.js').EnrichResult} EnrichResult
+ */
+
 const runSyncStrategy = ({
   state, items, take, step,
 }) => {

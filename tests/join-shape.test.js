@@ -1,5 +1,7 @@
 import {test, expect} from 'vitest'
-import {join} from '$src/functional'
+import {
+  failFast, failLate, join, rethrow, skip,
+} from '$src/functional'
 
 test('success envelope has all four keys', async () => {
   const result = await join({a: () => 1})
@@ -44,4 +46,28 @@ test('value only holds successful branches', async () => {
 
   expect(value).toEqual({up: 'ok'})
   expect(Object.hasOwn(value, 'down')).toBe(false)
+})
+
+test('failure envelopes keep all four keys under every strategy', async () => {
+  const failing = () => {
+    throw new Error('e')
+  }
+
+  const results = await Promise.all(
+    [failLate, failFast, skip].map(strategy =>
+      join({a: failing}, {strategy})),
+  )
+
+  for (const result of results) {
+    expect(Object.keys(result)).toEqual([
+      'value', 'errors', 'sourceErrors', 'failure',
+    ])
+    expect(result.sourceErrors).toEqual([])
+  }
+
+  const thrown = await join({a: () => 1}, {strategy: rethrow})
+
+  expect(Object.keys(thrown)).toEqual([
+    'value', 'errors', 'sourceErrors', 'failure',
+  ])
 })

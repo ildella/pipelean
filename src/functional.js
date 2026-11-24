@@ -18,6 +18,14 @@ import {
 } from './run.js'
 import {waitWithSignal} from './wait.js'
 
+/**
+ * @typedef {import('./types.js').Failure} Failure
+ * @typedef {import('./types.js').IterationResult} IterationResult
+ * @typedef {import('./types.js').ReduceResult} ReduceResult
+ * @typedef {import('./types.js').EnrichResult} EnrichResult
+ * @typedef {import('./types.js').JoinResult} JoinResult
+ */
+
 export {where} from './search.js'
 export {
   collect, fail, failFast, failLate, rethrow, skip, stopOnError,
@@ -586,6 +594,12 @@ export const join = async (tasks, opts = {}) => {
 
   const value = {}
   const errors = []
+  const finishJoin = failure => ({
+    value,
+    errors,
+    sourceErrors: [],
+    failure,
+  })
 
   const settled = await Promise.allSettled(
     entries.map(([key, fn], index) => runBranch(fn, key, index)),
@@ -618,12 +632,7 @@ export const join = async (tasks, opts = {}) => {
     const firstFailed = settled.find(outcome => outcome.status === 'rejected')
     if (firstFailed)
       throw firstFailed.reason
-    return {
-      value,
-      errors,
-      sourceErrors: [],
-      failure: false,
-    }
+    return finishJoin(false)
   }
 
   const failure = isFailLate && errors.length > 0 ? {errors} : false
@@ -631,12 +640,7 @@ export const join = async (tasks, opts = {}) => {
   if (failure && onFailure)
     await onFailure(failure)
 
-  return {
-    value,
-    errors,
-    sourceErrors: [],
-    failure,
-  }
+  return finishJoin(failure)
 }
 
 export {normalizeOperationError}

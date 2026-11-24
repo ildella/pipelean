@@ -2041,7 +2041,7 @@ Sync twin of [enrich](#enrich): runs a state-enrichment pipeline synchronously.
 Same strategies, same `onError` / `onFailure` semantics, same normalized error
 shapes, and the same per-step hooks (`onStepStart` / `onStepSuccess`).
 
-**Signature**: `enrichSync(operations, opts?) => (initialState) => {value, errors, failure}`
+**Signature**: `enrichSync(operations, opts?) => (initialState) => {value, errors, sourceErrors, failure}`
 
 **Default strategy**: `collect`
 

@@ -283,7 +283,7 @@ const b = await processAlbum({rawTitle: '  Blue Train  ', rawYear: 1958, artists
 
 Why not `pipe()`?
 
-`pipe()` chains value-in / value-out. Each step transforms the previous step's return value. `enrich()` chains state-patch-in / state-patch-out and accumulates state. With `enrich()`, every step sees the full state built so far, and the result is structured: `{value, errors, failure}` — no need to thread a state object manually.
+`pipe()` chains value-in / value-out. Each step transforms the previous step's return value. `enrich()` chains state-patch-in / state-patch-out and accumulates state. With `enrich()`, every step sees the full state built so far, and the result is structured: `{value, errors, sourceErrors, failure}` — no need to thread a state object manually.
 
 #### Example: enrich with failFast + onFailure telemetry
 
