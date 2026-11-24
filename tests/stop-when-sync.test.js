@@ -145,5 +145,5 @@ test('findSync accepts generator sources directly', () => {
     yield 3
   }
   const result = findSync(numbers(), x => x > 1)
-  expect(result.result).toBe(2)
+  expect(result.value).toBe(2)
 })

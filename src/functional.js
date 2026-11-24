@@ -18,6 +18,14 @@ import {
 } from './run.js'
 import {waitWithSignal} from './wait.js'
 
+/**
+ * @typedef {import('./types.js').Failure} Failure
+ * @typedef {import('./types.js').IterationResult} IterationResult
+ * @typedef {import('./types.js').ReduceResult} ReduceResult
+ * @typedef {import('./types.js').EnrichResult} EnrichResult
+ * @typedef {import('./types.js').JoinResult} JoinResult
+ */
+
 export {where} from './search.js'
 export {
   collect, fail, failFast, failLate, rethrow, skip, stopOnError,
@@ -190,7 +198,7 @@ const attachFailure = (error, failure) => {
  * returned unchanged. Use it to guard ignored outcomes, not to turn `collect`
  * into `rethrow`.
  *
- * @param {{failure: false|object}} result An awaited Pipelean result.
+ * @param {{failure: Failure}} result An awaited Pipelean result.
  * @returns {*} The same result object when `failure` is falsy.
  * @throws {*} The original underlying error with `.failure` attached, or the
  *   wrapped fallback described above when the underlying value cannot carry
@@ -308,6 +316,11 @@ const attemptSeriesItem = async (plan, runFn, {item, index}) => {
 const shouldPauseAfter = (plan, failed, errorOutcome) =>
   !failed || Boolean(errorOutcome?.skip) || plan.pauseOnErrors
 
+/**
+ * Sequential execution over an iterable, one item at a time.
+ *
+ * @returns {Promise<IterationResult>|((items) => Promise<IterationResult>)}
+ */
 export const series = (...args) => {
   const {
     immediate, items, fn, opts,
@@ -348,6 +361,11 @@ export const series = (...args) => {
   return immediate ? run(items) : run
 }
 
+/**
+ * Sequential selection over an iterable.
+ *
+ * @returns {Promise<IterationResult>|((items) => Promise<IterationResult>)}
+ */
 export const filter = (...args) => {
   const {
     immediate, items, predicate, opts,
@@ -439,6 +457,7 @@ const runScan = ({
  * @param {*} initialValue
  * @param {{strategy?: StrategyFn, onError?, onFailure?, onSourceError?,
  *   recover?: (context) => any}} opts
+ * @returns {Promise<IterationResult>}
  */
 // eslint-disable-next-line max-params
 export const scan = (iterable, scanner, initialValue, opts = {}) =>
@@ -458,6 +477,7 @@ export const scan = (iterable, scanner, initialValue, opts = {}) =>
  * @param {*} initialValue
  * @param {{strategy?: StrategyFn, onError?, onFailure?, onSourceError?,
  *   recover?: (context) => any}} opts
+ * @returns {Promise<ReduceResult>}
  */
 // eslint-disable-next-line max-params
 export const reduce = (iterable, scanner, initialValue, opts = {}) =>
@@ -494,7 +514,7 @@ export const reduce = (iterable, scanner, initialValue, opts = {}) =>
  * @param {Array<(state) => object>} operations
  * @param {{strategy?: StrategyFn, onError?, onFailure?, onStepStart?,
  *   onStepSuccess?}} opts
- * @returns {(initialState) => Promise<{value, errors, failure}>}
+ * @returns {(initialState) => Promise<EnrichResult>}
  */
 export const enrich = (operations, opts = {}) => {
   const {
@@ -546,7 +566,7 @@ const runBranch = (fn, key, index) =>
  *
  * @param {Record<string, (key: string, index: number) => any>} tasks
  * @param {{strategy?: StrategyFn, onError?, onFailure?}} opts
- * @returns {Promise<{value: object, errors: Array, failure: false|object}>}
+ * @returns {Promise<JoinResult>}
  */
 // eslint-disable-next-line complexity, max-statements
 export const join = async (tasks, opts = {}) => {
@@ -574,6 +594,12 @@ export const join = async (tasks, opts = {}) => {
 
   const value = {}
   const errors = []
+  const finishJoin = failure => ({
+    value,
+    errors,
+    sourceErrors: [],
+    failure,
+  })
 
   const settled = await Promise.allSettled(
     entries.map(([key, fn], index) => runBranch(fn, key, index)),
@@ -606,7 +632,7 @@ export const join = async (tasks, opts = {}) => {
     const firstFailed = settled.find(outcome => outcome.status === 'rejected')
     if (firstFailed)
       throw firstFailed.reason
-    return {value, errors, failure: false}
+    return finishJoin(false)
   }
 
   const failure = isFailLate && errors.length > 0 ? {errors} : false
@@ -614,7 +640,7 @@ export const join = async (tasks, opts = {}) => {
   if (failure && onFailure)
     await onFailure(failure)
 
-  return {value, errors, failure}
+  return finishJoin(failure)
 }
 
 export {normalizeOperationError}

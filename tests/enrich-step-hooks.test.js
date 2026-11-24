@@ -228,6 +228,7 @@ test('hooks do not change the result shape or value', async () => {
         index: 1,
       },
     ],
+    sourceErrors: [],
     failure: false,
   })
 })

@@ -390,9 +390,9 @@ const {value, errors, failure} = await processAlbum(input)
 // value = {title, year, artists, ...input}
 ```
 
-`enrich` returns `{value, errors, failure}` — no `results` array, no
-`sourceErrors` (the steps are a fixed array, so a source error is impossible).
-The default strategy is `collect`.
+`enrich` returns `{value, errors, sourceErrors, failure}` — no `results` array,
+and `sourceErrors` is always `[]` (the steps are a fixed array, so a source error
+is impossible). The default strategy is `collect`.
 
 **Use `enrich` when** one input passes through several steps that each add or
 override fields and need to see everything added so far: raw payload →
@@ -460,8 +460,8 @@ normally.
 - The pipeline is defined upfront and reused with different inputs.
 - Each step receives the **current accumulated state**, not the previous step's
   return value.
-- The result is structured: `{value, errors, failure}` — it never throws on
-  handled errors.
+- The result is structured: `{value, errors, sourceErrors, failure}` — it never
+  throws on handled errors.
 
 Operations can be sync or async. Return an empty object `{}` when a step has
 nothing to add — `undefined` is **not** a no-op signal here. The merge is
@@ -706,8 +706,9 @@ A service loop that survives failed rounds — `forever()` + `signal` + `recover
 3. **`failure` is falsy for**: `collect`, `skip`, and `rethrow` on success.
 4. **`throw` does not return on error**: it propagates to the caller.
 5. **Strategy selection**: choose based on whether failures are acceptable.
-6. **`enrich()` returns `{value, errors, failure}`**: it never throws on handled
-   errors unless you pick `rethrow`. `value` is the last successful state.
+6. **`enrich()` returns `{value, errors, sourceErrors, failure}`**: it never
+   throws on handled errors unless you pick `rethrow`. `value` is the last
+   successful state; `sourceErrors` is always `[]`.
 7. **Patches are shallow-merged in `enrich()`**: top-level keys are overwritten;
    nested objects are not deep-merged. Return `{}` (not `undefined`) for a no-op.
 8. **`undefined` is the drop signal** in `series`, `filter`, `pipe`, `mapSeries`

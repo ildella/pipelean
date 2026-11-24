@@ -98,8 +98,12 @@ test('empty operations array returns initial state', async () => {
   expect(result).toEqual({
     value: {a: 1},
     errors: [],
+    sourceErrors: [],
     failure: false,
   })
+  expect(Object.keys(result)).toEqual([
+    'value', 'errors', 'sourceErrors', 'failure',
+  ])
 })
 
 test('repeated execution with different inputs', async () => {
@@ -142,4 +146,24 @@ test('validation: array initialState throws TypeError', async () => {
 
 test('validation: primitive initialState throws TypeError', async () => {
   await expect(enrich([() => ({})])(42)).rejects.toThrow(TypeError)
+})
+
+test('failure envelopes keep all four keys under every strategy', async () => {
+  const steps = [
+    () => ({ok: true}),
+    () => {
+      throw new Error('e')
+    },
+  ]
+
+  const results = await Promise.all(
+    [failFast, failLate].map(strategy => enrich(steps, {strategy})({})),
+  )
+
+  for (const result of results) {
+    expect(Object.keys(result)).toEqual([
+      'value', 'errors', 'sourceErrors', 'failure',
+    ])
+    expect(result.sourceErrors).toEqual([])
+  }
 })

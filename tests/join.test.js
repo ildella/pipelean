@@ -85,7 +85,7 @@ test('a branch resolving undefined is still a success', async () => {
 
 test('empty record resolves to an empty envelope', async () => {
   await expect(join({})).resolves.toEqual({
-    value: {}, errors: [], failure: false,
+    value: {}, errors: [], sourceErrors: [], failure: false,
   })
 })
 

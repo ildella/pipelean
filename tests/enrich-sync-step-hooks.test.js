@@ -225,6 +225,7 @@ test('hooks do not change the result shape or value', () => {
         index: 1,
       },
     ],
+    sourceErrors: [],
     failure: false,
   })
 })
