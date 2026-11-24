@@ -1,3 +1,5 @@
+/** @typedef {import('./types.js').StrategyFn} StrategyFn */
+
 import {assertSyncCallback, assertSyncResult} from './shared.js'
 import {
   collect, normalizeFailure, normalizeOperationError,

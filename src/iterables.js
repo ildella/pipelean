@@ -1,3 +1,5 @@
+import {assertSyncCallback} from './shared.js'
+
 const forwardedLength = items =>
   typeof items?.length === 'number' ? {length: items.length} : {}
 
@@ -6,7 +8,7 @@ export const stopWhen = (items, predicate = () => false) => ({
   async * [Symbol.asyncIterator] () {
     let index = 0
     for await (const item of items) {
-      if (predicate(item, index))
+      if (await predicate(item, index))
         return
       yield item
       index++
@@ -35,7 +37,9 @@ export const stopWhenSync = (items, predicate = () => false) => ({
   * [Symbol.iterator] () {
     let index = 0
     for (const item of items) {
-      if (predicate(item, index))
+      const stop = predicate(item, index)
+      assertSyncCallback('stopWhenSync', 'predicate', stop)
+      if (stop)
         return
       yield item
       index++
