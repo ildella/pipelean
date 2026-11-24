@@ -102,8 +102,9 @@ these apply, plain JavaScript is clearer and you should keep it:
 
 - **A single operation** — one `await` with a `try/catch` at a boundary is
   already explicit; wrapping it adds indirection, not safety. `tryCatch` is
-  for when you want the wrapper itself: uniform logging, an outcome value,
-  a reusable safe function.
+  for when you want the wrapper itself: a reusable execution boundary with
+  uniform observation, lifecycle hooks and an explicit failure policy
+  (`recover`).
 - **A pure sync transformation with no failure policy** — `items.map(x => x.id)`
   or `items.filter(Boolean)` says exactly what it does. A pure sync *fold* is
   the exception: `foldSync` is its canonical form, and `no-array-reduce`
@@ -271,7 +272,7 @@ or fp-ts `flow`.
 **Use `pipe` when** one value goes through value-in/value-out steps and any step
 may bail. **Don't use it when** steps need the state accumulated so far
 (`enrich`), or you want failures captured as data (`series` strategy or
-`tryCatch`).
+`tryCatch` with `recover`).
 
 ### Wrappers: retry and tryCatch
 
@@ -279,13 +280,15 @@ Pipelean provides lightweight wrappers that add behavior to **individual
 functions**. They compose with `pipe` and `series`.
 
 - **`tryCatch(fn, options?)`**
-  Protects a single function with lifecycle hooks: `onStart`, `onSuccess`,
-  `onError`, `onFinally`. Returns `undefined` on failure — the same drop signal
-  used everywhere else — so a failed step short-circuits `pipe` and drops the
-  item in `series`. Ideal for centralized error reporting even outside
-  pipelines. An `onError` that throws (or rejects) **propagates**: it replaces the
-  original error, and `onFinally` still runs, so you can augment-and-rethrow from
-  the hook.
+  The composable execution boundary for one operation. Lifecycle hooks
+  (`onStart`, `onSuccess`, `onError`, `onFinally`) **observe**; they never drive
+  control flow. **By default a failure is rethrown** — the wrapper never
+  swallows. `recover(error) => value` is the explicit seam that turns a failure
+  into a value; `recover: () => undefined` is the spelled-out drop that
+  short-circuits `pipe` and drops the item in `series`. Without `recover`, a
+  `tryCatch` inside `series` just observes and the run's strategy still decides
+  policy. A hook failure never masks the operation error: on the failure path it
+  is attached as `error.hookErrors` (or reported if the error cannot carry it).
 
 - **`retry(fn, options?)`**
   Automatic retries: `attempts` (default 3), `delay` in ms (default 0). Re-throws

@@ -1,9 +1,11 @@
 /* eslint-disable max-lines */
 
 import {
-  assertNoErrorCallbacks, assertRethrowStrategy, assertSyncCallback,
-  assertSyncResult, getPlannedTotal, isSyncCallbackError, parseCallArgs,
+  assertNoErrorCallbacks, assertRecover, assertRethrowStrategy,
+  assertSyncCallback, assertSyncResult, getPlannedTotal, isSyncCallbackError,
+  parseCallArgs,
 } from './shared.js'
+import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
 import {
@@ -56,33 +58,79 @@ const runSyncStrategy = ({
   return toResult(state, settle(state))
 }
 
+const observeSync = (outcome, name, call) => {
+  try {
+    assertSyncResult(call(), `tryCatchSync() ${name}`, 'tryCatch')
+  } catch (error) {
+    if (isSyncCallbackError(error))
+      throw error
+    outcome.capture(error)
+  }
+}
+
+const handleFailureSync = (outcome, {onError, recover}) => {
+  if (onError)
+    observeSync(outcome, 'onError', () => onError(outcome.primaryError()))
+  if (!recover)
+    return undefined
+
+  try {
+    const value = recover(outcome.primaryError())
+    assertSyncResult(value, 'tryCatchSync() recover', 'tryCatch')
+    outcome.clear()
+    return value
+  } catch (error) {
+    if (isSyncCallbackError(error))
+      throw error
+    outcome.fail(error)
+    return undefined
+  }
+}
+
+/**
+ * Synchronous twin of tryCatch: the same composable execution boundary with
+ * the same rethrow-by-default policy, `recover` seam and observer contract.
+ *
+ * `fn`, every hook and `recover` must be synchronous: a returned Promise (or
+ * any thenable) is a fatal TypeError pointing at tryCatch. That violation
+ * escapes immediately and aborts the wrapper — hooks that have not run yet,
+ * including onFinally, are skipped. A synchronous throw from fn or a hook is
+ * handled by the contract, not fatal.
+ */
 export const tryCatchSync = (fn, {
-  onStart, onSuccess, onError, onFinally,
-} = {}) =>
-  (...args) => {
+  onStart, onSuccess, onError, onFinally, recover,
+} = {}) => {
+  assertRecover(recover, 'tryCatchSync')
+
+  return (...args) => {
+    const outcome = createHookOutcome()
+    let result
+    let failed = false
+
     try {
       if (onStart)
         assertSyncResult(onStart(), 'tryCatchSync() onStart', 'tryCatch')
-      const result = fn(...args)
+      result = fn(...args)
       assertSyncResult(result, 'tryCatchSync() fn', 'tryCatch')
-      if (onSuccess)
-        assertSyncResult(
-          onSuccess(result), 'tryCatchSync() onSuccess', 'tryCatch',
-        )
-      return result
     } catch (error) {
       if (isSyncCallbackError(error))
         throw error
-
-      if (onError)
-        assertSyncResult(onError(error), 'tryCatchSync() onError', 'tryCatch')
-      // undefined is the library-wide drop signal (see tryCatch).
-      return undefined
-    } finally {
-      if (onFinally)
-        assertSyncResult(onFinally(), 'tryCatchSync() onFinally', 'tryCatch')
+      failed = true
+      outcome.fail(error)
     }
+
+    if (failed)
+      result = handleFailureSync(outcome, {onError, recover})
+    else if (onSuccess)
+      observeSync(outcome, 'onSuccess', () => onSuccess(result))
+
+    if (onFinally)
+      observeSync(outcome, 'onFinally', () => onFinally())
+
+    outcome.settle()
+    return result
   }
+}
 
 // Shared by seriesSync, filterSync and mapSeriesSync: the label carries the
 // public api the run was started from, so error and telemetry messages name

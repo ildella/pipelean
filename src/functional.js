@@ -1,8 +1,10 @@
 /* eslint-disable max-lines */
 
 import {
-  assertNoErrorCallbacks, assertRethrowStrategy, isThenable, parseCallArgs,
+  assertNoErrorCallbacks, assertRecover, assertRethrowStrategy,
+  isExtensibleObject, isThenable, parseCallArgs,
 } from './shared.js'
+import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
 import {
@@ -21,38 +23,86 @@ export {
   collect, fail, failFast, failLate, rethrow, skip, stopOnError,
 } from './strategy.js'
 
+const observeHook = async (outcome, hook, arg) => {
+  if (!hook)
+    return
+  try {
+    await hook(arg)
+  } catch (error) {
+    outcome.capture(error)
+  }
+}
+
+const handleFailure = async (outcome, {onError, recover}) => {
+  await observeHook(outcome, onError, outcome.primaryError())
+  if (!recover)
+    return undefined
+
+  try {
+    const value = await recover(outcome.primaryError())
+    outcome.clear()
+    return value
+  } catch (recoverError) {
+    outcome.fail(recoverError)
+    return undefined
+  }
+}
+
 /**
- * Wrap an async function with lifecycle hooks.
+ * Wrap an async function as a composable execution boundary.
  *
- * All four hooks are awaited, in lifecycle order: `onStart` before `fn`,
- * `onSuccess` on the result, `onError` on a throw/rejection, `onFinally` last
- * on both paths. A failing `onStart` is caught like a failing `fn`: `onError`
- * runs and the wrapper drops (`undefined`). A failing `onError` propagates. A
- * failing `onFinally` also rejects the wrapper, overriding whatever the try
- * body was about to return or throw — standard `finally` precedence.
+ * The operation's outcome is primary; lifecycle hooks only observe it. By
+ * default a failure is rethrown — the wrapper never swallows. `recover` is the
+ * one explicit seam where a failure becomes a value: `recover(error)` returns
+ * the substitute and consumes the error; `recover: () => undefined` is the
+ * spelled-out drop that short-circuits `pipe` and drops the item in `series`.
+ * Without `recover`, a `tryCatch` inside `series` just observes and the run's
+ * strategy still decides policy.
+ *
+ * Hooks (`onStart`, `onSuccess`, `onError`, `onFinally`) are awaited and their
+ * return values ignored. `onStart` is a boundary guard: if it throws, `fn`
+ * does not run and its error flows through `onError` + the failure policy like
+ * a `fn` failure. The other hooks are pure observers:
+ *
+ * - On the success path a throwing `onSuccess`/`onFinally` propagates as itself
+ *   (a hook failure, never relabeled as the operation's failure).
+ * - On the failure path the operation error is never replaced by a hook error:
+ *   a throwing `onError`/`onFinally` is kept as a secondary, attached to the
+ *   primary as `error.hookErrors`, or reported if the primary cannot carry it.
+ * - A throwing `recover` propagates its own error (the original was already
+ *   observed by `onError`). `onSuccess` does not run on a recovered value.
+ *
+ * Sync twin: tryCatchSync.
  */
 export const tryCatch = (fn, {
-  onStart, onSuccess, onError, onFinally,
-} = {}) =>
-  async (...args) => {
+  onStart, onSuccess, onError, onFinally, recover,
+} = {}) => {
+  assertRecover(recover, 'tryCatch')
+
+  return async (...args) => {
+    const outcome = createHookOutcome()
+    let result
+    let failed = false
+
     try {
       if (onStart)
         await onStart()
-      const result = await fn(...args)
-      if (onSuccess)
-        await onSuccess(result)
-      return result
+      result = await fn(...args)
     } catch (error) {
-      if (onError)
-        await onError(error)
-      // undefined is the library-wide drop signal: pipe() short-circuits and
-      // series() drops the item instead of keeping a null downstream.
-      return undefined
-    } finally {
-      if (onFinally)
-        await onFinally()
+      failed = true
+      outcome.fail(error)
     }
+
+    if (failed)
+      result = await handleFailure(outcome, {onError, recover})
+    else
+      await observeHook(outcome, onSuccess, result)
+
+    await observeHook(outcome, onFinally)
+    outcome.settle()
+    return result
   }
+}
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -80,11 +130,6 @@ const failureCause = failure =>
   Array.isArray(failure.errors)
     ? failure.errors[0]?.error
     : failure.error
-
-const isExtensibleObject = value =>
-  value !== null &&
-  typeof value === 'object' &&
-  Object.isExtensible(value)
 
 const withFailure = (error, failure) => {
   error.failure = failure

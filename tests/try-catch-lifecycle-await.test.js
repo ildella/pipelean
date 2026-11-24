@@ -47,7 +47,7 @@ test('an async onFinally has completed when the wrapper resolves', async () => {
   expect(order).toEqual(['finally'])
 })
 
-test('routes a rejecting async onStart to onError and drops', async () => {
+test('async onStart rejection rethrown; fn never runs', async () => {
   const startError = new Error('onStart failed')
   const order = []
   const fn = vi.fn(() => {
@@ -68,7 +68,7 @@ test('routes a rejecting async onStart to onError and drops', async () => {
     },
   })
 
-  await expect(wrapped()).resolves.toBeUndefined()
+  await expect(wrapped()).rejects.toBe(startError)
   expect(fn).not.toHaveBeenCalled()
   expect(onError).toHaveBeenCalledWith(startError)
   expect(order).toEqual(['start', 'error', 'finally'])
@@ -89,11 +89,12 @@ test('onFinally rejection overrides the successful return', async () => {
   await expect(wrapped()).rejects.toBe(finallyError)
 })
 
-test('a rejecting async onFinally overrides the drop return', async () => {
+test('async onFinally rejection does not mask the op error', async () => {
+  const opError = new Error('fn failed')
   const finallyError = new Error('onFinally failed')
   const onError = vi.fn()
   const wrapped = tryCatch(
-    () => Promise.reject(new Error('fn failed')),
+    () => Promise.reject(opError),
     {
       onError,
       onFinally: async () => {
@@ -103,15 +104,18 @@ test('a rejecting async onFinally overrides the drop return', async () => {
     },
   )
 
-  await expect(wrapped()).rejects.toBe(finallyError)
+  const thrown = await wrapped().catch(error => error)
+  expect(thrown).toBe(opError)
+  expect(thrown.hookErrors).toEqual([finallyError])
   expect(onError).toHaveBeenCalledOnce()
 })
 
-test('a rejecting async onFinally overrides the onError rethrow', async () => {
-  const finallyError = new Error('onFinally failed')
+test('onError + onFinally rejections both secondary to op error', async () => {
+  const opError = new Error('fn failed')
   const onErrorError = new Error('onError failed')
+  const finallyError = new Error('onFinally failed')
   const wrapped = tryCatch(
-    () => Promise.reject(new Error('fn failed')),
+    () => Promise.reject(opError),
     {
       onError: async () => {
         await delay(1)
@@ -124,5 +128,7 @@ test('a rejecting async onFinally overrides the onError rethrow', async () => {
     },
   )
 
-  await expect(wrapped()).rejects.toBe(finallyError)
+  const thrown = await wrapped().catch(error => error)
+  expect(thrown).toBe(opError)
+  expect(thrown.hookErrors).toEqual([onErrorError, finallyError])
 })

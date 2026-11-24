@@ -208,7 +208,7 @@ change the strategy.
 
 #### Example: tryCatch as an App-Layer Primitive
 
-Scenario: You want a reusable "Error Boundary" for your application that automatically logs errors to a monitoring service (like Sentry) and pushes a notification to your UI state (e.g., a Svelte store), ensuring the app never crashes silently. 
+Scenario: You want a reusable "Error Boundary" for your application that automatically logs errors to a monitoring service (like Sentry) and pushes a notification to your UI state (e.g., a Svelte store). `tryCatch` rethrows by default, so the boundary opts into swallowing explicitly with `recover: () => undefined` — the failure is reported, never silent.
 
 ```js
 import { tryCatch } from 'pipelean'
@@ -220,24 +220,26 @@ export const withErrorBoundary = (fn, { context = 'Unnamed' } = {}) =>
     onError: (error) => {
       // 1. Log to external monitoring
       captureException(error, { tags: { context } })
-      
+
       // 2. Push to UI for user notification (Toast/Banner)
-      appErrorQueue.update(queue => [...queue, { 
-        message: `${context} failed: ${error.message}` 
+      appErrorQueue.update(queue => [...queue, {
+        message: `${context} failed: ${error.message}`
       }])
-    }
+    },
+    // Explicit swallow: report, then drop. Without this the failure rethrows.
+    recover: () => undefined,
   })
 
 // Usage in your app layer
 const saveSettings = withErrorBoundary(
-  async (settings) => { 
-    await api.post('/settings', settings) 
+  async (settings) => {
+    await api.post('/settings', settings)
   },
   { context: 'Save Settings' }
 )
 
-// Even if api.post throws, the app won't crash. 
-// The error is logged and the UI is notified.
+// Even if api.post throws, the app won't crash: the error is logged,
+// the UI is notified, and recover() => undefined drops the failure.
 await saveSettings(newSettings)
 ```
 

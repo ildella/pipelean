@@ -122,3 +122,17 @@ export const parseCallArgs = args => {
     immediate, items, fn, opts,
   }
 }
+
+export const isExtensibleObject = value =>
+  value !== null &&
+  typeof value === 'object' &&
+  Object.isExtensible(value)
+
+// tryCatch()/tryCatchSync() accept `recover` as the explicit failure->value
+// seam. A non-function is a configuration mistake: fail at build time, like
+// the other strategy/option guards, instead of throwing a confusing
+// "recover is not a function" from inside the failure path.
+export const assertRecover = (recover, label) => {
+  if (recover !== undefined && typeof recover !== 'function')
+    throw new TypeError(`${label}() recover must be a function`)
+}

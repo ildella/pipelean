@@ -245,13 +245,13 @@ hooks but requires them **sync**, along with its operations and `onError` /
 `onFailure` callbacks: a returned Promise is rejected with a `TypeError`
 pointing at `enrich` (a synchronous throw still flows into the strategy).
 
-### Command boundary: the three `tryCatch` flavours
+### Command boundary: `tryCatch` flavours
 
 A command boundary is one function whose failure must be handled once: an HTTP
-handler, a CLI command, a button action. `tryCatch` covers three shapes, and they
-differ only in what `onError` does.
+handler, a CLI command, a button action. `tryCatch` **rethrows by default**; the
+flavours differ in the failure policy (`recover`) and what `onError` observes.
 
-**1. Report and swallow** — the default: log, return `undefined`.
+**1. Report and rethrow** — the default: observe, then let the failure propagate.
 
 ```js
 import {tryCatch} from 'pipelean'
@@ -261,37 +261,44 @@ const saveSettings = tryCatch(
   {onError: error => logger.error({error})},
 )
 
-await saveSettings(settings)   // undefined on failure; the command does not crash
+await saveSettings(settings)   // throws on failure; the caller decides
 ```
 
-**2. Capture into an outcome via a closure** — the boundary returns data instead
-of throwing, and the failure is part of it.
+**2. Report and swallow / substitute** — opt in with `recover`.
+`recover: () => undefined` is the explicit drop; any other value is a fallback.
 
 ```js
 import {tryCatch} from 'pipelean'
 
-const withOutcome = fn => {
-  let failure = null
-  const wrapped = tryCatch(fn, {
-    onError: error => {
-      failure = error
-    },
-  })
+const saveSettings = tryCatch(
+  async settings => api.post('/settings', settings),
+  {
+    onError: error => logger.error({error}),
+    recover: () => undefined,   // the command does not crash
+  },
+)
 
-  return async (...args) => {
-    failure = null
-    const value = await wrapped(...args)
-    return failure ? {ok: false, error: failure} : {ok: true, value}
-  }
-}
+await saveSettings(settings)   // undefined on failure
+```
+
+**3. Capture into an outcome** — `recover` turns the failure into data; wrap the
+success side to match. No closure bookkeeping needed.
+
+```js
+import {tryCatch} from 'pipelean'
+
+const withOutcome = fn => tryCatch(
+  async (...args) => ({ok: true, value: await fn(...args)}),
+  {recover: error => ({ok: false, error})},
+)
 
 const runImport = withOutcome(importFile)
 const outcome = await runImport(file)   // {ok: true, value} | {ok: false, error}
 ```
 
-**3. Augment and rethrow from `onError`** — the failure must not be swallowed,
-but the boundary wants to add context. A throwing `onError` propagates (it is
-awaited inside the `catch`) and `onFinally` still runs:
+**4. Augment and rethrow** — the failure must propagate, but the boundary wants
+to add context. `onError` observes the *same* error object, so mutate it and let
+the default rethrow carry it:
 
 ```js
 import {tryCatch} from 'pipelean'
@@ -300,7 +307,7 @@ const chargeWithContext = tryCatch(
   () => gateway.charge(order),
   {
     onError: error => {
-      throw Object.assign(error, {operation: 'charge', orderId: order.id})
+      Object.assign(error, {operation: 'charge', orderId: order.id})
     },
     onFinally: () => metrics.timing('charge', startedAt),
   },
@@ -314,9 +321,10 @@ try {
 }
 ```
 
-That identity preservation is why the rewrite is `throw Object.assign(error,
-…)` rather than `throw new Error(..., {cause: error})`: callers that already
-match on the original error keep working.
+That identity preservation is why the rewrite mutates the original error rather
+than throwing a new one: callers that already match on the original error keep
+working. A *throwing* `onError` is a hook failure, not a rethrow — it is attached
+as `error.hookErrors` and never replaces the operation error.
 
 ### Pattern 4: Application Wrapper with Default `onFailure`
 

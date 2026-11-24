@@ -83,6 +83,15 @@ test('tryCatchSync rejects an async onError', () => {
     .toThrow('tryCatchSync() onError returned a Promise; use tryCatch()')
 })
 
+test('tryCatchSync rejects an async recover', () => {
+  const wrapped = tryCatchSync(() => {
+    throw new Error('boom')
+  }, {recover: async () => await undefined})
+
+  expect(() => wrapped())
+    .toThrow('tryCatchSync() recover returned a Promise; use tryCatch()')
+})
+
 test('a custom thenable is rejected like a native Promise', () => {
   const thenable = {then: () => undefined}
 

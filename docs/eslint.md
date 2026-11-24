@@ -82,12 +82,14 @@ data. The rule flags the literal form, so the mistake surfaces before the run:
 seriesSync(items, async x => x)                       // warn
 enrichSync(ops, {onStepStart: async () => {}})         // warn
 tryCatchSync(fn, {onFinally: async () => {}})          // warn
+tryCatchSync(fn, {recover: async e => null})           // warn
 seriesSync(items, x => x, {onProgress: async p => p})  // warn
 ```
 
 It inspects the lifecycle hooks `onStepStart`, `onStepSuccess`, `onStart`,
-`onSuccess`, `onError`, `onFinally` and the telemetry callbacks `onProgress`,
-`onFailure`, `onSourceError` — the same set the runtime guards. Sync hooks and
+`onSuccess`, `onError`, `onFinally`, the telemetry callbacks `onProgress`,
+`onFailure`, `onSourceError`, and the `tryCatchSync` `recover` seam — the same
+set the runtime guards. Sync hooks and
 sync telemetry are the supported shape, and the same callbacks are fine on the
 async combinator. Severity is `warn` like every rule.
 

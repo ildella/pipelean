@@ -26,6 +26,9 @@ tester.run('no-sync-async-callback', rule, {
     {
       code: 'tryCatchSync(fn, {onSuccess: r => r, onError: e => e})',
     },
+    {
+      code: 'tryCatchSync(fn, {recover: e => null})',
+    },
     // Sync telemetry callbacks are the supported shape.
     {
       code: 'seriesSync(items, x => x, {onProgress: p => p})',
@@ -43,6 +46,7 @@ tester.run('no-sync-async-callback', rule, {
     // Non-Sync combinators accept async hooks too.
     {code: 'enrich(ops, {onStepStart: async ctx => ctx})'},
     {code: 'tryCatch(fn, {onFinally: async () => {}})'},
+    {code: 'tryCatch(fn, {recover: async e => null})'},
     // Non-Sync combinators accept async telemetry too.
     {code: 'series(items, x => x, {onProgress: async p => p})'},
     {code: 'filter(items, x => x, {onFailure: async e => e})'},
@@ -154,6 +158,10 @@ tester.run('no-sync-async-callback', rule, {
     },
     {
       code: 'tryCatchSync(fn, {onFinally: async () => {}})',
+      errors: [{messageId: 'noAsyncCallback'}],
+    },
+    {
+      code: 'tryCatchSync(fn, {recover: async e => null})',
       errors: [{messageId: 'noAsyncCallback'}],
     },
     {

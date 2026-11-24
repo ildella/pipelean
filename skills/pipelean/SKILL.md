@@ -52,6 +52,7 @@ native code is clearer. "This is a `forEach`" is not a reason.
 | value in → value out, may bail | `pipe` |
 | `items.filter(pred)` / `.find(pred)` with a report | `filter` / `findSync` |
 | `if (failure) throw failure.error` | `assertOk(result)` |
+| a reusable boundary around ONE operation (observe + failure policy) | `tryCatch` / `tryCatchSync` |
 | a loop that produces values | plain generator that yields |
 
 Fold over **items** → `scan` / `reduce` / `foldSync`. Fold over **steps** of one
@@ -97,6 +98,12 @@ A rewrite is a behavior change until proven otherwise. Apply the full checklist:
   legitimately yielded `undefined` loses items. In `enrich`, `undefined` is an
   error — return `{}` for a no-op. The authoritative rule:
   [the `undefined` sentinel](node_modules/pipelean/docs/reference.md#the-undefined-sentinel).
+- **`tryCatch` rethrows by default.** It is the single-operation execution
+  boundary: hooks (`onStart`/`onSuccess`/`onError`/`onFinally`) only observe, and
+  `recover(error) => value` is the explicit swallow/substitute seam
+  (`recover: () => undefined` is the drop). Do not assume it swallows into
+  `undefined` — that was the pre-0.17 default. A hook failure never masks the
+  operation error (it is attached as `error.hookErrors`, or reported).
 - **Cancellation has two seams.** `signal` stops between items and during
   `pause`; it never interrupts the in-flight mapper. Domain bounds ("stop after
   N", sentinel reached) are `stopWhen` on the source. Neither is a `break` in
