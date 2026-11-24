@@ -1,64 +1,80 @@
 # Guide
 
-This guide teaches Pipelean's **mental model**: the problem first, then the API.
-Each chapter answers one question — what kind of work do I have, how do steps
-relate, what happens when something fails, how does a run live and stop. For
-exact contracts (signatures, options, return shapes) use the
-[reference](reference.md); for recipes see [patterns](patterns.md) and
-[examples](examples.md).
+This guide teaches Pipelean's **library map**: the core first, then the policy
+axis, then the shortcuts derived from the core, then the tools that work beside
+it. Each chapter answers one question — what kind of work do I have, what happens
+when something fails, what does it cost me. For exact contracts (signatures,
+options, return shapes) use the [reference](reference.md); for recipes see
+[patterns](patterns.md) and [examples](examples.md).
 
 Chapters:
 
-1. [The mental model](#the-mental-model) — four kinds of work
-2. [Independent vs dependent operations](#independent-vs-dependent-operations)
-3. [Sequential vs concurrent](#sequential-vs-concurrent)
-4. [Pipeline composition](#pipeline-composition)
-5. [Accumulation vs enrichment](#accumulation-vs-enrichment)
-6. [Errors as data vs errors as exceptions](#errors-as-data-vs-errors-as-exceptions)
-7. [Lifecycle, cancellation, recovery](#lifecycle-cancellation-recovery)
+1. [The mental model](#the-mental-model) — the layers, the scopes, the core
+2. [Core: iteration](#core-iteration-series) — `series`
+3. [Core: accumulation](#core-accumulation-scan-and-reduce) — `scan`, `reduce`
+4. [Policy: errors as data vs exceptions](#errors-as-data-vs-errors-as-exceptions)
+5. [Shortcuts over the core](#accumulation-vs-enrichment) — `filter`, `mapSeries`, `findSync`, `foldSync`, `enrich`
+6. [Composition & concurrency](#pipeline-composition) — `pipe`, `join`
+7. [Operation tools](#wrappers-retry-and-trycatch) — `tryCatch`, `retry`
+8. [Sources & lifecycle](#lifecycle-cancellation-recovery)
+9. [Sync mirror](#sync-mirror)
+10. [When plain JavaScript is clearer](#when-plain-javascript-is-clearer)
 
 ## The mental model
 
-Pipelean has four kinds of work. Find the shape of your problem and you know
-which tools to look at:
+Pipelean has one **core**, one **policy** axis, a set of **shortcuts** derived
+from the core, and a few **orthogonal** tools. Find the layer, then the API.
 
-| Kind of work | Shape | Tools |
+| Layer | APIs | Role |
 |---|---|---|
-| **Independent items** | many inputs, no dependency between them | `series`, `filter`, `mapSeries` |
-| **Accumulation** | many inputs, each needs the previous result | `scan`, `reduce`, `foldSync` |
-| **Enrichment** | one input, many steps that add fields | `enrich` |
-| **Composition & concurrency** | one value through steps, or a few named tasks at once | `pipe`, `join` |
+| **Core: iteration** | `series` | many independent items, one at a time |
+| **Core: accumulation** | `scan`, `reduce` | a fold, where each item needs the previous value |
+| **Policy** | `collect`, `failFast`, `failLate`, `skip`, `rethrow` | the failure policy of a run, chosen per call |
+| **Shortcuts over the core** | `filter`, `mapSeries`, `findSync`, `foldSync`, `enrich` | the core with one decision already made |
+| **Composition & concurrency** | `pipe`, `join` | orthogonal: one value through steps, or a few named branches at once |
+| **Operation tools** | `tryCatch`, `retry` | one function, wrapped |
+| **Guards & helpers** | `assertOk`, `where`, `assign`, `delay` | results, predicates, steps, waits |
+| **Sources & lifecycle** | `stopWhen`, `forever`; `signal`, `pause`, `take` | what feeds a run, and how it stops |
+| **Sync mirror** | `*Sync` | the same layers, synchronous |
 
-The first distinction is **independent vs dependent**: if step N needs step
-N-1's output you are **folding**; count the inputs. Many inputs → `scan` /
-`reduce`. One input, many enrichments → `enrich`. A pure sync fold → `foldSync`.
+**The core is one question**: does item N need item N-1's output? If not, the
+items are independent and you want `series` — a sequential map over an iterable.
+If yes, you are **folding**, and the fold has two result shapes: `scan` keeps
+every intermediate accumulator, `reduce` keeps only the last. Everything else
+either selects a policy for that run, fixes a decision the core already
+implements, or works beside it.
 
-The second distinction is **what you keep**. Pipelean provides tools on two
-axes: **what you are folding** and **what you keep**.
+**The second axis is scope**: what an API actually owns. It is how `stopWhen`,
+`forever` and `retry` stay off the same plane as the strategies.
 
-|  | keep every intermediate | keep only the final |
+| Scope | What it owns | APIs |
 |---|---|---|
-| fold over **items** (many inputs) | `scan` | `reduce` |
-| fold over **steps** (one input) | — | `enrich` |
+| source | produces, or ends, an iterable | `stopWhen`, `forever` |
+| run | one execution over a source, with a policy | `series`, `scan`, `reduce` |
+| policy | the failure policy of a run | the five strategies |
+| operation | one call to one function | `tryCatch`, `retry` |
+| fold step | one step of an in-memory fold, and the pipeline that runs them | `enrich`, `assign` |
+| result | a finished outcome | `assertOk` |
+| composition | a value through ordered steps | `pipe` |
+| concurrency | a few named branches at once | `join` |
+| predicate | a reusable item predicate | `where` |
+| wait | a plain timed wait | `delay` |
 
-A pure sync fold with no report to inspect is `foldSync` — see
-[Which fold?](#which-fold) below.
+A source adapter is a source because every consumer eats it exactly like an
+array; `signal`, `pause` and `take` are *run* options because only the consumer
+sees the run; `retry` is an operation boundary, not a policy. Layer says what an
+API is derived from; scope says what it is allowed to decide.
 
-Outside the table:
-
-- **`series`** — many items, no dependency between them (map + drop, with
-  progress, pause and take).
-- **`mapSeries` / `mapSeriesSync`** — the sequential map with the strategy
-  locked to `rethrow`: a bare array or a thrown original error.
-- **`pipe`** — one value through ordered steps, value in / value out.
-- **`join`** — a few named, different tasks running at the same time.
+The immediate call form is eager: it starts when you call it. The curried form
+(`series(fn, opts)`) builds the reusable run and starts when you apply it to
+items. There are no lazy pipelines either way.
 
 ### Which fold?
 
-`foldSync` is the raw sync fold over items: it keeps the final value and returns
-it directly, so any throw propagates. `reduce` keeps the final value as a
-managed report; `scan` keeps every intermediate in `results`; `enrich` folds
-over the **steps** of one input and keeps the final state. The full comparison —
+`reduce` keeps the final value as a managed report; `scan` keeps every
+intermediate in `results`. `enrich` is a shortcut: a `reduce` over **steps**,
+not over items. `foldSync` is the raw sync fold over items — it keeps the final
+value and returns it directly, so any throw propagates. The full comparison —
 inputs, outputs, defaults — is the matrix in
 [How to choose](reference.md#how-to-choose).
 
@@ -73,62 +89,21 @@ enrich(ops)(input) === reduce(ops, (state, op) => ({...state, ...op(state)}), in
 
 The comparative table lives in the reference:
 [How to choose](reference.md#how-to-choose) lists every public combinator and
-source adapter, sync twins included, with its model (items, steps, value,
-tasks, source), input, output, default strategy and `drop` handling. Read
-it when you are choosing between two APIs; the chapters below explain the mental
-model behind it, and [Errors as data vs errors as
-exceptions](#errors-as-data-vs-errors-as-exceptions) explains the strategy
-column.
+source adapter — sync twins included — with its **layer**, model, input, output,
+default strategy and `drop` handling. Read it when you are choosing between two
+APIs; the chapters below explain the map behind it, and [Errors as data vs
+errors as exceptions](#errors-as-data-vs-errors-as-exceptions) explains the
+strategy column.
 
-> **Sync variants** — the iteration functions also have synchronous
-> counterparts: `seriesSync`, `filterSync`, `findSync`, `scanSync`,
-> `reduceSync`, `stopWhenSync`; `pipeSync`, `enrichSync`, `mapSeriesSync` and
-> `tryCatchSync` exist too. Same strategies and shapes, direct return instead of
-> a `Promise`. `foldSync` is the raw sync fold: no options, no report.
-> `signal`, `pause` and `pauseOnErrors` are async-only: passing them to a sync
-> variant throws a `TypeError`. Callbacks must be sync too: a mapper, predicate,
-> scanner, reducer, operation, hook, telemetry callback (`onError`, `onFailure`,
-> `onSourceError`, `onProgress`) or wrapped function returning a Promise — or
-> any thenable — throws a `TypeError` pointing at the async twin. The violation
-> is fatal: it escapes the strategy, never collected as item data. Full
-> contract: [Sync variants](reference.md#sync-variants).
+<a id="independent-vs-dependent-operations"></a>
 
-### When plain JavaScript is clearer
+<a id="core-iteration-series"></a>
 
-Pipelean earns its place when a run needs at least one of: an explicit
-**failure policy**, a **lifecycle** (progress, pacing, cancellation), a
-**structured report** to inspect, or a **reusable pipeline**. When none of
-these apply, plain JavaScript is clearer and you should keep it:
+## Core: iteration — `series`
 
-- **A single operation** — one `await` with a `try/catch` at a boundary is
-  already explicit; wrapping it adds indirection, not safety. `tryCatch` is
-  for when you want the wrapper itself: a reusable execution boundary with
-  uniform observation, lifecycle hooks and an explicit failure policy
-  (`recover`).
-- **A pure sync transformation with no failure policy** — `items.map(x => x.id)`
-  or `items.filter(Boolean)` says exactly what it does. A pure sync *fold* is
-  the exception: `foldSync` is its canonical form, and `no-array-reduce`
-  points at it.
-- **A loop inside a generator** — yielding producers are where loops belong;
-  `no-loop-without-yield` only flags loops that are not sources.
-
-The ESLint rules are advisory: a warning is a prompt to apply this gate, not
-an order to rewrite. If the native code passes the gate, keep it and suppress
-the rule at that site — see [ESLint plugin](eslint.md). For rewriting a loop
-that *does* pass the gate, the before/after checklist is
-[Rewriting a hand-rolled loop safely](patterns.md#rewriting-a-hand-rolled-loop-safely).
-
-Some problems are not plain JavaScript either: concurrent mapping, scheduling,
-streams, typed effects. Those belong to another library —
-[When to reach for another library](alternatives.md) maps them.
-
-## Independent vs dependent operations
-
-**The question**: does item N need item N-1's output? If not, the items are
-independent and you want a sequential map or filter. If yes, you are folding —
-go to [Accumulation vs enrichment](#accumulation-vs-enrichment).
-
-### Independent items: series and filter
+**The question**: do the items depend on each other? If not, they are
+independent and you want a sequential map. If they do, you are folding — go to
+[Core: accumulation](#core-accumulation-scan-and-reduce).
 
 **Use `series` when** items are independent: import/sync jobs, API fan-in with a
 rate limit, paging generators, anything with a progress bar. **Don't use it
@@ -145,181 +120,41 @@ running together (`join`).
   - Returning `drop` **drops the item** — this is how selection works in
     `series` and `pipe`; it is not a valid value to map to. In 0.18 `undefined`
     still drops too, with the same effect; `onUndefined: 'error'` turns that
-    legacy behaviour into a fatal `TypeError`.
-  - `filter` accepts patterns via `where()`: `filter(users, {active: true})` is
-    equivalent to `filter(users, where({active: true}))`.
-  - `findSync` accepts the same predicate forms and stops at the first match.
+    legacy behaviour into a fatal `TypeError`. `drop` is unaffected by the policy
+    and keeps dropping.
 
-* **`series` / `filter` only**
+* **Run options (`series` and its shortcuts)**
   - `onProgress({item, result, index, total})` after each kept success (awaited, live).
-  - `take` to process a prefix (including infinite generators).
+  - `take` to process a prefix (including infinite generators); `take: 0` pulls
+    nothing from the source at all.
   - `total` for progress math; omitted when the size is unknown.
-  - `scan` and `reduce` do **not** have `onProgress` or `take`.
+  - `scan` and `reduce` do **not** have `onProgress`, `take`, `total` or
+    `onUndefined`: there is no run step to report progress on and no mapper
+    whose `undefined` would mean anything. See
+    [Unsupported options](reference.md#unsupported-options).
+
+* **One call form is eager, one builds a run**
+  - `series(items, fn, opts?)` starts immediately.
+  - `series(fn, opts?)` returns `items => Promise<Outcome>`, the reusable run.
+  - An already-aborted `signal` behaves like `take: 0`: nothing is pulled.
 
 * **Error strategies** — built-in and first-class; see
   [Errors as data vs errors as exceptions](#errors-as-data-vs-errors-as-exceptions).
 
 Pacing (`pause`), cancellation (`signal`) and source adapters (`stopWhen`,
 `forever`) apply to every iterator, not just `series` — see
-[Lifecycle, cancellation, recovery](#lifecycle-cancellation-recovery).
+[Sources & lifecycle](#lifecycle-cancellation-recovery). Selection is a shortcut
+over the same mapper: `filter`, `findSync` and `mapSeries` are explained in
+[Shortcuts over the core](#accumulation-vs-enrichment).
 
-### When failure must throw: mapSeries / mapSeriesSync
+<a id="core-accumulation-scan-and-reduce"></a>
 
-`series` is the default and returns a report. When a sequential map's only
-acceptable outcome is success — one failure must reject the whole run — use
-`mapSeries`, which locks the strategy to `rethrow` and unwraps `.results`:
-
-```js
-import {mapSeries, mapSeriesSync} from 'pipelean'
-
-const rows = await mapSeries(files, file => parseFile(file))
-// a throw rejects with the ORIGINAL error; no report object to inspect
-
-const cached = mapSeriesSync(paths, path => cache.get(path))
-// same contract, returns directly
-
-// Both call forms:
-const parseAll = mapSeries(file => parseFile(file))
-await parseAll(files)
-```
-
-Every other option passes through (`take`, `total`, `onProgress`, `pause`,
-`pauseOnErrors`, `signal`, `onUndefined`), so it is still a *sequential* map with progress and
-pacing (`mapSeriesSync` rejects the async-only `pause`, `pauseOnErrors` and
-`signal` with a `TypeError`, like every sync twin). A
-`strategy` other than `rethrow` / `'throw'` is a `TypeError` rather than a silent
-override, and `onError` / `onFailure` / `onSourceError` are rejected with a
-`TypeError` naming the offending key: under the locked `rethrow` they could never
-fire, so they are dead configuration. Two inherited behaviors matter: returning
-`drop` (or `undefined`, in 0.18) **drops** the item (this is not
-`Array.prototype.map`), and a failure
-throws before any callback. `mapSeriesSync` rejects an async iterable with an
-explicit `TypeError` naming `mapSeries()`, and its callbacks — the mapper and
-`onProgress` alike — fall under the shared sync rule: a returned thenable is a
-fatal `TypeError` ([Sync variants](reference.md#sync-variants)).
-
-Reach for plain `series` when a failure is data you want to collect; reach for
-`mapSeries` when a failure is a bug that must surface. An async fold keeps
-`reduce` + `strategy: rethrow` — there is no async `foldSync`, because async
-folds need `recover`, `signal` and `pause`.
-
-## Sequential vs concurrent
-
-**The question**: do the tasks need to run one at a time, or at the same time?
-
-Pipelean is **sequential by design**, with an **order guarantee**: execution is
-sequential, so output order strictly matches input order. Work is eager — it
-starts when you call, there are no lazy pipelines. The only concurrency is
-`join`, and it is deliberately small.
-
-### Fork/join: join
-
-When a handful of **named, heterogeneous** tasks can run at the same time, use
-`join()`. Every branch starts immediately and `join()` waits for all of them to
-settle. The result is one structured object, with each failure reported as data
-under its name.
-
-```js
-import { join } from 'pipelean'
-
-const {value, errors, failure} = await join({
-  api: () => ping('api.example.com'),
-  cdn: () => ping('cdn.example.com'),
-})
-
-// value = {api: 200, cdn: 200}, errors = [], failure = false
-// a failed branch: value keeps the successes, errors names the failure
-```
-
-`join()` uses the same error strategies as `enrich()` (default `collect`).
-`failFast` behaves as `failLate` here: branches already started and there is no
-cancellation. `join()` is deliberately *not* a concurrent map — for that, use
-p-map.
-
-## Pipeline composition
-
-**The question**: how do I turn several small steps into one reusable operation?
-
-### Composition: pipe
-
-Compose ordered steps into a single reusable function for `series()`:
-
-```js
-import { series, pipe, drop } from 'pipelean'
-
-const normalizeActiveUser = pipe(
-  user => user.active ? user : drop,
-  user => user.email,
-  email => email.toLowerCase()
-)
-
-const result = await series(users, normalizeActiveUser)
-```
-
-`pipe()` chains functions left-to-right and preserves Pipelean's drop signal:
-when any step returns `drop` (or `undefined`, in 0.18), the remaining steps are
-skipped and that same value propagates out. Combined with `series` (which drops
-items whose mapper returns `drop`), this merges transformation and selection in
-one pass:
-
-```js
-import { series, pipe, drop } from 'pipelean'
-
-const result = await series(numbers, pipe(
-  x => x % 2 === 0 ? x : drop, // select: drop odds
-  x => x * 2,                 // transform: double
-))
-// result.results = [4, 8, 12] from inputs [2, 4, 6]
-```
-
-`pipe` does **not** catch errors: a throw escapes to the caller. Only `drop` and
-`undefined` short-circuit — `null`, `false`, `0` and `''` are values. This is
-composition in the `Maybe`/`Option` sense (`A => Option<B>`), not plain
-composition as in Ramda or fp-ts `flow`.
-
-**Use `pipe` when** one value goes through value-in/value-out steps and any step
-may bail. **Don't use it when** steps need the state accumulated so far
-(`enrich`), or you want failures captured as data (`series` strategy or
-`tryCatch` with `recover`).
-
-### Wrappers: retry and tryCatch
-
-Pipelean provides lightweight wrappers that add behavior to **individual
-functions**. They compose with `pipe` and `series`.
-
-- **`tryCatch(fn, options?)`**
-  The composable execution boundary for one operation. `onStart` gates the call
-  and `recover` is the only seam that substitutes a failure; the other hooks
-  report what happened and never mask the operation outcome. Each hook and
-  `recover` receive one context object — `onStart({args, name})`,
-  `onSuccess({result, args, name})`, `onError({error, args, name})`,
-  `onFinally({args, name})` — where `args` is a copy of the invocation's
-  argument list and `name` is the optional `name` label. **By default a failure
-  is rethrown** — the wrapper never swallows.
-  `recover({error}) => value` is the explicit seam that turns a failure into a
-  value; `recover: () => drop` is the spelled-out drop that short-circuits
-  `pipe` and drops the item in `series` (`recover: () => undefined` still drops
-  in 0.18). Without `recover`, a `tryCatch` inside
-  `series` just observes and the run's strategy still decides policy. A hook
-  failure never masks the operation error: on the failure path it is attached as
-  `error.hookErrors` best effort, and dropped if the primary cannot carry it;
-  on the success path the hook error is thrown as itself.
-
-- **`retry(fn, options?)`**
-  Automatic retries: `attempts` (default 3), `delay` in ms (default 0). Re-throws
-  the last error once attempts are exhausted, so the surrounding strategy still
-  sees the failure. Options are validated when the wrapper is built: `attempts`
-  must be an integer `>= 1` and `delay` a finite number `>= 0`.
-
-Neither wrapper is an error strategy: strategies belong to the iterators.
-
-## Accumulation vs enrichment
+## Core: accumulation — `scan` and `reduce`
 
 **The question**: when step N needs what came before, am I folding over **items**
-or over **steps**? Many inputs that build on each other → accumulation (`scan`,
-`reduce`, `foldSync`). One input that many operations enrich → `enrich`.
-
-### Folding items: scan, reduce, foldSync
+or over **steps**? Many inputs that build on each other → `scan` / `reduce`. One
+input that many operations enrich → `enrich`, a shortcut covered in
+[Shortcuts over the core](#folding-steps-enrich).
 
 `scan` folds items and keeps every intermediate accumulator; `reduce` folds items
 and keeps only the last. Both take `(iterable, scanner, initialValue, opts?)`
@@ -347,25 +182,12 @@ const {value: totalDuration} = await reduce(
 )
 ```
 
-A fold with no failure policy to decide — a pure sync `foldl` where a throw is a
-bug — is `foldSync`, which returns the value itself:
-
-```js
-import {foldSync} from 'pipelean'
-
-const totalDuration = foldSync(
-  tracks, (total, {duration}) => total + duration, 0,
-)
-```
-
-`foldSync` takes exactly three arguments (a fourth is a `TypeError`), throws the
-original error, and keeps `drop` and `undefined` as legal accumulator values. Use `reduce` when
-the fold's input can be bad as data, or when you need `recover`, `signal` or
-`pause`. `scan` and `reduce` default to `failFast`. Under `failFast` the
-`results` array is cleared on failure (the `value` of a `reduce` survives: only
-`results` is cleared), so use `collect`/`failLate` when partial progress matters.
-Both folds support `pause`, `pauseOnErrors`, `signal` and the fold `recover`
-seam; `take` and `onProgress` remain `series`-only.
+`scan` and `reduce` default to `failFast`. Under `failFast` the `results` array
+is cleared on failure (the `value` of a `reduce` survives: only `results` is
+cleared), so use `collect`/`failLate` when partial progress matters. Both folds
+support `pause`, `pauseOnErrors`, `signal` and the fold `recover` seam; they have
+no `take`, `total`, `onProgress` or `onUndefined` (see
+[Unsupported options](reference.md#unsupported-options)).
 
 `recover` is what lets a fold survive a failed step while keeping the
 accumulator moving:
@@ -380,6 +202,276 @@ const {value} = await reduce(items, scanner, {failures: 0}, {
 
 It is not a strategy and not available outside `scan` / `reduce` (and their sync
 twins). See [Fold recovery](#fold-recovery-recover).
+
+A pure sync fold where a throw means a bug — sums, counts, grouping — is
+`foldSync`, a shortcut that returns the value itself: see
+[Raw sync fold: foldSync](#raw-sync-fold-foldsync).
+
+<a id="errors-as-data-vs-errors-as-exceptions"></a>
+
+## Policy: errors as data vs exceptions
+
+**The question**: is a thrown error a **bug** ("this cannot happen") or **data**
+("this record is bad")? A bug belongs in `foldSync`, `mapSeries` or `rethrow`,
+where it escapes to the caller. Data belongs in a strategy: record it, keep what
+worked, report at the end. Pipelean's default bet is **errors as data** — you
+inspect a structured result instead of writing consumer-side `try/catch`.
+
+Policy is an axis, not a layer above the core: `series`, `scan`, `reduce` and
+every shortcut that runs them take a `strategy`. The strategy never changes what
+the API computes — only what it does with a failure.
+
+* **Structured results**
+  - Iterators return `{results, errors, sourceErrors, failure}`; `reduce` returns
+    `{value, errors, sourceErrors, failure}`.
+  - Errors are data, removing the need for consumer-side `try/catch`.
+
+* **Shared callbacks**
+  - `onError({item, error, index, total})` runs for handled item errors.
+  - `onFailure` runs when `failure` is truthy (`failFast` / `failLate`).
+  - `onSourceError({error, index})` runs when the iterable itself throws.
+
+`onError` is a **callback**, not a strategy: it never changes control flow.
+
+### Error strategies
+
+Every run API — `series`, `filter`, `scan`, `reduce`, `findSync`, `enrich` and
+`join` — supports five error strategies:
+
+**failFast**
+- Sets `failure: {item, error, index}` on first error
+- Calls `onError({item, error, index, total})`, then `onFailure({item, error, index})` immediately
+- Stops iteration; `results` is empty on failure (`reduce` and `enrich` keep their `value`)
+
+**rethrow** (strategy name is `'throw'`; the string `'rethrow'` is accepted as
+an alias of `'throw'`)
+- Throws the error on first failure
+- Does NOT return a structured result on failure
+- Does NOT call `onError`, `onFailure` or `onSourceError` (a fold item error
+  with `recover` present is the exception: `onError` fires before the seam)
+- **Raw async mode, not a value extractor.** Use it when a thrown error is a
+  *bug or an infrastructure failure* and the caller handles it outside: async I/O
+  with no meaningful partial report, a daemon loop that must exit, "let it
+  crash". Do not use it to turn a fold into a value-returning expression — that
+  is `foldSync` for a pure sync fold, or `assertOk(result)` for a managed result.
+  If your thrown errors are *data* (one bad record among many), use a collecting
+  strategy instead: `rethrow` bypasses all callbacks, so `onError` next to it is
+  dead configuration.
+
+**failLate**
+- Collects all errors in `errors` array
+- Sets `failure: {errors}` after the loop completes (only if `errors.length > 0`)
+- Calls `onFailure({errors})` if `failure` is truthy
+
+**collect** (default for `series`, `filter`, `enrich`, `join`)
+- Collects all errors in `errors` array
+- Sets `failure: false`
+- Does NOT call `onFailure`
+
+**skip**
+- Ignores errors (no collection, `errors` stays empty)
+- Sets `failure: false`
+- Does NOT call `onFailure`
+
+#### Strategy × consumer
+
+One strategy, different shapes — the payload is the same, what survives is not.
+`rethrow` throws and returns no result, so it has a column rather than a cell
+detail.
+
+| Consumer | `failFast` | `failLate` | `collect` (default) | `skip` | `rethrow` |
+|---|---|---|---|---|---|
+| `series`, `filter` | stops; `results: []`, `errors: []`, `failure: {item, error, index}` | keeps results, `failure: {errors}` at the end | keeps results, `failure: false` | keeps results, `errors: []`, `failure: false` | throws on first error |
+| `scan` | stops; `results: []`, `failure: {item, error, index}` | keeps every accumulator so far, `failure: {errors}` | keeps them, `failure: false` | keeps them, nothing recorded | throws |
+| `reduce` | stops; `value` = last good accumulator, `failure: {item, error, index}` | keeps the last accumulator, `failure: {errors}` | same as `failLate`, `failure: false` | same, nothing recorded | throws |
+| `enrich` | stops; `value` = last good state, `failure: {operation, error, index}` | keeps the state, `failure: {errors}` (normalized) | keeps the state, `failure: false` | same, nothing recorded | throws |
+| `findSync` | stops; `value: undefined`, `failure: {item, error, index}` | keeps errors seen before the match, `failure: {errors}` | keeps them, `failure: false` | keeps nothing, `failure: false` | throws |
+| `join` | behaves as `failLate`: every branch settles, `failure: {errors}` | `failure: {errors}` | keeps successes, `failure: false` | `errors: []`, `onError` still fires | throws the first failed branch, by declaration, after every branch settles |
+
+Two things the matrix encodes:
+
+- **`failFast` empties `results` but keeps the accumulated value.** `series`,
+  `filter` and `scan` lose their partial list; `reduce` and `enrich` keep the last
+  successful accumulator/state in `value`, because that is the payload they have.
+- **`join` cannot fail fast.** Every branch has already started, so `failFast`
+  and `failLate` are the same policy there.
+
+Source errors are independent of this matrix: a dead source ends the run under
+every strategy except `rethrow`, recorded in `sourceErrors` (or as `failure`
+under `failFast`). See [Source errors](#source-errors).
+
+### Defaults
+
+`series`, `filter`, `enrich` and `join` default to **`collect`**: keep what
+worked, report the rest. `scan` and `reduce` default to **`failFast`**: a
+half-finished fold is usually meaningless, so stop at the first error. Pass a
+strategy explicitly whenever the default is not the policy you mean.
+
+### Source errors
+
+Errors thrown by the **iteration itself** (e.g. an async generator dying
+mid-stream) are treated separately from operation errors: they never reach the
+error strategies' `onError`, and instead are reported through
+`onSourceError({error, index})` and the additive `sourceErrors` result field — so
+partial progress survives a dead source under every strategy except `rethrow`.
+See the [Source errors section in the reference](reference.md#source-errors) for
+details.
+
+### Guarding ignored outcomes (`assertOk`)
+
+`failFast` is the fold default, and its failure is data: the run stops and
+returns `failure`, but nothing throws. If the caller never looks at the result,
+the job stops silently — the most common way to misuse `failFast`.
+
+`assertOk(result)` closes that gap:
+
+```js
+import {assertOk, reduce} from 'pipelean'
+
+const {value} = assertOk(await reduce(items, scanner, initial))
+```
+
+- falsy `failure`: returns the same result object;
+- truthy `failure`: throws the **original** error — `failure.error`, or the
+  first error of a `failLate` aggregate — with the structured failure attached
+  as `error.failure`. Identity, message, stack and `instanceof` survive; the
+  attachment mutates the thrown error.
+- a primitive throw value, a frozen / non-extensible error, or one that rejects
+  the `.failure` attachment (non-writable property, setter-less accessor, or a
+  throwing Proxy trap) cannot carry the property: `assertOk` falls back to
+  `Error('pipelean: operation failed', {cause})` with `.failure` attached.
+
+It asserts **no failure**, not "no errors": under `collect` / `skip`, `failure`
+is `false` even with entries in `errors`, so `assertOk` returns the result. Use
+`failFast` / `failLate` when an ignored failure must be impossible, and
+`assertOk` to make sure the outcome is not ignored.
+
+### The error tools are not layers
+
+Each error tool owns one scope, and they do not stack into a hierarchy:
+
+- **Strategies** own the run's policy (this chapter).
+- **The fold `recover` option** is a fold-local seam: one scanner error → the
+  next accumulator — see [Fold recovery](#fold-recovery-recover).
+- **`retry` / `tryCatch`** wrap a single function — see
+  [Operation tools](#wrappers-retry-and-trycatch).
+- **`assertOk`** guards a finished result that would otherwise be ignored.
+
+<a id="accumulation-vs-enrichment"></a>
+
+## Shortcuts over the core
+
+Each shortcut is the core with one decision already made — the same engine, not a
+second semantics. Use the core when you need the report or a different policy;
+use the shortcut when its fixed decision is exactly what you want.
+
+| Shortcut | It is |
+|---|---|
+| `filter(items, predicate)` | `series(items, x => predicate(x) ? x : drop)` — truthiness decides, and `drop` counts as falsy |
+| `mapSeries(items, fn)` | `series(items, fn, {strategy: rethrow}).results` — a bare array or the original error |
+| `findSync(items, predicate)` | the sync first match: `filterSync`'s decision with early exit at the match |
+| `foldSync(xs, fn, initial)` | `reduceSync(xs, fn, initial, {strategy: rethrow}).value` — no report at all |
+| `enrich(ops)(input)` | `reduce(ops, (state, op) => ({...state, ...op(state)}), input)` — folds the steps, not the items |
+
+They inherit the core's options where they can honour them, and reject known
+options that would be dead configuration. The rejection matrix is in the
+reference: [Unsupported options](reference.md#unsupported-options).
+
+### Selection: filter and findSync
+
+`filter` keeps the original items whose predicate is truthy:
+
+```js
+import {filter} from 'pipelean'
+
+const {results} = await filter(users, user => user.age >= 18)
+```
+
+- The predicate may be a function or a plain object **pattern**:
+  `filter(users, {active: true})` is equivalent to
+  `filter(users, where({active: true}))`. Anything implementing the iteration
+  protocols is treated as a source, never as a pattern.
+- It reads **truthiness**: a predicate returning `drop` counts as falsy, like
+  `undefined`, `null`, `0` or `''`. That is why `filter` does not accept
+  `onUndefined` — there is no policy to apply to a falsy result.
+- `results` holds the original items; the predicate's return value is never
+  pushed.
+- The run options come from `series`: `take`, `total`, `onProgress`, `pause`,
+  `pauseOnErrors`, `signal`, and the strategy callbacks.
+
+`findSync` is the sync first match: same predicate forms, and it stops pulling as
+soon as an item matches. It returns the same envelope with the match in `value`
+(`undefined` when nothing matched). `result` is a deprecated, non-enumerable
+alias of `value`, removed in 1.0.
+
+```js
+import {findSync} from 'pipelean'
+
+const {value, errors, failure} = findSync(users, {active: true})
+```
+
+`findSync` is sync-only — there is no async `find`. A predicate that throws is an
+item error, handled by the same strategy as `filterSync`; a dead source is still
+reported as a source error.
+
+### Sequential map: mapSeries / mapSeriesSync
+
+`series` is the default and returns a report. When a sequential map's only
+acceptable outcome is success — one failure must reject the whole run — use
+`mapSeries`, which is `series` with the strategy locked to `rethrow` and
+`.results` unwrapped:
+
+```js
+import {mapSeries, mapSeriesSync} from 'pipelean'
+
+const rows = await mapSeries(files, file => parseFile(file))
+// a throw rejects with the ORIGINAL error; no report object to inspect
+
+const cached = mapSeriesSync(paths, path => cache.get(path))
+// same contract, returns directly
+
+// Both call forms:
+const parseAll = mapSeries(file => parseFile(file))
+await parseAll(files)
+```
+
+Every other option passes through (`take`, `total`, `onProgress`, `pause`,
+`pauseOnErrors`, `signal`, `onUndefined`), so it is still a *sequential* map with
+progress and pacing (`mapSeriesSync` rejects the async-only `pause`,
+`pauseOnErrors` and `signal` with a `TypeError`, like every sync twin). A
+`strategy` other than `rethrow` / `'throw'` is a `TypeError` rather than a silent
+override, and `onError` / `onFailure` / `onSourceError` are rejected with a
+`TypeError` naming the offending key: under the locked `rethrow` they could never
+fire, so they are dead configuration. Two inherited behaviors matter: returning
+`drop` (or `undefined`, in 0.18) **drops** the item (this is not
+`Array.prototype.map`), and a failure throws before any callback.
+`mapSeriesSync` rejects an async iterable with an explicit `TypeError` naming
+`mapSeries()`, and its callbacks — the mapper and `onProgress` alike — fall under
+the shared sync rule: a returned thenable is a fatal `TypeError`
+([Sync mirror](#sync-mirror)).
+
+Reach for plain `series` when a failure is data you want to collect; reach for
+`mapSeries` when a failure is a bug that must surface. An async fold keeps
+`reduce` + `strategy: rethrow` — there is no async `foldSync`, because async
+folds need `recover`, `signal` and `pause`.
+
+### Raw sync fold: foldSync
+
+A pure sync `foldl` where a throw is a bug — sums, counts, grouping — is
+`foldSync`, which returns the value itself:
+
+```js
+import {foldSync} from 'pipelean'
+
+const totalDuration = foldSync(
+  tracks, (total, {duration}) => total + duration, 0,
+)
+```
+
+`foldSync` takes exactly three arguments (a fourth is a `TypeError`), throws the
+original error, and keeps `drop` and `undefined` as legal accumulator values. Use
+`reduce` when the fold's input can be bad as data, or when you need `recover`,
+`signal` or `pause`.
 
 ### Folding steps: enrich
 
@@ -402,7 +494,10 @@ const {value, errors, failure} = await processAlbum(input)
 
 `enrich` returns `{value, errors, sourceErrors, failure}` — no `results` array,
 and `sourceErrors` is always `[]` (the steps are a fixed array, so a source error
-is impossible). The default strategy is `collect`.
+is impossible). The default strategy is `collect`, and the run lifecycle
+(`signal`, `pause`, `pauseOnErrors`, `onSourceError`, `onProgress`, `take`,
+`total`, `onUndefined`) plus `recover` are rejected at pipeline construction:
+there is no source to pull or stop.
 
 **Use `enrich` when** one input passes through several steps that each add or
 override fields and need to see everything added so far: raw payload →
@@ -496,151 +591,172 @@ const process = enrich([prepare, enrichOne, finalize])
 const {value} = await process(input)
 ```
 
-## Errors as data vs errors as exceptions
+### Options × consumer
 
-**The question**: is a thrown error a **bug** ("this cannot happen") or **data**
-("this record is bad")? A bug belongs in `foldSync`, `mapSeries` or `rethrow`,
-where it escapes to the caller. Data belongs in a strategy: record it, keep what
-worked, report at the end. Pipelean's default bet is **errors as data** — you
-inspect a structured result instead of writing consumer-side `try/catch`.
+The same options are not available everywhere. This is the ownership view; the
+exact rejection messages and the edge cases are in the reference:
+[Unsupported options](reference.md#unsupported-options).
 
-* **Structured results**
-  - Iterators return `{results, errors, sourceErrors, failure}`; `reduce` returns
-    `{value, errors, sourceErrors, failure}`.
-  - Errors are data, removing the need for consumer-side `try/catch`.
+| Option | `series` | `filter` | `mapSeries` | `findSync` | `scan` / `reduce` | `enrich` | `join` |
+|---|---|---|---|---|---|---|---|
+| `strategy` | ✓ | ✓ | ✓ `rethrow` only | ✓ | ✓ | ✓ | ✓ |
+| `onError`, `onFailure` | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ |
+| `onSourceError` | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ |
+| `onProgress` | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| `take`, `total` | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| `pause`, `pauseOnErrors`, `signal` | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ |
+| `onUndefined` | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| `recover` | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
 
-* **Shared callbacks**
-  - `onError({item, error, index, total})` runs for handled item errors.
-  - `onFailure` runs when `failure` is truthy (`failFast` / `failLate`).
-  - `onSourceError({error, index})` runs when the iterable itself throws.
+✓ accepted · ✗ rejected with a `TypeError` naming the option. The `*Sync` twins
+reject `pause`, `pauseOnErrors` and `signal` on every API; `mapSeries` also
+rejects `onError` / `onFailure` / `onSourceError`, which the locked `rethrow`
+could never call.
 
-`onError` is a **callback**, not a strategy: it never changes control flow.
+<a id="pipeline-composition"></a>
 
-### Error strategies
+## Composition & concurrency
 
-All iteration functions (`series`, `filter`, `scan`, `reduce`) support five error
-strategies:
+**The question**: do the tasks need to run one at a time, or at the same time?
+Pipelean is **sequential by design**, with an **order guarantee**: execution is
+sequential, so output order strictly matches input order. The only concurrency is
+`join`, and it is deliberately small.
 
-**failFast**
-- Sets `failure: {item, error, index}` on first error
-- Calls `onError({item, error, index, total})`, then `onFailure({item, error, index})` immediately
-- Stops iteration; results array is empty on failure
+<a id="sequential-vs-concurrent"></a>
 
-**rethrow** (strategy name is `'throw'`; the string `'rethrow'` is accepted as
-an alias of `'throw'`)
-- Throws the error on first failure
-- Does NOT return a structured result on failure
-- Does NOT call `onError`, `onFailure` or `onSourceError` (a fold item error
-  with `recover` present is the exception: `onError` fires before the seam)
-- **Raw async mode, not a value extractor.** Use it when a thrown error is a
-  *bug or an infrastructure failure* and the caller handles it outside: async I/O
-  with no meaningful partial report, a daemon loop that must exit, "let it
-  crash". Do not use it to turn a fold into a value-returning expression — that
-  is `foldSync` for a pure sync fold, or `assertOk(result)` for a managed result.
-  If your thrown errors are *data* (one bad record among many), use a collecting
-  strategy instead: `rethrow` bypasses all callbacks, so `onError` next to it is
-  dead configuration.
+### Composition: pipe
 
-**failLate**
-- Collects all errors in `errors` array
-- Sets `failure: {errors}` after the loop completes (only if `errors.length > 0`)
-- Calls `onFailure({errors})` if `failure` is truthy
-
-**collect** (default for `series`, `filter`, `enrich`, `join`)
-- Collects all errors in `errors` array
-- Sets `failure: false`
-- Does NOT call `onFailure`
-
-**skip**
-- Ignores errors (no collection, `errors` stays empty)
-- Sets `failure: false`
-- Does NOT call `onFailure`
-
-### Defaults
-
-`series`, `filter`, `enrich` and `join` default to **`collect`**: keep what
-worked, report the rest. `scan` and `reduce` default to **`failFast`**: a
-half-finished fold is usually meaningless, so stop at the first error. Pass a
-strategy explicitly whenever the default is not the policy you mean.
-
-### Source errors
-
-Errors thrown by the **iteration itself** (e.g. an async generator dying
-mid-stream) are treated separately from operation errors: they never reach the
-error strategies' `onError`, and instead are reported through
-`onSourceError({error, index})` and the additive `sourceErrors` result field — so
-partial progress survives a dead source under every strategy except `rethrow`.
-See the [Source errors section in the reference](reference.md#source-errors) for
-details.
-
-### Guarding ignored outcomes (`assertOk`)
-
-`failFast` is the fold default, and its failure is data: the run stops and
-returns `failure`, but nothing throws. If the caller never looks at the result,
-the job stops silently — the most common way to misuse `failFast`.
-
-`assertOk(result)` closes that gap:
+Compose ordered steps into a single reusable function for `series()`:
 
 ```js
-import {assertOk, reduce} from 'pipelean'
+import { series, pipe, drop } from 'pipelean'
 
-const {value} = assertOk(await reduce(items, scanner, initial))
+const normalizeActiveUser = pipe(
+  user => user.active ? user : drop,
+  user => user.email,
+  email => email.toLowerCase()
+)
+
+const result = await series(users, normalizeActiveUser)
 ```
 
-- falsy `failure`: returns the same result object;
-- truthy `failure`: throws the **original** error — `failure.error`, or the
-  first error of a `failLate` aggregate — with the structured failure attached
-  as `error.failure`. Identity, message, stack and `instanceof` survive; the
-  attachment mutates the thrown error.
-- a primitive throw value, a frozen / non-extensible error, or one that rejects
-  the `.failure` attachment (non-writable property, setter-less accessor, or a
-  throwing Proxy trap) cannot carry the property: `assertOk` falls back to
-  `Error('pipelean: operation failed', {cause})` with `.failure` attached.
+`pipe()` chains functions left-to-right and preserves Pipelean's drop signal:
+when any step returns `drop` (or `undefined`, in 0.18), the remaining steps are
+skipped and that same value propagates out. Combined with `series` (which drops
+items whose mapper returns `drop`), this merges transformation and selection in
+one pass:
 
-It asserts **no failure**, not "no errors": under `collect` / `skip`, `failure`
-is `false` even with entries in `errors`, so `assertOk` returns the result. Use
-`failFast` / `failLate` when an ignored failure must be impossible, and
-`assertOk` to make sure the outcome is not ignored.
+```js
+import { series, pipe, drop } from 'pipelean'
 
-### The error tools are not layers
+const result = await series(numbers, pipe(
+  x => x % 2 === 0 ? x : drop, // select: drop odds
+  x => x * 2,                 // transform: double
+))
+// result.results = [4, 8, 12] from inputs [2, 4, 6]
+```
 
-Each error tool owns one scope, and they do not stack into a hierarchy:
+`pipe` does **not** catch errors: a throw escapes to the caller. Only `drop` and
+`undefined` short-circuit — `null`, `false`, `0` and `''` are values. This is
+composition in the `Maybe`/`Option` sense (`A => Option<B>`), not plain
+composition as in Ramda or fp-ts `flow`.
 
-- **Strategies** own the run's policy (this chapter).
-- **The fold `recover` option** is a fold-local seam: one scanner error → the
-  next accumulator — see [Fold recovery](#fold-recovery-recover).
-- **`retry` / `tryCatch`** wrap a single function — see
-  [Wrappers](#wrappers-retry-and-trycatch).
-- **`assertOk`** guards a finished result that would otherwise be ignored.
+**Use `pipe` when** one value goes through value-in/value-out steps and any step
+may bail. **Don't use it when** steps need the state accumulated so far
+(`enrich`), or you want failures captured as data (`series` strategy or
+`tryCatch` with `recover`).
 
-## Lifecycle, cancellation, recovery
+### Fork/join: join
 
-**The question**: how does a run pace itself, stop cleanly, and survive a failed
-step? Three mechanisms, three jobs: `pause` owns the cadence, `signal` and
-`stopWhen` own the two kinds of stop, `recover` owns fold-level survival.
+When a handful of **named, heterogeneous** tasks can run at the same time, use
+`join()`. Every branch starts immediately and `join()` waits for all of them to
+settle. The result is one structured object, with each failure reported as data
+under its name.
 
-### Pacing and cancellation (all iterators)
+```js
+import { join } from 'pipelean'
 
-- `pause` spaces work: a number, or a function that receives
-  `(item, index)` on `series`/`filter` and `(accumulator, item, index)` on
-  folds, resolved after the state update.
-- `pauseOnErrors` also pauses after handled errors (`skip` always pauses on
-  `series`).
-- `signal: AbortSignal` stops the run before the next item and cuts a pending
-  `pause` short. Aborting is clean (`failure: false`, no source errors) and
-  keeps the completed result/accumulator; it never interrupts the in-flight
-  mapper/scanner. Sync variants reject all three options with a `TypeError`.
+const {value, errors, failure} = await join({
+  api: () => ping('api.example.com'),
+  cdn: () => ping('cdn.example.com'),
+})
+
+// value = {api: 200, cdn: 200}, errors = [], failure = false
+// a failed branch: value keeps the successes, errors names the failure
+```
+
+`join()` uses the same error strategies as `enrich()` (default `collect`).
+`failFast` behaves as `failLate` here: branches already started and there is no
+cancellation. `join()` is deliberately *not* a concurrent map — for that, use
+p-map. It also rejects the run lifecycle (`signal`, `pause`, `take`, …) and
+`recover`: a branch is not an item, so there is nothing to pace or stop.
+
+<a id="wrappers-retry-and-trycatch"></a>
+
+## Operation tools
+
+Pipelean provides lightweight tools that add behavior to **individual
+functions**. They compose with `pipe` and `series`, and none of them is an error
+strategy: strategies belong to the iterators.
+
+### tryCatch
+
+**`tryCatch(fn, options?)`** is the composable execution boundary for one
+operation. `onStart` gates the call and `recover` is the only seam that
+substitutes a failure; the other hooks report what happened and never mask the
+operation outcome. Each hook and `recover` receive one context object —
+`onStart({args, name})`, `onSuccess({result, args, name})`,
+`onError({error, args, name})`, `onFinally({args, name})` — where `args` is a
+copy of the invocation's argument list and `name` is the optional `name` label.
+**By default a failure is rethrown** — the wrapper never swallows.
+`recover({error}) => value` is the explicit seam that turns a failure into a
+value; `recover: () => drop` is the spelled-out drop that short-circuits `pipe`
+and drops the item in `series` (`recover: () => undefined` still drops in 0.18).
+Without `recover`, a `tryCatch` inside `series` just observes and the run's
+strategy still decides policy. A hook failure never masks the operation error: on
+the failure path it is attached as `error.hookErrors` best effort, and dropped if
+the primary cannot carry it; on the success path the hook error is thrown as
+itself.
+
+### retry
+
+**`retry(fn, options?)`** retries one call: `attempts` (default 3), `delay` in ms
+(default 0). It re-throws the last error once attempts are exhausted, so the
+surrounding strategy still sees the failure. Options are validated when the
+wrapper is built: `attempts` must be an integer `>= 1` and `delay` a finite
+number `>= 0`.
+
+```js
+import {retry, series} from 'pipelean'
+
+const fetchOnce = retry(fetchJson, {attempts: 3, delay: 250})
+const {results, errors} = await series(urls, fetchOnce)
+```
+
+<a id="lifecycle-cancellation-recovery"></a>
+
+## Sources & lifecycle
+
+**The question**: what feeds the run, how does it pace itself, how does it stop
+cleanly, and how does it survive a failed step? Four jobs: sources own what
+arrives, `pause` owns the cadence, `signal` / `stopWhen` / `take` own the ways a
+run stops, `recover` owns fold-level survival.
 
 ### Source adapters: stopWhen and forever
+
+**Sources** are iterables like any other: the consumer does not need to know it
+is looking at one.
 
 - `stopWhen(items, predicate)` stops pulling as soon as the predicate is
   truthy — checked *before* the item is offered downstream. The predicate may
   be sync or async; when it returns a Promise the adapter awaits it, so a
   `Promise<false>` keeps the item.
-- Composes with every consumer (`series`, `scan`, `reduce`, `filter`, raw
+- It composes with every consumer (`series`, `scan`, `reduce`, `filter`, raw
   `for await`) with no option changes:
   `series(fn, opts)(stopWhen(items, shouldStop))`.
-- Cancel is a clean shorter run (`failure: false`), never a source error.
+- Cancel is a clean shorter run (`failure: false`), never a source error. A
+  *throwing* predicate is different: it becomes a source error downstream,
+  reported through `onSourceError` / `sourceErrors`.
 - `stopWhenSync` is the sync twin: its predicate must stay sync — a returned
   Promise is a `TypeError` naming `stopWhen()`.
 
@@ -668,6 +784,23 @@ source-level condition — a batch limit (`() => count >= limit`), a content
 sentinel (`page.isLast`), or any predicate over the item; it works with raw
 `for await` too and needs no consumer options. They compose freely. See
 [patterns](patterns.md#pattern-10-daemon-loop-with-forever--signal).
+
+### Pacing and cancellation (all iterators)
+
+- `pause` spaces work: a number, or a function that receives
+  `(item, index)` on `series`/`filter` and `(accumulator, item, index)` on
+  folds, resolved after the state update.
+- `pauseOnErrors` also pauses after handled errors (`skip` always pauses on
+  `series`).
+- `signal: AbortSignal` stops the run before the next item and cuts a pending
+  `pause` short. Aborting is clean (`failure: false`, no source errors) and
+  keeps the completed result/accumulator; it never interrupts the in-flight
+  mapper/scanner. A signal aborted before the first item pulls nothing at all.
+- `take` is the other run-level stop: it processes a prefix of the source and
+  stops pulling after it, closing the iterator. `take: 0` pulls nothing. It is
+  accepted by `series`, `filter`, `mapSeries` and `findSync`: a fold has no run
+  step to count.
+- Sync variants reject `signal`, `pause` and `pauseOnErrors` with a `TypeError`.
 
 ### Fold recovery (`recover`)
 
@@ -712,6 +845,63 @@ await reduce(rounds, async state => {
 A service loop that survives failed rounds — `forever()` + `signal` + `recover`
 + backoff — is worked out in
 [patterns](patterns.md#pattern-11-service-loop-that-survives-failed-rounds).
+
+## Sync mirror
+
+The core and most shortcuts have synchronous counterparts: `seriesSync`,
+`filterSync`, `scanSync`, `reduceSync`, `mapSeriesSync`, `pipeSync`,
+`enrichSync` and `tryCatchSync`, plus the source adapters `stopWhenSync` and
+`foreverSync`. Same strategies and shapes, direct return instead of a `Promise`.
+`findSync` and `foldSync` are sync-only: they have no async twin. `foldSync` is
+the raw sync fold — no options, no report.
+
+The shared rules:
+
+- `signal`, `pause` and `pauseOnErrors` are async-only: passing them to a sync
+  variant throws a `TypeError`.
+- callbacks must be sync too: a mapper, predicate, scanner, reducer, operation,
+  hook, telemetry callback (`onError`, `onFailure`, `onSourceError`,
+  `onProgress`) or wrapped function returning a Promise — or any thenable —
+  throws a `TypeError` pointing at the async twin. The violation is fatal: it
+  escapes the strategy, never collected as item data.
+- known-but-inert options are rejected exactly as on the async twin (`findSync`
+  rejects `onProgress` and `onUndefined`; `filterSync` rejects `onUndefined`;
+  `scanSync` / `reduceSync` reject `take`, `total`, `onProgress` and
+  `onUndefined`).
+- `recover`, where it exists, must be synchronous.
+- `assertOk` is not a sync twin: it is synchronous and works on both async and
+  sync results.
+
+Full contract: [Sync variants](reference.md#sync-variants).
+
+## When plain JavaScript is clearer
+
+Pipelean earns its place when a run needs at least one of: an explicit
+**failure policy**, a **lifecycle** (progress, pacing, cancellation), a
+**structured report** to inspect, or a **reusable pipeline**. When none of
+these apply, plain JavaScript is clearer and you should keep it:
+
+- **A single operation** — one `await` with a `try/catch` at a boundary is
+  already explicit; wrapping it adds indirection, not safety. `tryCatch` is
+  for when you want the wrapper itself: a reusable execution boundary with
+  uniform observation, lifecycle hooks and an explicit failure policy
+  (`recover`).
+- **A pure sync transformation with no failure policy** — `items.map(x => x.id)`
+  or `items.filter(Boolean)` says exactly what it does. A pure sync *fold* is
+  the exception: `foldSync` is its canonical form, and `no-array-reduce`
+  points at it.
+- **A loop inside a generator** — yielding producers are where loops belong;
+  `no-loop-without-yield` only flags loops that are not sources.
+
+The ESLint rules are advisory: a warning is a prompt to apply this gate, not
+an order to rewrite. If the native code passes the gate, keep it and suppress
+the rule at that site — see [ESLint plugin](eslint.md). For rewriting a loop
+that *does* pass the gate, the before/after checklist is
+[Rewriting a hand-rolled loop safely](patterns.md#rewriting-a-hand-rolled-loop-safely).
+
+Some problems are not plain JavaScript either: concurrent mapping, scheduling,
+streams, typed effects. Those belong to another library —
+[When to reach for another library](alternatives.md) maps them.
 
 ---
 
