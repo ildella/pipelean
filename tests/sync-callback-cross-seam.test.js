@@ -8,7 +8,6 @@ const MESSAGE = 'foldSync() reducer returned a Promise; use reduce()'
 
 const asyncReducer = async (acc, item) => await acc + item
 
-// A nested sync combinator violating the 0.16 sync-callback policy.
 const violatesPolicy = item => foldSync([item], asyncReducer, 0)
 
 const violatingMapper = async item => {
@@ -31,7 +30,6 @@ test('collect records a nested sync-callback TypeError as a source error',
       [1, 2, 3], violatingMapper, {strategy: collect},
     )
 
-    // Iteration aborts at the violation: item 3 is never reached.
     expect(results).toEqual([1])
     expect(errors).toEqual([])
     expect(sourceErrors).toHaveLength(1)
@@ -74,7 +72,6 @@ test('a plain throw from a nested sync combinator is collected as data',
       .toEqual([[1, 'plain 1'], [2, 'plain 2']])
   })
 
-// An async fold's `recover` is not a seam that can consume the violation.
 const violatingScanner = (acc, item) =>
   item === 2 ? violatesPolicy(item) : acc
 

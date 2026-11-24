@@ -34,20 +34,16 @@ const isOccupiedFoldSync = ({type, local}) =>
   (type === 'ImportDefaultSpecifier' || type === 'ImportNamespaceSpecifier') &&
   local.name === FOLD_SYNC
 
-// A default or namespace import bound as foldSync occupies the name: it may
-// not be the named export and is not callable, so no suggestion is offered.
 const foldSyncNameOccupied = sourceCode =>
   pipeleanImports(sourceCode).some(
     declaration => declaration.specifiers.some(isOccupiedFoldSync)
   )
 
-// An existing (possibly aliased) foldSync binding wins.
 const calleeReplacement = sourceCode => {
   const specifier = findFoldSyncSpecifier(pipeleanImports(sourceCode))
   return specifier ? specifier.local.name : FOLD_SYNC
 }
 
-// Prefer the named import that already binds reduceSync.
 const importTarget = declarations => {
   const named = declarations.filter(
     declaration => namedSpecifiers(declaration).length > 0

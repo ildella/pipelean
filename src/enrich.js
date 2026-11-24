@@ -29,8 +29,6 @@ const assertEnrichState = (initialState, label) => {
 const operationName = (operation, index) =>
   operation.name || `operation-${index}`
 
-// Step names are computed once at build time and shared by the error messages
-// and both hooks, so every consumer sees the same normalization.
 const mergePatch = (names, {
   state, index, patch,
 }) => {
@@ -46,7 +44,6 @@ const mergePatch = (names, {
   return {...state, ...patch}
 }
 
-// The step wrapper must report the original name, so errors and hooks agree.
 const withName = (name, fn) =>
   Object.defineProperty(fn, 'name', {value: name})
 
@@ -80,7 +77,6 @@ const notifySuccessSync = (onStepSuccess, context, merged) => {
 const notifySuccessAsync = (onStepSuccess, context, merged) =>
   Promise.resolve(onStepSuccess(context)).then(() => merged)
 
-// Success fires only once the patch has been validated and merged.
 const withStepSuccess = (merge, {
   names, onStepSuccess, total, sync,
 }) =>
@@ -100,8 +96,6 @@ const withStepSuccess = (merge, {
       : notifySuccessAsync(onStepSuccess, context, merged)
   }
 
-// Telemetry callbacks must be synchronous too, and they name `enrichSync`,
-// not the `reduceSync` the pipeline delegates to.
 const guardError = (label, onError) => ctx =>
   assertSyncCallback(label, 'onError', onError(normalizeOperationError(ctx)))
 

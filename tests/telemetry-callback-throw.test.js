@@ -32,8 +32,6 @@ const options = strategy => ({strategy, onError: throwTelemetry})
 test('series: a throwing onError is a source error', async () => {
   const result = await series([10, 20, 30], failingAt(20), options(collect))
 
-  // The run stops at item 20: item 30 is never attempted, and the original
-  // item error is displaced by the telemetry throw.
   expect(result.results).toEqual([10])
   expect(result.errors).toEqual([])
   expect(result.sourceErrors).toEqual([{error: telemetryError, index: 1}])

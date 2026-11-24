@@ -1,9 +1,11 @@
 /* eslint-disable max-lines */
 
 import {
-  assertNoErrorCallbacks, assertRethrowStrategy, assertSyncCallback,
-  assertSyncResult, getPlannedTotal, isSyncCallbackError, parseCallArgs,
+  assertNoErrorCallbacks, assertRecover, assertRethrowStrategy,
+  assertSyncCallback, assertSyncResult, getPlannedTotal, isSyncCallbackError,
+  parseCallArgs,
 } from './shared.js'
+import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
 import {
@@ -56,42 +58,96 @@ const runSyncStrategy = ({
   return toResult(state, settle(state))
 }
 
-export const tryCatchSync = (fn, {
-  onStart, onSuccess, onError, onFinally,
-} = {}) =>
-  (...args) => {
+const observeSync = (outcome, hookName, call) => {
+  try {
+    assertSyncResult(call(), `tryCatchSync() ${hookName}`, 'tryCatch')
+  } catch (error) {
+    if (isSyncCallbackError(error))
+      throw error
+    outcome.capture(error)
+  }
+}
+
+const handleFailureSync = (outcome, {onError, recover}, context) => {
+  const failureContext = {...context, error: outcome.primaryError()}
+  if (onError) {
+    const call = () => onError(failureContext)
+    observeSync(outcome, 'onError', call)
+  }
+  if (!recover)
+    return undefined
+
+  try {
+    const value = recover(failureContext)
+    assertSyncResult(value, 'tryCatchSync() recover', 'tryCatch')
+    outcome.clear()
+    return value
+  } catch (error) {
+    if (isSyncCallbackError(error))
+      throw error
+    outcome.fail(error)
+    return undefined
+  }
+}
+
+/**
+ * Synchronous twin of tryCatch: the same composable execution boundary with
+ * the same rethrow-by-default policy, `recover` seam and hook contract.
+ *
+ * `fn`, every hook and `recover` must be synchronous: a returned Promise (or
+ * any thenable) is a fatal TypeError pointing at tryCatch. That violation
+ * escapes immediately and aborts the wrapper — hooks that have not run yet,
+ * including onFinally, are skipped. A synchronous throw from fn or a hook is
+ * handled by the contract, not fatal.
+ *
+ * Every hook and `recover` receives one context object: `{args, name}` plus
+ * `result` on `onSuccess` and `error` on `onError`/`recover`. `args` is a copy
+ * of the invocation's argument list, so mutating it cannot change what `fn`
+ * received.
+ */
+export const tryCatchSync = (fn, opts = {}) => {
+  const {
+    onStart, onSuccess, onError, onFinally, recover, name,
+  } = opts
+  assertRecover(recover, 'tryCatchSync')
+
+  return (...args) => {
+    const outcome = createHookOutcome()
+    const context = {args: [...args], name}
+    let result
+    let failed = false
+
     try {
-      if (onStart)
-        assertSyncResult(onStart(), 'tryCatchSync() onStart', 'tryCatch')
-      const result = fn(...args)
+      if (onStart) {
+        const start = onStart(context)
+        assertSyncResult(start, 'tryCatchSync() onStart', 'tryCatch')
+      }
+      result = fn(...args)
       assertSyncResult(result, 'tryCatchSync() fn', 'tryCatch')
-      if (onSuccess)
-        assertSyncResult(
-          onSuccess(result), 'tryCatchSync() onSuccess', 'tryCatch',
-        )
-      return result
     } catch (error) {
       if (isSyncCallbackError(error))
         throw error
-
-      if (onError)
-        assertSyncResult(onError(error), 'tryCatchSync() onError', 'tryCatch')
-      // undefined is the library-wide drop signal (see tryCatch).
-      return undefined
-    } finally {
-      if (onFinally)
-        assertSyncResult(onFinally(), 'tryCatchSync() onFinally', 'tryCatch')
+      failed = true
+      outcome.fail(error)
     }
-  }
 
-// Shared by seriesSync, filterSync and mapSeriesSync: the label carries the
-// public api the run was started from, so error and telemetry messages name
-// that api (and its async twin) instead of an internal delegation target.
-//
-// Guard ownership: a value is inspected only where a USER callback produced
-// it, never where this engine merely passes it through. filterSync's internal
-// transform returns the item unchanged, so thenable ITEMS must flow as data.
-// Each entry point guards its own callback before delegating here.
+    if (failed)
+      result = handleFailureSync(outcome, {onError, recover}, context)
+    else if (onSuccess) {
+      const call = () => onSuccess({...context, result})
+      observeSync(outcome, 'onSuccess', call)
+    }
+
+    if (onFinally) {
+      const call = () => onFinally(context)
+      observeSync(outcome, 'onFinally', call)
+    }
+
+    outcome.settle()
+    return result
+  }
+}
+
 const runSeriesSync = ({
   items, fn, opts, label,
 }) => {
@@ -124,8 +180,6 @@ const runSeriesSync = ({
   })
 }
 
-// The mapper is a user callback, so its result is guarded at the boundary that
-// owns it; the shared engine must not re-inspect what it is handed.
 const guardMapper = fn => (item, index) =>
   assertSyncCallback('seriesSync', 'mapper', fn(item, index))
 
@@ -424,8 +478,6 @@ export const mapSeriesSync = (...args) => {
         'mapSeriesSync() does not support async iterables; use mapSeries()',
       )
 
-    // The only mapper guard: mapSeriesSync owns the user callback, so the
-    // shared engine does not guard it a second time.
     const mapper = (item, index) =>
       assertSyncCallback('mapSeriesSync', 'mapper', fn(item, index))
 

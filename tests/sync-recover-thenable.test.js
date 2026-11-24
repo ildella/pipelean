@@ -9,9 +9,6 @@ const scanner = (acc, item) => {
 
 const asyncReject = async () => await Promise.reject(new Error('boom'))
 
-// A thenable abandoned by a sync guard used to crash the process with a
-// second, unrelated error. Collect what the process reports as unhandled
-// while `run` finishes, so a leaked rejection fails the expectations below.
 const unhandledWhileRunning = async run => {
   const proc = globalThis.process
   const reasons = []
@@ -52,8 +49,6 @@ test('a rejecting async recover is collected as data', async () => {
   expect(reasons).toEqual([])
 })
 
-// `then` that returns a rejected promise instead of routing through `reject`:
-// the guard must observe the returned thenable too, or it leaks.
 const thenReturnsRejection = () => ({
   then: () => Promise.reject(new Error('leaked')),
 })

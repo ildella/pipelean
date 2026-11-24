@@ -1,8 +1,10 @@
 /* eslint-disable max-lines */
 
 import {
-  assertNoErrorCallbacks, assertRethrowStrategy, isThenable, parseCallArgs,
+  assertNoErrorCallbacks, assertRecover, assertRethrowStrategy,
+  isExtensibleObject, isThenable, parseCallArgs,
 } from './shared.js'
+import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
 import {
@@ -21,38 +23,95 @@ export {
   collect, fail, failFast, failLate, rethrow, skip, stopOnError,
 } from './strategy.js'
 
+const observeHook = async (outcome, hook, context) => {
+  if (!hook)
+    return
+  try {
+    await hook(context)
+  } catch (error) {
+    outcome.capture(error)
+  }
+}
+
+const handleFailure = async (outcome, {onError, recover}, context) => {
+  const failureContext = {...context, error: outcome.primaryError()}
+  await observeHook(outcome, onError, failureContext)
+  if (!recover)
+    return undefined
+
+  try {
+    const value = await recover(failureContext)
+    outcome.clear()
+    return value
+  } catch (recoverError) {
+    outcome.fail(recoverError)
+    return undefined
+  }
+}
+
 /**
- * Wrap an async function with lifecycle hooks.
+ * Wrap an async function as a composable execution boundary.
  *
- * All four hooks are awaited, in lifecycle order: `onStart` before `fn`,
- * `onSuccess` on the result, `onError` on a throw/rejection, `onFinally` last
- * on both paths. A failing `onStart` is caught like a failing `fn`: `onError`
- * runs and the wrapper drops (`undefined`). A failing `onError` propagates. A
- * failing `onFinally` also rejects the wrapper, overriding whatever the try
- * body was about to return or throw — standard `finally` precedence.
+ * The operation's outcome is primary. By default a failure is rethrown — the
+ * wrapper never swallows. `recover({error, args, name})` is the one explicit
+ * seam where a failure becomes a value: it returns the substitute and consumes
+ * the error; `recover: () => undefined` is the spelled-out drop that
+ * short-circuits `pipe` and drops the item in `series`. Without `recover`, a
+ * `tryCatch` inside `series` just observes and the run's strategy still decides
+ * policy.
+ *
+ * Every hook and `recover` receives one context object: `args` is a copy of the
+ * wrapper invocation's argument list and `name` is the optional `name` option.
+ * Hooks that observe a value also get it: `onSuccess({result, args, name})`,
+ * `onError({error, args, name})`, `onStart`/`onFinally` get `{args, name}`.
+ * Their return values are ignored.
+ *
+ * Failure contract:
+ *
+ * - `onStart` is a boundary guard: if it throws, `fn` does not run and its
+ *   error flows through `onError` + the failure policy like a `fn` failure.
+ * - On the success path a throwing `onSuccess`/`onFinally` propagates as
+ *   itself (a hook failure, never relabeled as the operation's failure).
+ * - On the failure path the operation error is never replaced by a hook error:
+ *   a throwing `onError`/`onFinally` is kept as a secondary, attached to the
+ *   primary as `error.hookErrors` best-effort. If the primary cannot carry the
+ *   property, the hook error is dropped — never reported or substituted.
+ * - A throwing `recover` propagates its own error (the original was already
+ *   observed by `onError`). `onSuccess` does not run on a recovered value.
+ *
+ * Sync twin: tryCatchSync.
  */
-export const tryCatch = (fn, {
-  onStart, onSuccess, onError, onFinally,
-} = {}) =>
-  async (...args) => {
+export const tryCatch = (fn, opts = {}) => {
+  const {
+    onStart, onSuccess, onError, onFinally, recover, name,
+  } = opts
+  assertRecover(recover, 'tryCatch')
+
+  return async (...args) => {
+    const outcome = createHookOutcome()
+    const context = {args: [...args], name}
+    let result
+    let failed = false
+
     try {
       if (onStart)
-        await onStart()
-      const result = await fn(...args)
-      if (onSuccess)
-        await onSuccess(result)
-      return result
+        await onStart(context)
+      result = await fn(...args)
     } catch (error) {
-      if (onError)
-        await onError(error)
-      // undefined is the library-wide drop signal: pipe() short-circuits and
-      // series() drops the item instead of keeping a null downstream.
-      return undefined
-    } finally {
-      if (onFinally)
-        await onFinally()
+      failed = true
+      outcome.fail(error)
     }
+
+    if (failed)
+      result = await handleFailure(outcome, {onError, recover}, context)
+    else
+      await observeHook(outcome, onSuccess, {...context, result})
+
+    await observeHook(outcome, onFinally, context)
+    outcome.settle()
+    return result
   }
+}
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -81,20 +140,11 @@ const failureCause = failure =>
     ? failure.errors[0]?.error
     : failure.error
 
-const isExtensibleObject = value =>
-  value !== null &&
-  typeof value === 'object' &&
-  Object.isExtensible(value)
-
 const withFailure = (error, failure) => {
   error.failure = failure
   return error
 }
 
-// Attaching `.failure` can fail even on an extensible object: a non-writable
-// own property, an accessor without a setter, or a Proxy trap that throws.
-// Both the extensibility probe and the assignment are guarded, so a hostile
-// object never replaces the original error with an unrelated TypeError.
 const attachFailure = (error, failure) => {
   try {
     if (!isExtensibleObject(error))
@@ -242,7 +292,6 @@ const runAsyncStrategy = async ({
 const attemptSeriesItem = async (plan, runFn, {item, index}) => {
   try {
     const result = await runFn(item, index)
-    // undefined means "drop this item" (this is how filter() works).
     if (result !== undefined)
       plan.state.results.push(result)
 
@@ -256,7 +305,6 @@ const attemptSeriesItem = async (plan, runFn, {item, index}) => {
   }
 }
 
-// `skip` keeps spacing; a collected error only pauses when asked.
 const shouldPauseAfter = (plan, failed, errorOutcome) =>
   !failed || Boolean(errorOutcome?.skip) || plan.pauseOnErrors
 
@@ -368,9 +416,6 @@ const runScan = ({
       }
     }
 
-    // The pause runs after the accumulator update, so it sees the new state.
-    // A recovered item is a success, so it always pauses. With pauseOnErrors,
-    // a handled error (including `skip`) pauses too.
     if (!failed || plan.pauseOnErrors)
       await waitForPause(plan.pause, plan.signal, [acc, item, index])
 
@@ -474,7 +519,6 @@ export const enrich = (operations, opts = {}) => {
 }
 
 const runBranch = (fn, key, index) =>
-  // Start from a resolved promise so a synchronous throw becomes a rejection.
   Promise.resolve().then(() => fn(key, index))
 
 /**
@@ -526,7 +570,6 @@ export const join = async (tasks, opts = {}) => {
 
   const {strategy = collect, onError, onFailure} = opts
   const strategyName = strategy.name ?? strategy
-  // failFast cannot stop branches that already started; treat it as failLate.
   const isFailLate = strategyName === 'failLate' || strategyName === 'failFast'
 
   const value = {}
@@ -545,7 +588,6 @@ export const join = async (tasks, opts = {}) => {
       continue
     }
 
-    // rethrow: defer to a single throw once every branch has settled.
     if (strategyName === 'throw')
       continue
 
@@ -569,9 +611,6 @@ export const join = async (tasks, opts = {}) => {
 
   const failure = isFailLate && errors.length > 0 ? {errors} : false
 
-  // join awaits its failure callback so an async onFailure that rejects cannot
-  // fire after the result has resolved (an unhandled rejection). The iteration
-  // combinators call onFailure synchronously; join is stricter on purpose.
   if (failure && onFailure)
     await onFailure(failure)
 

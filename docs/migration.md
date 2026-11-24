@@ -2,6 +2,155 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.17.0: `tryCatch` rethrows by default; `recover` is the explicit seam
+
+0.17 redesigns `tryCatch` / `tryCatchSync` around one principle: **the wrapper
+never swallows by default.** The old default turned every failure into
+`undefined` (the drop signal), fusing *observing* a failure with *deciding what
+it becomes*. Those are now separate: hooks report what happened, and an
+explicit `recover` seam is the only place a failure becomes a value. This is a
+**behavior change** for any code that relied on the swallow default.
+
+### 1. Default failure: `undefined` → rethrow
+
+```js
+// Before (0.16): failure swallowed into undefined
+const safeFetch = tryCatch(fetchJson, {onError: logError})
+const data = await safeFetch(url)   // undefined on error
+
+// After (0.17): failure rethrows; onError only observes
+const safeFetch = tryCatch(fetchJson, {onError: logError})
+const data = await safeFetch(url)   // throws on error
+```
+
+To keep the old swallow-and-drop behavior, opt in explicitly with
+`recover: () => undefined`:
+
+```js
+// After, explicit drop (behavior-identical to the 0.16 default)
+const safeFetch = tryCatch(fetchJson, {
+  onError: logError,
+  recover: () => undefined,
+})
+const data = await safeFetch(url)   // undefined on error
+```
+
+`recover({error}) => value` is the general seam: return any substitute to
+consume the error. A throwing `recover` propagates its own error. `onSuccess`
+does not run on a recovered value.
+
+### 2. App `withLifecycle` / error-boundary wrappers
+
+A report-and-swallow boundary now spells out the swallow:
+
+```js
+// Before
+const withLifecycle = (fn, {context}) => tryCatch(fn, {
+  onError: error => reportError({error, context}),
+})
+
+// After
+const withLifecycle = (fn, {context}) => tryCatch(fn, {
+  name: context,
+  onError: ({error}) => reportError({error, context}),
+  recover: () => undefined,   // the explicit swallow
+})
+```
+
+### 3. Hook and `recover` context: one object
+
+Every hook and `recover` now receive a single `{args, name}` context object
+(plus `error` or `result` where relevant). The old positional parameters are
+gone, and the wrapper accepts a `name` option that is passed through:
+
+- `onStart({args, name})` / `onFinally({args, name})` — they used to receive no
+  arguments.
+- `onSuccess({result, args, name})` — was `onSuccess(result)`.
+- `onError({error, args, name})` — was `onError(error)`.
+- `recover({error, args, name})` — was `recover(error)`.
+
+`args` is a copy of the wrapper invocation's argument list; `name` is the `name` option,
+or `undefined` when it is omitted.
+
+```js
+// Before (0.16)
+tryCatch(save, {
+  onSuccess: result => log.info(result),
+  onError: error => report(error),
+  recover: error => ({ok: false, error}),
+})
+
+// After (0.17)
+tryCatch(save, {
+  name: 'save',
+  onSuccess: ({result, name}) => log.info(name, result),
+  onError: ({error, name}) => report({name, error}),
+  recover: ({error}) => ({ok: false, error}),
+})
+```
+
+### 4. Inside `series`, the strategy decides again
+
+Without `recover`, a `tryCatch` mapper just observes and rethrows, so the run's
+strategy sees the failure (it is no longer silently dropped):
+
+```js
+// Before: failed items dropped, errors empty regardless of strategy
+await series(items, tryCatch(fn))
+
+// After: choose the policy explicitly
+await series(items, tryCatch(fn), {strategy: collect})   // failure is data
+// or keep the drop:
+await series(items, tryCatch(fn, {recover: () => undefined}))
+```
+
+### 5. Hook failures no longer change the operation outcome
+
+The operation's outcome is primary:
+
+- **The operation failed** → its error is thrown. A throwing `onError` /
+  `onFinally` never replaces it: the hook error is attached to the primary as
+  `error.hookErrors`, best effort, and dropped if the primary cannot carry the
+  property (a primitive, a frozen / non-extensible object, or one that rejects
+  the write). There is no console fallback.
+- **A hook throws while the operation succeeded** → the hook error is thrown as
+  itself. The first hook failure is the thrown error; a later one is attached to
+  it as `error.hookErrors`. A throwing `onSuccess` is no longer routed to
+  `onError` as an operation failure.
+- **After a successful `recover`**, the operation counts as successful: a hook
+  error thrown earlier on the failure path propagates as itself.
+- `onStart` is a boundary guard: a throw skips `fn` and flows through `onError` +
+  the failure policy.
+
+The old "augment-and-rethrow by throwing from `onError`" becomes: mutate the
+error in `onError` (it observes the same object) and let the default rethrow
+carry it.
+
+```js
+// Before: augment-and-rethrow by throwing from onError
+tryCatch(charge, {
+  onError: e => { throw Object.assign(e, {operation: 'charge'}) },
+})
+
+// After: mutate in onError; the default rethrow carries the same object
+tryCatch(charge, {
+  onError: ({error}) => { Object.assign(error, {operation: 'charge'}) },
+})
+```
+
+### 6. `tryCatchSync`: `recover` is guarded; fatal violations abort
+
+`recover` joins `fn` and the hooks as a callback that must be synchronous: a
+returned thenable is a fatal `TypeError` pointing at `tryCatch()`. A fatal
+sync-callback violation now aborts the wrapper immediately — hooks that have not
+run yet, including `onFinally`, are skipped.
+
+### Nothing else changes
+
+Strategy defaults, result shapes, the `undefined`-drops-the-item convention in
+`series` / `filter` / `pipe` / `mapSeries`, and the fold `recover` seam are
+unchanged. Release narrative: [NOTES_16_17](releases/NOTES_16_17.md).
+
 ## 0.16.0: sync callbacks must be synchronous
 
 0.16 makes the sync/async split explicit at the callback boundary: a sync

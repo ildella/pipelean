@@ -4,10 +4,6 @@ import {
 } from './shared.js'
 import {failOnItem} from './strategy.js'
 
-// Item-error handling: report the error, then consult the strategy. Fold
-// `recover` is the one seam between the two — it turns an error into the next
-// accumulator and, when it succeeds, consumes the error entirely.
-
 const itemErrorContext = (state, {item, error, index}) => {
   if (state.strategyName === 'throw' || isSyncCallbackError(error))
     throw error
@@ -94,8 +90,6 @@ export const handleItemErrorAsync = async (
   return failOnItem(state, context)
 }
 
-// A recovered error is consumed (a successful iteration); anything else is the
-// usual item error path, including a `recover` that throws.
 export const settleFoldError = (plan, errorContext, state) => {
   if (isSyncCallbackError(errorContext.error))
     throw errorContext.error

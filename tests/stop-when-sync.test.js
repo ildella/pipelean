@@ -128,8 +128,6 @@ test('filterSync inherits the stopped source', () => {
   expect(result.results).toEqual([2])
 })
 
-// isPatternObject fix — iterable objects were misread as where() patterns
-
 test('filterSync accepts sync generator sources directly', () => {
   function * numbers () {
     yield 1

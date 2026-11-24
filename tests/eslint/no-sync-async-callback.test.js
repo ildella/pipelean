@@ -7,13 +7,11 @@ const tester = new RuleTester({
 
 tester.run('no-sync-async-callback', rule, {
   valid: [
-    // Sync callbacks are the supported shape.
     {code: 'seriesSync(items, x => x)'},
     {code: 'seriesSync(items, function (x) { return x })'},
     {code: 'foldSync(items, (a, b) => a + b, 0)'},
     {code: 'tryCatchSync(() => 1)'},
     {code: 'pipeSync(x => x + 1)'},
-    // Sync hooks in an options object are the supported shape.
     {
       code: 'enrichSync(ops, {onStepStart: ctx => ctx})',
     },
@@ -26,7 +24,9 @@ tester.run('no-sync-async-callback', rule, {
     {
       code: 'tryCatchSync(fn, {onSuccess: r => r, onError: e => e})',
     },
-    // Sync telemetry callbacks are the supported shape.
+    {
+      code: 'tryCatchSync(fn, {recover: e => null})',
+    },
     {
       code: 'seriesSync(items, x => x, {onProgress: p => p})',
     },
@@ -36,42 +36,31 @@ tester.run('no-sync-async-callback', rule, {
     {
       code: 'seriesSync(items, x => x, {onSourceError: e => e})',
     },
-    // Non-Sync combinators accept async callbacks.
     {code: 'series(items, async x => x)'},
     {code: 'mapSeries(async x => x)'},
     {code: 'fold(items, async (a, b) => a, 0)'},
-    // Non-Sync combinators accept async hooks too.
     {code: 'enrich(ops, {onStepStart: async ctx => ctx})'},
     {code: 'tryCatch(fn, {onFinally: async () => {}})'},
-    // Non-Sync combinators accept async telemetry too.
+    {code: 'tryCatch(fn, {recover: async e => null})'},
     {code: 'series(items, x => x, {onProgress: async p => p})'},
     {code: 'filter(items, x => x, {onFailure: async e => e})'},
     {code: 'series(source, x => x, {onSourceError: async e => e})'},
-    // Names that merely contain Sync are not sync combinators.
     {code: 'syncing(items, async x => x)'},
-    // Documented limitation: a hook held in a variable is not resolved.
     {
       code: 'const onStepStart = async ctx => ctx\n' +
         'enrichSync(ops, {onStepStart})',
     },
-    // Documented limitation: spread properties are not inspected.
     {code: 'enrichSync(ops, {...hooks})'},
     {code: 'tryCatchSync(fn, {...hooks, onStart: () => {}})'},
-    // Documented limitation: computed keys are not inspected.
     {code: 'enrichSync(ops, {[key]: async ctx => ctx})'},
-    // Documented limitation: nested objects are not inspected.
     {
       code: 'enrichSync(ops, {opts: {onStepStart: async ctx => ctx}})',
     },
-    // Documented limitation: member expressions evade detection.
     {code: 'lib.seriesSync(items, async x => x)'},
     {code: 'lib.enrichSync(ops, {onStepStart: async ctx => ctx})'},
     {code: 'pipelean.foldSync(items, async (a, b) => a, 0)'},
-    // Documented limitation: a callback reference is not resolved.
     {code: 'const f = async x => x\nseriesSync(items, f)'},
-    // Documented limitation: only a literal function argument counts.
     {code: 'seriesSync(items, cond ? async x => x : f)'},
-    // Not a call expression.
     {code: 'new seriesSync(async () => 1)'},
   ],
   invalid: [
@@ -112,7 +101,6 @@ tester.run('no-sync-async-callback', rule, {
       errors: [{messageId: 'noAsyncCallback'}],
     },
     {
-      // async FunctionExpression form.
       code: 'seriesSync(items, async function (x) { return x })',
       errors: [{messageId: 'noAsyncCallback'}],
     },
@@ -121,7 +109,6 @@ tester.run('no-sync-async-callback', rule, {
       errors: [{messageId: 'noAsyncCallback'}],
     },
     {
-      // The message names the offending call.
       code: 'tryCatchSync(async () => 1)',
       errors: [
         {
@@ -131,7 +118,6 @@ tester.run('no-sync-async-callback', rule, {
         },
       ],
     },
-    // Async hooks in a direct options object are rejected at runtime too.
     {
       code: 'enrichSync(ops, {onStepStart: async ctx => ctx})',
       errors: [{messageId: 'noAsyncCallback'}],
@@ -157,18 +143,19 @@ tester.run('no-sync-async-callback', rule, {
       errors: [{messageId: 'noAsyncCallback'}],
     },
     {
-      // async FunctionExpression hook form.
+      code: 'tryCatchSync(fn, {recover: async e => null})',
+      errors: [{messageId: 'noAsyncCallback'}],
+    },
+    {
       code: 'enrichSync(ops, {onStepStart: async function (ctx) {' +
         ' return ctx }})',
       errors: [{messageId: 'noAsyncCallback'}],
     },
     {
-      // Reported once per call, not once per hook.
       code: 'tryCatchSync(fn, {onStart: async () => {},' +
         ' onFinally: async () => {}})',
       errors: [{messageId: 'noAsyncCallback'}],
     },
-    // Async telemetry is rejected at runtime too (0.16 telemetry guard).
     {
       code: 'seriesSync(items, x => x, {onProgress: async p => p})',
       errors: [{messageId: 'noAsyncCallback'}],
@@ -183,12 +170,10 @@ tester.run('no-sync-async-callback', rule, {
       errors: [{messageId: 'noAsyncCallback'}],
     },
     {
-      // async FunctionExpression telemetry form.
       code: 'enrichSync(ops, {onFailure: async function (e) { return e }})',
       errors: [{messageId: 'noAsyncCallback'}],
     },
     {
-      // A direct async argument and an async hook still report once.
       code: 'enrichSync(async x => x, {onStepStart: async ctx => ctx})',
       errors: [{messageId: 'noAsyncCallback'}],
     },

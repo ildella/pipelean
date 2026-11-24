@@ -26,8 +26,6 @@ test('skip: a throwing onError stops the run unreported', async () => {
     results: [10], errors: [], sourceErrors: [], failure: false,
   }
 
-  // The throw aborts iteration, but `skip` ignores source errors by contract:
-  // it is neither collected nor thrown, and item 30 never runs.
   await expect(series(input, failingAt(20), opts)).resolves.toEqual(expected)
   expect(seriesSync(input, failingAt(20), opts)).toEqual(expected)
 })
@@ -41,9 +39,6 @@ test('failFast: a throw-once onFailure fires twice and resolves', async () => {
     failure: {error: telemetryError, index: 1},
   }
 
-  // The first throw is reclassified as a source error and `onFailure` runs
-  // again with the source context; that call returns normally, so the
-  // telemetry error replaces the item error as the failure.
   await expect(series([10, 20], failingAt(20), {
     strategy: failFast,
     onFailure,
@@ -68,8 +63,6 @@ test('failFast sync: a throw-once onFailure fires twice as well', () => {
 test('failLate: a throw-once onFailure is not retried', async () => {
   const onFailure = throwOnce()
 
-  // At settle there is no iteration loop to reclassify the throw: it escapes
-  // on the first call.
   await expect(series([10, 20], failingAt(20), {
     strategy: failLate,
     onFailure,

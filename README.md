@@ -201,9 +201,10 @@ Worth knowing before you adopt it:
   mapper; keep intra-item cancellation in your own operation.
 - **`undefined` is the drop sentinel**, so you cannot map an item to
   `undefined` — also in `mapSeries`, which is not `Array.prototype.map`.
-- **Error tools are not layers.** Strategies own the run's policy; `recover`
-  is a fold-only seam; `retry`/`tryCatch` wrap one function; `assertOk` guards
-  a finished result.
+- **Error tools are not layers.** Strategies own the run's policy; the fold
+  `recover` option is the fold-local seam (`tryCatch` has its own
+  single-operation `recover`); `retry`/`tryCatch` wrap one function; `assertOk`
+  guards a finished result.
 - **No TypeScript declarations yet.**
 - **Not a stream adapter.** Anything `for await` accepts works; Node
   `ReadableStream` glue is yours.

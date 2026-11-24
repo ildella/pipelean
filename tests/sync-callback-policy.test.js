@@ -83,6 +83,15 @@ test('tryCatchSync rejects an async onError', () => {
     .toThrow('tryCatchSync() onError returned a Promise; use tryCatch()')
 })
 
+test('tryCatchSync rejects an async recover', () => {
+  const wrapped = tryCatchSync(() => {
+    throw new Error('boom')
+  }, {recover: async () => await undefined})
+
+  expect(() => wrapped())
+    .toThrow('tryCatchSync() recover returned a Promise; use tryCatch()')
+})
+
 test('a custom thenable is rejected like a native Promise', () => {
   const thenable = {then: () => undefined}
 
@@ -90,9 +99,6 @@ test('a custom thenable is rejected like a native Promise', () => {
     .toThrow('seriesSync() mapper returned a Promise; use series()')
 })
 
-// A rejected promise abandoned by the guard used to crash the process with a
-// second, unrelated error. Collect what the process reports as unhandled
-// while `run` throws, so a leaked rejection fails the expectation below.
 const unhandledWhileThrowing = async (run, message) => {
   const proc = globalThis.process
   const reasons = []

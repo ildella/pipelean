@@ -102,8 +102,9 @@ these apply, plain JavaScript is clearer and you should keep it:
 
 - **A single operation** — one `await` with a `try/catch` at a boundary is
   already explicit; wrapping it adds indirection, not safety. `tryCatch` is
-  for when you want the wrapper itself: uniform logging, an outcome value,
-  a reusable safe function.
+  for when you want the wrapper itself: a reusable execution boundary with
+  uniform observation, lifecycle hooks and an explicit failure policy
+  (`recover`).
 - **A pure sync transformation with no failure policy** — `items.map(x => x.id)`
   or `items.filter(Boolean)` says exactly what it does. A pure sync *fold* is
   the exception: `foldSync` is its canonical form, and `no-array-reduce`
@@ -271,7 +272,7 @@ or fp-ts `flow`.
 **Use `pipe` when** one value goes through value-in/value-out steps and any step
 may bail. **Don't use it when** steps need the state accumulated so far
 (`enrich`), or you want failures captured as data (`series` strategy or
-`tryCatch`).
+`tryCatch` with `recover`).
 
 ### Wrappers: retry and tryCatch
 
@@ -279,13 +280,21 @@ Pipelean provides lightweight wrappers that add behavior to **individual
 functions**. They compose with `pipe` and `series`.
 
 - **`tryCatch(fn, options?)`**
-  Protects a single function with lifecycle hooks: `onStart`, `onSuccess`,
-  `onError`, `onFinally`. Returns `undefined` on failure — the same drop signal
-  used everywhere else — so a failed step short-circuits `pipe` and drops the
-  item in `series`. Ideal for centralized error reporting even outside
-  pipelines. An `onError` that throws (or rejects) **propagates**: it replaces the
-  original error, and `onFinally` still runs, so you can augment-and-rethrow from
-  the hook.
+  The composable execution boundary for one operation. `onStart` gates the call
+  and `recover` is the only seam that substitutes a failure; the other hooks
+  report what happened and never mask the operation outcome. Each hook and
+  `recover` receive one context object — `onStart({args, name})`,
+  `onSuccess({result, args, name})`, `onError({error, args, name})`,
+  `onFinally({args, name})` — where `args` is a copy of the invocation's
+  argument list and `name` is the optional `name` label. **By default a failure
+  is rethrown** — the wrapper never swallows.
+  `recover({error}) => value` is the explicit seam that turns a failure into a
+  value; `recover: () => undefined` is the spelled-out drop that short-circuits
+  `pipe` and drops the item in `series`. Without `recover`, a `tryCatch` inside
+  `series` just observes and the run's strategy still decides policy. A hook
+  failure never masks the operation error: on the failure path it is attached as
+  `error.hookErrors` best effort, and dropped if the primary cannot carry it;
+  on the success path the hook error is thrown as itself.
 
 - **`retry(fn, options?)`**
   Automatic retries: `attempts` (default 3), `delay` in ms (default 0). Re-throws
@@ -345,8 +354,8 @@ the fold's input can be bad as data, or when you need `recover`, `signal` or
 `pause`. `scan` and `reduce` default to `failFast`. Under `failFast` the
 `results` array is cleared on failure (the `value` of a `reduce` survives: only
 `results` is cleared), so use `collect`/`failLate` when partial progress matters.
-Both folds support `pause`, `pauseOnErrors`, `signal` and the fold-only
-`recover` seam; `take` and `onProgress` remain `series`-only.
+Both folds support `pause`, `pauseOnErrors`, `signal` and the fold `recover`
+seam; `take` and `onProgress` remain `series`-only.
 
 `recover` is what lets a fold survive a failed step while keeping the
 accumulator moving:
@@ -585,8 +594,8 @@ is `false` even with entries in `errors`, so `assertOk` returns the result. Use
 Each error tool owns one scope, and they do not stack into a hierarchy:
 
 - **Strategies** own the run's policy (this chapter).
-- **`recover`** is a fold-only seam: one scanner error → the next accumulator —
-  see [Fold recovery](#fold-recovery-recover).
+- **The fold `recover` option** is a fold-local seam: one scanner error → the
+  next accumulator — see [Fold recovery](#fold-recovery-recover).
 - **`retry` / `tryCatch`** wrap a single function — see
   [Wrappers](#wrappers-retry-and-trycatch).
 - **`assertOk`** guards a finished result that would otherwise be ignored.
@@ -676,8 +685,10 @@ await reduce(rounds, async state => {
 - `pause` runs after a successful recovery regardless of `pauseOnErrors`; an
   abort during recovery keeps the recovered accumulator, skips the pause and
   stops.
-- `recover` is fold-only: `series`, `filter`, `findSync`, `enrich`, `join` and
-  `pipe` throw a `TypeError` if given one. `enrich` points you at `reduce`.
+- The fold `recover` option is not supported elsewhere: `series`, `filter`,
+  `findSync`, `enrich`, `join` and `pipe` throw a `TypeError` if given one.
+  `enrich` points you at `reduce`. (`tryCatch` has its own single-operation
+  `recover`, with no accumulator.)
 - In `scanSync` / `reduceSync` it must be synchronous; a thenable is rejected
   with a `TypeError`.
 

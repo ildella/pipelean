@@ -44,7 +44,6 @@ test('a throwing success hook under skip is dropped and runs on', async () => {
 
   expect(succeeded).toEqual([1])
   expect(onStepSuccess).toHaveBeenCalledTimes(2)
-  // The skipped step's patch is not committed, but the run goes on.
   expect(result.value).toEqual({b: 2})
   expect(result.errors).toEqual([])
   expect(result.failure).toBe(false)

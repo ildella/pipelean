@@ -10,9 +10,10 @@
  * options object (`enrichSync(ops, {onStepStart: async ...})`,
  * `tryCatchSync(fn, {onFinally: async () => ...})`). The inspected keys are
  * the lifecycle hooks (onStepStart, onStepSuccess, onStart, onSuccess,
- * onError, onFinally) and the telemetry callbacks (onProgress, onFailure,
- * onSourceError): since 0.16 the runtime guards all of them on the sync
- * combinators, so the static rule mirrors the whole set.
+ * onError, onFinally), the telemetry callbacks (onProgress, onFailure,
+ * onSourceError) and the tryCatchSync recover seam: since 0.16 the runtime
+ * guards all of them on the sync combinators, so the static rule mirrors the
+ * whole set.
  *
  * Deliberately narrow, matching `no-fold-rethrow`: only bare `foo(...)`
  * calls whose callee identifier ends in `Sync`, and only when an argument is
@@ -36,6 +37,7 @@ const HOOK_KEYS = new Set([
   'onProgress',
   'onFailure',
   'onSourceError',
+  'recover',
 ])
 
 const isSyncCall = node =>

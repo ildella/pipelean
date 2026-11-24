@@ -53,8 +53,8 @@ that Pipelean satisfies the monad laws.
 1. **`pipe` is a leaky Maybe.** It short-circuits only on `undefined`, not on
    `null`. `null` is a perfectly good value that keeps flowing. That is a
    deliberate JavaScript pragmatism, and it means `pipe` is not lawful
-   `Option` composition. (This is also why `tryCatch` now returns `undefined`
-   rather than `null`.)
+   `Option` composition. (`tryCatch` rethrows by default; it only produces the
+   `undefined` drop when you opt in with `recover: () => undefined`.)
 2. **Iterators are not `Either`.** `series`, `scan` and `reduce` return a record
    `{results | value, errors, sourceErrors, failure}`. They always return; they
    never short-circuit into a failure channel that you `flatMap` over. Errors are

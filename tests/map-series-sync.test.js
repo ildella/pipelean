@@ -121,7 +121,6 @@ test('rejects a null strategy with the intended configuration error', () => {
 test.each(['onError', 'onFailure', 'onSourceError'])(
   'rejects the dead %s callback at build time',
   key => {
-    // build-time (curried) form must name the key too
     expect(() => mapSeriesSync(x => x, {[key]: () => undefined}))
       .toThrow(`${key} never fires`)
   },

@@ -54,7 +54,8 @@ For the mental model see the [guide](guide.md); for recipes see
 - [findSync](#findsync) — first match, early exit (sync-only)
 - [stopWhen](#stopwhen) — source adapter for predicate-based early exit
 - [forever](#forever) — source adapter for unbounded ticking
-- [recover](#recover) — fold-only error recovery option (`scan` / `reduce`)
+- [recover](#recover) — the fold `recover` option (`scan` / `reduce`; `tryCatch`
+  has its own single-operation `recover`)
 
 ### Composition
 
@@ -68,7 +69,7 @@ For the mental model see the [guide](guide.md); for recipes see
 - [where](#where) — object-pattern predicate
 - [assertOk](#assertok) — guard against an ignored failure
 - [retry](#retry) — configurable retry logic
-- [tryCatch](#trycatch) — single-function lifecycle hooks
+- [tryCatch](#trycatch) — single-function execution boundary
 - [delay](#delay) — Promise-based wait
 
 ### Shared behavior
@@ -127,10 +128,11 @@ The default strategy is what runs when `opts.strategy` is omitted.
 
 **`undefined` is the drop sentinel in iteration and composition, and an error in
 `enrich`.** In `series` / `seriesSync`, `mapSeries` / `mapSeriesSync`, `pipe` /
-`pipeSync` and `tryCatch` / `tryCatchSync` (when used downstream), returning
-`undefined` drops the item or short-circuits the pipeline, so `results` (or the
-returned array) can be shorter than the input; a `filter` / `filterSync`
-predicate drops on any falsy value. In `enrich` / `enrichSync` it is the
+`pipeSync`, returning `undefined` drops the item or short-circuits the pipeline,
+so `results` (or the returned array) can be shorter than the input; a `filter` /
+`filterSync` predicate drops on any falsy value. `tryCatch` / `tryCatchSync`
+rethrow by default; they only produce the drop signal when you opt in with
+`recover: () => undefined`. In `enrich` / `enrichSync` it is the
 opposite: a step must return a patch object, and `undefined` is an **invalid
 patch** that fails the step through the strategy — return `{}` for a no-op.
 Folds (`scan`, `scanSync`, `reduce`, `reduceSync`, `foldSync`) never drop, so
@@ -141,8 +143,8 @@ Folds (`scan`, `scanSync`, `reduce`, `reduceSync`, `foldSync`) never drop, so
 
 | API | model | sync / async | input | output | default strategy | `undefined` / no-op | error semantics |
 |---|---|---|---|---|---|---|---|
-| `tryCatch` | wrapper | async | `fn` + lifecycle hooks | wrapper returning `fn`'s result, or `undefined` | none | failure → `undefined` (drop signal) | swallows into `undefined`; a throwing `onError` propagates; a throwing `onFinally` wins |
-| `tryCatchSync` | wrapper | sync | sync `fn` + sync hooks | same, direct | none | as `tryCatch` | as `tryCatch`; async callback → fatal `TypeError` |
+| `tryCatch` | wrapper | async | `fn` + lifecycle hooks + `name` + `recover` | wrapper returning `fn`'s result (or `recover`'s substitute) | none | `recover: () => undefined` is the explicit drop | rethrows by default; `recover` substitutes; hook errors never mask the primary (attached best effort) |
+| `tryCatchSync` | wrapper | sync | sync `fn` + sync hooks + sync `recover` | same, direct | none | as `tryCatch` | as `tryCatch`; async callback → fatal `TypeError` |
 | `retry` | wrapper | async | `fn` + `{attempts, delay}` | wrapper returning the result after retries | none | n/a | retries, then throws the last error |
 | `assertOk` | guard | sync (works on both result kinds) | a settled result object | the same result | none | n/a | throws the original error with `.failure` when `failure` is truthy |
 | `delay` | utility | async | `ms` | `Promise<void>` | none | n/a | n/a; prefer the iterator's abort-aware `pause` |
@@ -504,7 +506,8 @@ one at a time.
 - `pause`: Spacing between items — a number of milliseconds, or `(item, index) => number | Promise<number>` resolved after the result update. `0`, a negative number, `undefined` or `NaN` means no wait.
 - `pauseOnErrors`: Whether to also pause after handled errors (default: `false`). Under `skip`, the pause always applies.
 - `signal`: An `AbortSignal`. Checked before each item and while waiting in `pause`; aborting ends the run cleanly — `failure: false`, no `sourceErrors` — with collected `results` preserved. It never interrupts the in-flight mapper or a pending `source.next()`. See [Cancellation with signal](#cancellation-with-signal).
-- `recover`: **not** supported by `series`. It is a fold-only seam — see [recover](#recover).
+- `recover`: **not** supported by `series`. The fold `recover` option belongs to
+  `scan` / `reduce` — see [recover](#recover).
 
 **Callbacks**:
 - `onProgress({item, result, index, total})`: Called after each successful item. NOT called for errors or `undefined` drops.
@@ -589,8 +592,8 @@ predicate's return value is never placed into `results`.
 
 **Options / Callbacks**: same as [series](#series) — `strategy`, `onError`,
 `onFailure`, `onSourceError`, `take`, `total`, `onProgress`, `pause`,
-`pauseOnErrors`, `signal`. `recover` is **not** supported: it is fold-only
-(`scan` / `reduce`).
+`pauseOnErrors`, `signal`. `recover` is **not** supported: the fold `recover`
+option belongs to `scan` / `reduce`.
 
 **Failure behavior**: per [strategy](#error-strategies), as `series`.
 
@@ -635,7 +638,8 @@ report object.
 
 **Options**: every `series` option except a conflicting `strategy` and the three
 error callbacks. `take`, `total`, `onProgress`, `pause`, `pauseOnErrors` and
-`signal` pass through untouched. `recover` is not supported (it is fold-only).
+`signal` pass through untouched. `recover` is not supported (the fold `recover`
+option belongs to `scan` / `reduce`).
 
 **Failure behavior**:
 - **Stops at the first failure**: no later item runs, and the error is the
@@ -717,7 +721,8 @@ useful. Use `reduce` when only the last value matters.
 - `pause`: Spacing after each successful scanner call — a number or `(accumulator, item, index) => number | Promise<number>` resolved after the accumulator update.
 - `pauseOnErrors`: Also pause after a handled error (including `skip`); default `false`.
 - `signal`: `AbortSignal` checked before each item and during `pause`; aborting keeps the current accumulator and ends cleanly.
-- `recover(context)`: Fold-only recovery seam, called when the scanner throws. See [recover](#recover).
+- `recover(context)`: the fold recovery seam, called when the scanner throws.
+  See [recover](#recover).
 - `scan` does **not** support `onProgress` or `take`.
 
 **Callbacks**: `onError` (each handled item error, no control-flow effect),
@@ -785,7 +790,8 @@ default strategy as `scan`; different return shape.
 - `pause`: Spacing after each successful scanner call — a number or `(accumulator, item, index) => number | Promise<number>` resolved after the accumulator update.
 - `pauseOnErrors`: Also pause after a handled error (including `skip`); default `false`.
 - `signal`: `AbortSignal` checked before each item and during `pause`; aborting keeps the current accumulator and ends cleanly.
-- `recover(context)`: Fold-only recovery seam, called when the scanner throws. See [recover](#recover).
+- `recover(context)`: the fold recovery seam, called when the scanner throws.
+  See [recover](#recover).
 - `reduce` does **not** support `onProgress` or `take`.
 
 **Callbacks**: `onError` (each handled item error, no control-flow effect),
@@ -1062,7 +1068,9 @@ async folds.
 **Applies to**: `scan`, `reduce`, `scanSync`, `reduceSync`. It is **not**
 supported by `series`, `filter`, `findSync`, `enrich`, `join`, or `pipe` — those
 have no accumulator to recover into. Passing `recover` to any of them throws a
-`TypeError` (`enrich` raises its own message pointing at `reduce`).
+`TypeError` (`enrich` raises its own message pointing at `reduce`). This fold
+seam is distinct from [tryCatch](#trycatch)'s own single-operation `recover`,
+which substitutes a value for one failed call (no accumulator involved).
 
 **Context**: `{error, item, index, state, total?}`
 
@@ -1125,7 +1133,7 @@ rounds with no `try/catch` inside the scanner.
 | --- | --- | --- |
 | `recover` | one fold item | error → next accumulator, then keep folding |
 | `strategy: collect` | the whole run | record the error, continue with the *previous* accumulator |
-| `tryCatch` | one function | swallow, return `undefined` (the drop signal) |
+| `tryCatch` | one function | rethrow by default; `recover({error})` substitutes a value (`recover: () => undefined` drops) |
 | `retry` | one function | retry the same call, then rethrow |
 | `assertOk` | one finished result | throw the original error if `failure` is truthy, with `.failure` attached |
 
@@ -1164,8 +1172,8 @@ values and keep flowing. This is composition in the `Maybe`/`Option` sense
 (`A => Option<B>`), not plain composition as in Ramda or fp-ts `flow`.
 
 **Caveats**: sync twin [pipeSync](#pipesync); for failures captured as data use
-a `series` strategy or [tryCatch](#trycatch); for steps that need the accumulated
-state use [enrich](#enrich).
+a `series` strategy or [tryCatch](#trycatch) with `recover`; for steps that need
+the accumulated state use [enrich](#enrich).
 
 **Example**:
 ```javascript
@@ -1566,7 +1574,8 @@ original error object).
   results, so it is usable on either side of the sync/async split.
 - Not an error strategy and does not change strategy defaults: it only decides
   whether a finished outcome is acceptable to ignore. `retry` and `tryCatch`
-  remain the single-function wrappers; `recover` remains the fold-local seam.
+  remain the single-function wrappers; the fold `recover` seam is distinct from
+  `tryCatch`'s own single-operation `recover`.
 
 **Example**:
 ```javascript
@@ -1627,68 +1636,105 @@ const result = await robust()
 
 ### tryCatch
 
-Wraps individual async functions with lifecycle hooks for comprehensive error
-handling and telemetry. Always catches errors — returns `undefined` on failure,
-the library-wide drop signal.
+The composable execution boundary for **one operation** — the single-function
+analogue of what `series` / `pipe` give an iteration. It runs `fn`, exposes
+optional lifecycle hooks, and applies an explicit failure policy. **By default
+a failure is rethrown: the wrapper never swallows.** Turning a failure into a
+value is spelled out with `recover`.
 
 **Signature**: `tryCatch(fn, options?) => wrapperFunction`
 
 **Parameters**:
 - `fn`: The async function to wrap
 - `options`: Configuration object with the following properties:
-  - `onStart: () => void | Promise<void>` — Called before function execution
-    (no arguments); awaited
-  - `onSuccess: (result) => void | Promise<void>` — Called on successful
-    completion (result only); awaited
-  - `onError: (error) => void | Promise<void>` — Called on error (error only);
-    awaited
-  - `onFinally: () => void | Promise<void>` — Called regardless of
-    success/failure (no arguments); awaited
+  - `name: string` (optional) — a label for the operation, passed to every hook
+    and to `recover` as `name`. When omitted, they receive `undefined`.
+  - `onStart: ({args, name}) => void | Promise<void>` — boundary guard run
+    before `fn`; awaited. If it throws, `fn` never runs and its error flows
+    through `onError` + the failure policy like a `fn` failure.
+  - `onSuccess: ({result, args, name}) => void | Promise<void>` — observer on
+    `fn`'s success; awaited. Does **not** run on a recovered value.
+  - `onError: ({error, args, name}) => void | Promise<void>` — observer on the
+    operation error; awaited. Fires before the failure policy, even when the
+    failure is about to be rethrown.
+  - `onFinally: ({args, name}) => void | Promise<void>` — observer run on both
+    paths; awaited.
+  - `recover: ({error, args, name}) => value | Promise<value>` — the **only**
+    seam where a failure becomes a value. Returns the substitute and consumes
+    the error. Must be a function (a non-function is a `TypeError` when the
+    wrapper is constructed).
 
-**Returns**: a wrapper function with the same signature as `fn`. Returns
-`undefined` on error — the [drop signal](#the-undefined-sentinel) — so a failed
-step short-circuits `pipe` and drops the item when used as a `series` mapper.
+Every hook and `recover` receive **one context object**. `args` is a copy of
+the wrapper invocation's argument list (an array), so mutating it cannot change
+what `fn` received; `name` is the `name` option. There is no other field, and
+the hooks' and `recover`'s return values are ignored (except `recover`'s, which
+is the substitute). The context is shared, not cloned per hook: `args` is the
+same array in every hook, and a mutation by one hook is visible to later hooks.
 
-**Failure behavior**:
-- Automatic `async/await` wrapping; preserves original function signature
-- Comprehensive lifecycle: onStart → onSuccess/onError → onFinally
-- **All four hooks are awaited**, so when the wrapper settles every hook has
-  completed. A rejecting `onStart` is handled like a failing `fn`: `onError`
-  runs and the wrapper returns `undefined`. A rejecting `onFinally` rejects the
-  wrapper and overrides the `try` body's outcome — its return value, or the
-  error `onError` was rethrowing — because `finally` wins in JavaScript.
-- Deep telemetry support for debugging
-- **A throwing (or rejecting) `onError` propagates.** It is awaited inside the
-  `catch`, so an `onError` that throws replaces the original error as the
-  rejection, and `onFinally` still runs — unless `onFinally` itself fails, in
-  which case the `onFinally` rejection wins. This is how you augment-and-rethrow:
-  `onError: error => { throw Object.assign(error, {operation: 'charge'}) }`
-  rejects with the *original* object, now carrying extra fields. A plain
-  `onError` (logs, returns) still swallows and returns `undefined`.
-  `tryCatchSync` has the same precedence contract, with synchronous hooks.
+**Returns**: a wrapper with the same signature as `fn`. On success it resolves
+to `fn`'s result (or `recover`'s substitute). On failure, with no `recover`, it
+**rejects with the original error**.
 
-**Caveats**: not an error strategy — strategies belong to the iterators.
-Composes with `pipe` (short-circuit) and `series` (drop) through the `undefined`
-return. Sync twin: [tryCatchSync](#trycatchsync).
+**Failure policy**:
+- **No `recover` → rethrow.** `onError` observes, then the original error
+  propagates (identity, message, stack, `instanceof` preserved). Inside
+  `series`, the run's strategy therefore still decides policy.
+- **`recover` present → substitute.** `onError` observes, then
+  `recover({error, args, name})` supplies the result and the error is consumed.
+  `recover: () => undefined` is the explicit [drop signal](#the-undefined-sentinel):
+  it short-circuits `pipe` and drops the item in `series`.
+- **A throwing `recover` propagates its own error** (the original was already
+  observed by `onError`), and `onSuccess` does **not** run on a recovered value.
+
+**A hook failure never replaces the operation error.** Return values are
+ignored, and a hook failure is never relabeled as the operation's failure.
+`onStart` is the one hook that gates the operation (see above); the others only
+change the outcome when there is no operation error to preserve:
+- **Success path**: a throwing `onSuccess` / `onFinally` propagates as itself —
+  a hook failure, never the operation's. The first hook failure is the thrown
+  error; a later hook failure is attached to it as `error.hookErrors`.
+- **Failure path**: the operation error is **never replaced** by a hook error.
+  A throwing `onError` / `onFinally` is attached to the primary as
+  `error.hookErrors` (an array), best effort. If the primary cannot carry the
+  property (a primitive, a frozen / non-extensible object, or one that rejects
+  the write), the hook error is dropped: the primary is thrown **unchanged**.
+  Attaching mutates the primary and appends to any existing `hookErrors`, so
+  an error object reused across calls accumulates hook errors.
+- **After a successful `recover` the operation counts as successful**: the
+  next throwing hook becomes the primary error and is thrown as itself, with
+  any earlier failure-path hook error (for example from `onError`) attached to
+  it as `hookErrors`. If no later hook throws, that earlier hook error is
+  thrown as itself.
+
+**Caveats**: not an error strategy — strategies belong to the iterators. Not a
+Result library: returning `{ok, value|error}` is an app-layer composition, not
+the default. There is no reporting sink: the library never logs and has no
+configuration option for it, so the app's reporting belongs in `onError`. Sync
+twin: [tryCatchSync](#trycatchsync).
 
 **Example**:
 ```javascript
 import { tryCatch } from 'pipelean'
 
-const safeFetch = tryCatch(
-  async (url) => {
-    const response = await fetch(url)
-    return await response.json()
-  },
+// Observe + rethrow (default): the caller still sees the failure.
+const fetchJson = tryCatch(
+  async url => await (await fetch(url)).json(),
   {
-    onError: (error) => {
-      console.error('Fetch failed:', error)
-    }
-  }
+    name: 'fetchJson',
+    onError: ({error, args}) => log.warn('fetch failed', args[0], error),
+  },
 )
 
+// Observe + substitute: the explicit swallow.
+const safeFetch = tryCatch(fetchJson, {
+  name: 'safeFetch',
+  recover: ({error}) => ({ok: false, reason: error.message}),
+})
 const data = await safeFetch('https://api.example.com')
-// data is the parsed JSON on success, undefined on error
+// parsed JSON on success, the substitute object on failure
+
+// The explicit drop: undefined, the drop signal.
+const maybeFetch = tryCatch(fetchJson, {recover: () => undefined})
 ```
 
 ---
@@ -1816,7 +1862,7 @@ want Pipelean's structured error collection.
   intended promise field from an async callback
 - Source errors: same semantics as the async twins — see
   [Source errors](#source-errors).
-- `scanSync` and `reduceSync` also support the fold-only `recover` option. It
+- `scanSync` and `reduceSync` also support the fold `recover` option. It
   must be synchronous: returning a thenable is treated as the recover error (a
   `TypeError`) and handled by the active strategy.
 - `assertOk` is not a sync variant: it is synchronous and works on both async
@@ -2006,24 +2052,45 @@ const {value, errors, failure} = processAlbumSync(input)
 
 ### tryCatchSync
 
-Sync twin of [tryCatch](#trycatch): wraps a synchronous function with lifecycle
-hooks (`onStart`, `onSuccess`, `onError`, `onFinally`).
+Sync twin of [tryCatch](#trycatch): the same execution boundary,
+rethrow-by-default policy, `recover` seam and hook contract, with synchronous
+hooks.
 
 **Signature**: `tryCatchSync(fn, options?) => wrapperFunction`
 
-**Returns**: `undefined` on failure (the drop signal). A throwing `onError`
-propagates — same contract as `tryCatch`.
+**Returns**: `fn`'s result (or `recover`'s substitute) on success; **throws the
+original error** on failure with no `recover`. Every hook and `recover` receive
+the same `{args, name}` context as `tryCatch`, with the same primary/secondary
+hook-error contract: the operation error is never replaced, a hook error is
+attached as `error.hookErrors` best effort and dropped if the primary cannot
+carry it.
 
-**Caveats**: `fn` and every lifecycle callback must be synchronous; a returned
-Promise throws a `TypeError` pointing at `tryCatch()`. The violation escapes the
-wrapper's own error capture — it is never swallowed into the drop signal.
+**Caveats**: `fn`, every lifecycle hook **and `recover`** must be synchronous; a
+returned Promise (or any thenable) throws a `TypeError` pointing at `tryCatch()`.
+The violation is fatal: it escapes immediately and aborts the wrapper — hooks
+that have not run yet, including `onFinally`, are skipped. A synchronous throw
+from `fn` or a hook is handled by the contract, not fatal.
 
 **Example**:
 ```javascript
 import {tryCatchSync} from 'pipelean'
 
-const safeParse = tryCatchSync(JSON.parse, {onError: e => log.warn(e.message)})
-safeParse('{bad json') // undefined
+// Observe + rethrow (default).
+const parse = tryCatchSync(JSON.parse, {
+  name: 'parse',
+  onError: ({error, args}) => log.warn('bad input', args[0], error.message),
+})
+
+// Observe + substitute: the explicit swallow.
+const safeParse = tryCatchSync(JSON.parse, {
+  name: 'safeParse',
+  recover: ({error}) => ({ok: false, reason: error.message}),
+})
+safeParse('{bad json') // the substitute object
+
+// The explicit drop.
+const maybeParse = tryCatchSync(JSON.parse, {recover: () => undefined})
+maybeParse('{bad json') // undefined
 ```
 
 ---

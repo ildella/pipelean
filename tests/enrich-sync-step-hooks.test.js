@@ -138,7 +138,6 @@ test('a throwing onStepSuccess records under collect and keeps going', () => {
   ], {strategy: collect, onStepSuccess})({})
 
   expect(onStepSuccess).toHaveBeenCalledTimes(2)
-  // A throwing hook fails the step, so its merged patch is not committed.
   expect(result.value).toEqual({b: 2})
   expect(result.errors).toHaveLength(1)
   expect(result.errors[0].operation).toBe('operation-0')
