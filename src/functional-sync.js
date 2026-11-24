@@ -12,7 +12,8 @@ import {
   drop, isDrop, isUndefinedPolicyError, undefinedPolicyError,
 } from './sentinel.js'
 import {
-  collect, createRunState, failOnSource, rethrow, settle, toResult,
+  collect, createRunState, finishRun, rethrow, settle, settleSourceError,
+  toResult,
 } from './strategy.js'
 import {
   handleItemError, settleFoldError,
@@ -66,12 +67,10 @@ const runSyncStrategy = ({
     if (isSyncCallbackError(error) || isUndefinedPolicyError(error))
       throw error
 
-    const handled = failOnSource(state, {error, index})
-    if (handled)
-      return handled
+    return settleSourceError(state, {error, index})
   }
 
-  return toResult(state, settle(state))
+  return finishRun(state)
 }
 
 const observeSync = (outcome, hookName, call) => {

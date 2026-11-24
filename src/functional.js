@@ -12,7 +12,7 @@ import {
 } from './sentinel.js'
 import {strategyNameOf} from './strategy-name.js'
 import {
-  collect, failOnSource, normalizeOperationError, rethrow, settle, toResult,
+  collect, finishRun, normalizeOperationError, rethrow, settleSourceError,
 } from './strategy.js'
 import {
   handleItemErrorAsync, settleFoldErrorAsync,
@@ -317,12 +317,10 @@ const runAsyncStrategy = async ({
     if (isUndefinedPolicyError(error))
       throw error
 
-    const handled = failOnSource(state, {error, index})
-    if (handled)
-      return handled
+    return settleSourceError(state, {error, index})
   }
 
-  return toResult(state, settle(state))
+  return finishRun(state)
 }
 
 /**

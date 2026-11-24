@@ -73,7 +73,7 @@ export const failOnItem = (state, errorContext) => {
 }
 
 /** The source itself failed (e.g. a generator dying mid-stream). */
-export const failOnSource = (state, sourceContext) => {
+const failOnSource = (state, sourceContext) => {
   if (state.strategyName === 'throw')
     throw sourceContext.error
 
@@ -117,6 +117,13 @@ export const settle = state => {
 
   return failure
 }
+
+/** The settled end-of-run result. */
+export const finishRun = state => toResult(state, settle(state))
+
+/** Source failure: the strategy outcome, or the settled end-of-run result. */
+export const settleSourceError = (state, sourceContext) =>
+  failOnSource(state, sourceContext) ?? finishRun(state)
 
 export const normalizeOperationError = ({
   item: operation, error, index, total,
