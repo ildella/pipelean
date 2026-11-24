@@ -2,6 +2,7 @@
 
 import {assertSyncCallback, assertSyncResult} from './shared.js'
 import {assertNotDrop} from './sentinel.js'
+import {assertEnrichOptions} from './enrich-options.js'
 import {
   collect, normalizeFailure, normalizeOperationError,
 } from './strategy.js'
@@ -142,12 +143,7 @@ export const prepareEnrich = ({
   operations, opts, label, sync = false, scannerFor,
 }) => {
   validateOperations(operations, label)
-
-  if (opts.recover !== undefined)
-    throw new TypeError(
-      `${label} does not support recover; use reduce if fold recovery is ` +
-      'needed',
-    )
+  assertEnrichOptions(opts, label)
 
   const {
     strategy = collect, onError, onFailure, onStepStart, onStepSuccess,

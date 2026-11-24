@@ -647,7 +647,10 @@ predicate's return value is never placed into `results`.
 **Options / Callbacks**: same as [series](#series) — `strategy`, `onError`,
 `onFailure`, `onSourceError`, `take`, `total`, `onProgress`, `pause`,
 `pauseOnErrors`, `signal`. `recover` is **not** supported: the fold `recover`
-option belongs to `scan` / `reduce`.
+option belongs to `scan` / `reduce`. `onUndefined` is **not** supported either:
+it belongs to `series` / `mapSeries` and is rejected with a `TypeError` naming
+the option, instead of being forwarded to the internal run. See
+[Unsupported options](#unsupported-options).
 
 **Failure behavior**: per [strategy](#error-strategies), as `series`.
 
@@ -777,7 +780,10 @@ useful. Use `reduce` when only the last value matters.
 - `signal`: `AbortSignal` checked before each item and during `pause`; aborting keeps the current accumulator and ends cleanly.
 - `recover(context)`: the fold recovery seam, called when the scanner throws.
   See [recover](#recover).
-- `scan` does **not** support `onProgress` or `take`.
+- `scan` does **not** support `take`, `total`, `onProgress` or `onUndefined`:
+  there is no run step to report progress on and no mapper whose `undefined`
+  would mean anything. Each is rejected with a `TypeError` naming the option.
+  See [Unsupported options](#unsupported-options).
 
 **Callbacks**: `onError` (each handled item error, no control-flow effect),
 `onFailure` (when `failure` is truthy), `onSourceError` (when the iterable
@@ -846,7 +852,9 @@ default strategy as `scan`; different return shape.
 - `signal`: `AbortSignal` checked before each item and during `pause`; aborting keeps the current accumulator and ends cleanly.
 - `recover(context)`: the fold recovery seam, called when the scanner throws.
   See [recover](#recover).
-- `reduce` does **not** support `onProgress` or `take`.
+- `reduce` does **not** support `take`, `total`, `onProgress` or `onUndefined`
+  — same rule as [scan](#scan), rejected with a `TypeError` naming the option.
+  See [Unsupported options](#unsupported-options).
 
 **Callbacks**: `onError` (each handled item error, no control-flow effect),
 `onFailure` (when `failure` is truthy), `onSourceError` (when the iterable
@@ -995,7 +1003,9 @@ four envelope keys.
 **Options / Callbacks**: a subset of [seriesSync](#seriessync) options —
 `strategy`, `take`, `total`, `onError`, `onFailure`, `onSourceError` (no
 `onProgress`). `signal`, `pause` and `pauseOnErrors` are async-only and rejected
-with a `TypeError`.
+with a `TypeError`. `onProgress` and `onUndefined` belong to the `series` family
+and are rejected with a `TypeError` naming the option, never ignored — see
+[Unsupported options](#unsupported-options).
 
 **Failure behavior**: exits as soon as the first match is found. For a dying
 source, behaves like `seriesSync`: accepts `onSourceError({error, index})` and
@@ -1299,6 +1309,7 @@ instead of its index.
   - `onStepStart({operation, index, total})`: Called **before** each operation runs. Same `operation` normalization and `total` as `onError`.
   - `onStepSuccess({operation, patch, index, total})`: Called **after** the patch is validated and merged. `patch` is the object the operation returned, pre-merge.
   - `recover`: **not** supported. `enrich` uses `reduce` internally but rejects `recover` explicitly; use `reduce` if you need fold recovery.
+  - `signal`, `pause`, `pauseOnErrors`, `onSourceError`, `onProgress`, `take`, `total`, `onUndefined`: **not** supported. The steps are a fixed array folded in memory — there is no source to pull, stop or report progress on — so these are rejected with a `TypeError` naming the option at pipeline construction, never forwarded to the internal fold. See [Unsupported options](#unsupported-options).
 
 **Returns**: A function `(initialState) => Promise<{value, errors, sourceErrors, failure}>`.
 
@@ -1448,6 +1459,7 @@ guarantee.
   - `strategy`: Error strategy (default: `collect`). `collect`, `failLate`, `skip`, `rethrow`, and `failFast`.
   - `onError({operation, error, index})`: Called for each handled branch error. `operation` is the branch name.
   - `onFailure(failure)`: Called (and awaited) when `failure` is truthy. Receives `{errors}` for `failLate` / `failFast`.
+  - Every other known run option — `signal`, `pause`, `pauseOnErrors`, `onSourceError`, `onProgress`, `take`, `total`, `onUndefined` — and `recover` are rejected with a `TypeError` naming the option. A branch is not an item: the run lifecycle does not apply, and rejection happens before any branch starts. See [Unsupported options](#unsupported-options).
 
 **Returns**: `Promise<{value, errors, sourceErrors, failure}>`:
 - `value`: Object mapping the **successful** branch names to their resolved values, in declaration order. A branch resolving `undefined` or `drop` is still a success (`value[key]` is that value).
@@ -1896,6 +1908,48 @@ in the `sourceErrors` field.
 
 ---
 
+### Unsupported options
+
+An option an API knows but cannot honour is rejected with a `TypeError` naming
+it — `enrich() does not support the "take" option` — instead of being ignored.
+Rejection happens before any work starts: at construction for
+`enrich` / `enrichSync`, before the first item for a run, and before the first
+branch for `join`. A key passed explicitly as `undefined` is treated as omitted.
+
+This is a curated list of known-but-inert options, not a full allowlist:
+unknown keys are still ignored (the general allowlist is planned for 0.19).
+
+| Option | `series` / `mapSeries` | `filter` | `findSync` | `scan` / `reduce` | `enrich` | `join` |
+|---|---|---|---|---|---|---|
+| `strategy` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `onError` | ✓ ¹ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `onFailure` | ✓ ¹ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `onSourceError` | ✓ ¹ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| `onProgress` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| `take` | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| `total` | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| `pause` | ✓ ² | ✓ ² | ✗ | ✓ ² | ✗ | ✗ |
+| `pauseOnErrors` | ✓ ² | ✓ ² | ✗ | ✓ ² | ✗ | ✗ |
+| `signal` | ✓ ² | ✓ ² | ✗ | ✓ ² | ✗ | ✗ |
+| `onUndefined` | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `recover` | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+
+✓ accepted · ✗ rejected with a `TypeError` naming the option.
+
+1. `mapSeries` / `mapSeriesSync` also reject `onError`, `onFailure` and
+   `onSourceError`: under the locked `rethrow` they could never fire. See
+   [mapSeries](#mapseries).
+2. Async only: the `*Sync` twin rejects `signal`, `pause` and `pauseOnErrors`,
+   like every sync variant. See [Sync variants](#sync-variants).
+3. `seriesSync`, `filterSync`, `scanSync` and `reduceSync` otherwise mirror their
+   async twin exactly. `filter` / `findSync` are the selection tools: they read
+   truthiness, so `onUndefined` has nothing to decide there.
+4. `recover` keeps its own messages — folds consume it, `enrich` points at
+   `reduce`, `join` and `series` name the restriction — instead of the generic
+   unsupported-option one.
+
+---
+
 ## Sync variants
 
 `seriesSync`, `filterSync`, `findSync`, `scanSync`, `reduceSync`, `mapSeriesSync`,
@@ -1914,6 +1968,10 @@ want Pipelean's structured error collection.
   entry below links to it.
 - **Not supported in sync variants**:
   - `signal`, `pause` and `pauseOnErrors`, because they depend on async waiting and timers. Passing any of them throws a `TypeError` — they are never silently ignored
+  - Known-but-inert options, exactly as on the async twin (`findSync` rejects
+    `onProgress` and `onUndefined`; `filterSync` rejects `onUndefined`;
+    `scanSync` / `reduceSync` reject `take`, `total`, `onProgress` and
+    `onUndefined`). See [Unsupported options](#unsupported-options)
   - async iterables, because sync variants use plain synchronous iteration
   - async callbacks: a mapper, predicate, scanner, reducer, operation, hook,
     telemetry callback (`onError`, `onFailure`, `onSourceError`, `onProgress`)
@@ -1980,7 +2038,9 @@ truthy; same predicate forms (function or object pattern via `where`).
 **Default strategy**: `collect`
 
 **Caveats**: sync iterables only; async-only options rejected with a
-`TypeError`. An async predicate throws a `TypeError` pointing at `filter()`.
+`TypeError`, and so is `onUndefined` (it belongs to `seriesSync` — see
+[Unsupported options](#unsupported-options)). An async predicate throws a
+`TypeError` pointing at `filter()`.
 For the first match with early exit use [findSync](#findsync).
 
 **Example**:
@@ -2002,7 +2062,9 @@ Sync twin of [scan](#scan): fold keeping every intermediate accumulator.
 
 **Caveats**: sync iterables only; async-only options rejected; `recover` must be
 synchronous (a thenable is a `TypeError`). An async scanner throws a `TypeError`
-pointing at `scan()`. No `onProgress` / `take`.
+pointing at `scan()`. No `onProgress`, `take`, `total` or `onUndefined` — each is
+rejected like on [scan](#scan). See
+[Unsupported options](#unsupported-options).
 
 **Example**:
 ```javascript
@@ -2102,7 +2164,9 @@ shapes, and the same per-step hooks (`onStepStart` / `onStepSuccess`).
 **Caveats**: operations, hooks and `onError` / `onFailure` callbacks must be
 **synchronous**. One that returns a Promise is rejected with a `TypeError`
 pointing at `enrich` — never silently merged as a no-op, never fire-and-forget.
-A synchronous throw still flows into the strategy. Use it when your operations
+A synchronous throw still flows into the strategy. The run lifecycle options and
+`recover` are rejected exactly like on [enrich](#enrich) (see
+[Unsupported options](#unsupported-options)). Use it when your operations
 and inputs are synchronous.
 
 **Example**:

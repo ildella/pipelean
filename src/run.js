@@ -1,10 +1,27 @@
-import {getPlannedTotal, withTotal} from './shared.js'
+import {assertUnsupportedOptions, getPlannedTotal, withTotal} from './shared.js'
 import {isDrop, normalizeOnUndefined} from './sentinel.js'
 import {
   collect, createRunState, failFast,
 } from './strategy.js'
 
 const ASYNC_ONLY_OPTIONS = ['signal', 'pause', 'pauseOnErrors']
+
+const FOLD_UNSUPPORTED = ['take', 'total', 'onProgress', 'onUndefined']
+
+/**
+ * Options only a run engine can honour. APIs that fold or fork in memory
+ * (`enrich`, `join`) reject them instead of silently ignoring them.
+ */
+export const LIFECYCLE_OPTIONS = [
+  'signal',
+  'pause',
+  'pauseOnErrors',
+  'onSourceError',
+  'onProgress',
+  'take',
+  'total',
+  'onUndefined',
+]
 
 const isAbortSignal = signal =>
   typeof signal === 'object' &&
@@ -148,6 +165,7 @@ export const planFold = (
   opts, {items, keepPartials, readAcc}, {sync = false, label} = {},
 ) => {
   validateOptions(opts, {sync, fold: true})
+  assertUnsupportedOptions(opts, FOLD_UNSUPPORTED, label ?? 'scan/reduce')
 
   return {
     state: createFoldState(opts, {keepPartials, readAcc}, label),
