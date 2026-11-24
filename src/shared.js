@@ -1,3 +1,5 @@
+import {assertStrategy} from './strategy-name.js'
+
 const getKnownTotal = (items, total) =>
   total !== undefined ? total : items.length
 
@@ -68,7 +70,7 @@ export const assertRethrowStrategy = (strategy, label) => {
   if (strategy === undefined)
     return
 
-  const name = strategy?.name ?? strategy
+  const name = assertStrategy(strategy, label)
   if (name !== 'throw')
     throw new TypeError(
       `${label}() always rethrows on the first error; ` +

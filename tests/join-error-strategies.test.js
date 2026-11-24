@@ -1,6 +1,6 @@
 import {test, expect} from 'vitest'
 import {
-  delay, failFast, failLate, join, rethrow, skip, stopOnError,
+  delay, failFast, failLate, join, rethrow, skip,
 } from '$src/functional'
 
 test('collect (default) keeps errors as data and failure false', async () => {
@@ -44,16 +44,6 @@ test('failFast behaves as failLate because branches cannot be stopped',
     expect(result.errors).toHaveLength(1)
     expect(result.failure).toEqual({errors: result.errors})
   })
-
-test('stopOnError alias also behaves as failLate', async () => {
-  const {failure} = await join({
-    a: () => {
-      throw new Error('a')
-    },
-  }, {strategy: stopOnError})
-
-  expect(failure).not.toBe(false)
-})
 
 test('skip keeps errors empty but still reports onError', async () => {
   const seen = []

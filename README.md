@@ -170,7 +170,7 @@ throwing, and you choose the failure policy with a strategy.
 |---|---|---|---|
 | `collect` | all handled errors | `false` | no |
 | `failLate` | all handled errors | `{errors}` at the end | no |
-| `failFast` (aliases `fail`, `stopOnError`) | `[]` | `{item, error, index}` | on first error |
+| `failFast` | `[]` | `{item, error, index}` | on first error |
 | `skip` | `[]` | `false` | no |
 | `rethrow` | throws | — | on first error |
 
