@@ -140,6 +140,54 @@ test('generator sources still have no known total', async () => {
   expect(Object.hasOwn(progress[0], 'total')).toBe(false)
 })
 
+test('an async predicate returning false keeps every item', async () => {
+  const items = await collect(stopWhen([1, 2, 3], async () => {
+    await Promise.resolve()
+    return false
+  }))
+  expect(items).toEqual([1, 2, 3])
+})
+
+test('an async predicate returning true stops the iteration', async () => {
+  const items = await collect(stopWhen([1, 2, 3, 4], async n => {
+    await Promise.resolve()
+    return n === 3
+  }))
+  expect(items).toEqual([1, 2])
+})
+
+test('awaits an async predicate before deciding to yield', async () => {
+  const seen = []
+  const items = await collect(stopWhen([1, 2, 3], async (item, index) => {
+    await Promise.resolve()
+    seen.push([item, index])
+    return item === 2
+  }))
+  expect(items).toEqual([1])
+  expect(seen).toEqual([[1, 0], [2, 1]])
+})
+
+test('a rejecting async predicate is a source error downstream', async () => {
+  const bang = new Error('bang')
+  const onSourceError = vi.fn()
+  const onError = vi.fn()
+  const result = await series(
+    stopWhen([1, 2, 3], async item => {
+      await Promise.resolve()
+      if (item === 2)
+        throw bang
+      return false
+    }),
+    x => x,
+    {onError, onSourceError},
+  )
+
+  expect(result.results).toEqual([1])
+  expect(result.sourceErrors).toEqual([{error: bang, index: 1}])
+  expect(onSourceError).toHaveBeenCalledWith({error: bang, index: 1})
+  expect(onError).not.toHaveBeenCalled()
+})
+
 test('a throwing predicate surfaces as a source error downstream', async () => {
   const bang = new Error('bang')
   const onSourceError = vi.fn()
