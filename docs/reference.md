@@ -1630,6 +1630,13 @@ Retry async functions with configurable attempts and delays between attempts.
   - `attempts`: `number` (default: `3`) - Number of retry attempts
   - `delay`: `number` (default: `0`) - Delay between retry attempts in milliseconds
 
+Options are validated when the wrapper is built, so a bad configuration fails
+immediately with a `TypeError` instead of on the first call:
+
+- `fn` must be a function.
+- `attempts` must be an integer `>= 1`.
+- `delay` must be a finite number `>= 0`.
+
 **Returns**: a wrapper function with the same signature as `fn`.
 
 **Failure behavior**:
