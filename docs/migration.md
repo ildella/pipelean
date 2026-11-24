@@ -6,22 +6,23 @@ How to replace common imperative and error-prone patterns with pipelean equivale
 
 The managed result is now the same envelope everywhere: `{payload, errors,
 sourceErrors, failure}`, where the payload is `results` when a run keeps many
-values and `value` when it keeps one. Three breaking changes, two additive ones.
+values and `value` when it keeps one. One soft deprecation, two additive changes
+and two breaking ones (the removed strategy aliases and invalid strategies).
 
-### Breaking: `findSync` returns `value`, not `result`
+### Deprecated: `findSync.result`, use `value`
 
 `findSync` was the only single-value API whose payload key was not `value`.
+It now returns `value`; `result` stays as a non-enumerable, deprecated alias so
+existing code keeps working. It is removed in 1.0.
 
 ```js
-// Before (0.17)
-const {result} = findSync(items, predicate)
-
-// After (0.18)
-const {value} = findSync(items, predicate)
+const {value} = findSync(items, predicate)   // preferred
+const {result} = findSync(items, predicate)  // still works until 1.0
 ```
 
 `value` is still `undefined` when nothing matched, and every other envelope is
-unchanged.
+unchanged. `Object.keys` still reports the four envelope keys: `result` is not
+enumerable.
 
 ### Additive: `sourceErrors` is always present
 

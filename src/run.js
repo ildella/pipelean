@@ -51,6 +51,19 @@ const assertRecover = (opts, fold) => {
     throw new TypeError('recover must be a function')
 }
 
+export const assertTake = (take, label) => {
+  if (take !== undefined && (!Number.isInteger(take) || take < 0))
+    throw new TypeError(`${label}() take must be a non-negative integer`)
+}
+
+const isFiniteNonNegative = value =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0
+
+export const assertTotal = (total, label) => {
+  if (total !== undefined && !isFiniteNonNegative(total))
+    throw new TypeError(`${label}() total must be a finite non-negative number`)
+}
+
 export const validateOptions = (opts, {sync = false, fold = false} = {}) => {
   assertRecover(opts, fold)
 
@@ -75,6 +88,10 @@ export const planSeries = (opts, items, {sync = false, label} = {}) => {
     onProgress, onError, onFailure, onSourceError,
     pause, pauseOnErrors = false,
   } = opts
+
+  const api = label ?? 'series'
+  assertTake(take, api)
+  assertTotal(total, api)
 
   return {
     state: createRunState(strategy, {

@@ -623,11 +623,15 @@ step? Three mechanisms, three jobs: `pause` owns the cadence, `signal` and
 ### Source adapters: stopWhen and forever
 
 - `stopWhen(items, predicate)` stops pulling as soon as the predicate is
-  truthy — checked *before* the item is offered downstream.
+  truthy — checked *before* the item is offered downstream. The predicate may
+  be sync or async; when it returns a Promise the adapter awaits it, so a
+  `Promise<false>` keeps the item.
 - Composes with every consumer (`series`, `scan`, `reduce`, `filter`, raw
   `for await`) with no option changes:
   `series(fn, opts)(stopWhen(items, shouldStop))`.
 - Cancel is a clean shorter run (`failure: false`), never a source error.
+- `stopWhenSync` is the sync twin: its predicate must stay sync — a returned
+  Promise is a `TypeError` naming `stopWhen()`.
 
 `forever()` yields `0, 1, 2, …` with no end — the unbounded counterpart of
 `stopWhen`. A daemon loop passes `signal` and `pause` to the consumer instead of

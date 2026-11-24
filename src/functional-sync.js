@@ -15,15 +15,20 @@ import {
   handleItemError, settleFoldError,
 } from './errors.js'
 import {
-  notifyProgress, planFold, planSeries, validateOptions,
+  assertTake, assertTotal, notifyProgress, planFold, planSeries,
+  validateOptions,
 } from './run.js'
 
 /**
+ * @typedef {import('./types.js').StrategyFn} StrategyFn
  * @typedef {import('./types.js').IterationResult} IterationResult
  * @typedef {import('./types.js').ReduceResult} ReduceResult
  * @typedef {import('./types.js').FindResult} FindResult
  * @typedef {import('./types.js').EnrichResult} EnrichResult
  */
+
+const shouldStopTake = (index, take) =>
+  take !== undefined && index >= take
 
 const runSyncStrategy = ({
   state, items, take, step,
@@ -31,19 +36,20 @@ const runSyncStrategy = ({
   let index = 0
 
   const iterate = () => {
+    if (shouldStopTake(0, take))
+      return null
+
     for (const item of items) {
-      if (take !== undefined && index >= take)
+      if (shouldStopTake(index, take))
         break
 
       const outcome = step(item, index)
       if (outcome?.stop)
         return outcome.result
-      if (outcome?.skip) {
-        index++
-        continue
-      }
 
       index++
+      if (shouldStopTake(index, take))
+        break
     }
 
     return null
@@ -230,6 +236,22 @@ export const filterSync = (...args) => {
   return immediate ? run(items) : run
 }
 
+const toFindResult = (found, {
+  errors, sourceErrors, failure,
+}) => {
+  const result = {
+    value: found, errors, sourceErrors, failure,
+  }
+
+  Object.defineProperty(result, 'result', {
+    get: () => found,
+    enumerable: false,
+    configurable: true,
+  })
+
+  return result
+}
+
 /**
  * First match in a sync iterable, stopping as soon as the predicate accepts.
  *
@@ -247,14 +269,14 @@ export const findSync = (...args) => {
       strategy = collect, take, total,
       onError, onFailure, onSourceError,
     } = opts
+    assertTake(take, 'findSync')
+    assertTotal(total, 'findSync')
     const plannedTotal = getPlannedTotal({items: inputItems, take, total})
 
     let found
     const shape = ({
       errors, sourceErrors, failure,
-    }) => ({
-      value: found, errors, sourceErrors, failure,
-    })
+    }) => toFindResult(found, {errors, sourceErrors, failure})
     const state = createRunState(
       strategy, {onFailure, onSourceError, shape}, 'findSync',
     )
