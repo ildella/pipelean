@@ -45,7 +45,6 @@ Process a sequence of independent items, one at a time.
 | --- | --- |
 | `series` | Process items, collect results and handle failures through a strategy |
 | `filter` | Select items using a predicate |
-| `mapSeries` | Sequential map that throws on the first failure and returns a plain array |
 
 `series` and `filter` support arrays, generators, and async iterables. They can process synchronous or asynchronous callbacks.
 
@@ -54,8 +53,6 @@ const {results, errors} = await series(items, processItem)
 ```
 
 Returning `undefined` from a mapper drops the item.
-
-`mapSeries` is a convenience API with a fixed `rethrow` policy. It returns a plain array or throws the original error.
 
 ### 2. Accumulation
 
@@ -107,23 +104,20 @@ These complement the core. You don't need them to get started.
 ### Pipeline composition
 
 - `pipe` — compose value-in/value-out functions into a reusable pipeline.
-- `enrich` — accumulate object patches over one input.
-- `assign` — build conditional property-assignment steps for `enrich`.
-- `join` — run a small set of named tasks concurrently and return a structured result.
 
 ### Convenience APIs
 
-- `mapSeries` / `mapSeriesSync` — sequential mapping with errors thrown rather than reported.
-- Sync counterparts — `seriesSync`, `filterSync`, `scanSync`, `reduceSync`, `findSync`, `stopWhenSync`, `pipeSync`, `enrichSync`, and `tryCatchSync`. They return directly and reject async-only behavior.
+- `mapSeries` — sequential map with a fixed `rethrow` policy: returns a plain array or throws the original error.
+- `enrich` — accumulate object patches over one input.
+- `assign` — build conditional property-assignment steps for `enrich`.
+- Sync counterparts — `seriesSync`, `filterSync`, `mapSeriesSync`, `scanSync`, `reduceSync`, `stopWhenSync`, `pipeSync`, `enrichSync`, and `tryCatchSync`. They return directly and reject async-only behavior.
 
 ### Advanced controls
 
+- `join` — run a small set of named tasks concurrently and return a structured result.
 - `retry` — retry a function after failure.
 - `stopWhen` — stop an iterable when a predicate matches.
 - `forever` — produce an unbounded sequence of ticks.
-- `signal` — cancel a run between items.
-- `pause` / `pauseOnErrors` — control execution pacing.
-- `recover` — recover a failed fold and continue accumulation.
 
 ### Standalone utilities
 
