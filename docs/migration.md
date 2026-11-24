@@ -2,6 +2,43 @@
 
 How to replace common imperative and error-prone patterns with pipelean equivalents.
 
+## 0.18.0: one result envelope everywhere
+
+The managed result is now the same envelope everywhere: `{payload, errors,
+sourceErrors, failure}`, where the payload is `results` when a run keeps many
+values and `value` when it keeps one. One breaking change, two additive ones.
+
+### Breaking: `findSync` returns `value`, not `result`
+
+`findSync` was the only single-value API whose payload key was not `value`.
+
+```js
+// Before (0.17)
+const {result} = findSync(items, predicate)
+
+// After (0.18)
+const {value} = findSync(items, predicate)
+```
+
+`value` is still `undefined` when nothing matched, and every other envelope is
+unchanged.
+
+### Additive: `sourceErrors` is always present
+
+`enrich`, `enrichSync` and `join` now return `sourceErrors: []`. They fold a
+fixed list of steps or branches, so a source error is impossible there, but the
+key stays so every envelope can be read the same way. Destructuring that ignored
+`sourceErrors` keeps working; generic code no longer needs
+`result.sourceErrors ?? []`.
+
+### Typed failures
+
+`failure` is documented as a union: `false` on success, an item or step context
+(`{item, error, index}` / `{operation, error, index}`) under `failFast`, a source
+context (`{error, index}`) for a dead source, or an aggregate `{errors}` under
+`failLate`. No runtime change: the JSDoc names the variants instead of the old
+`false|object`.
+
 ## 0.17.0: `tryCatch` rethrows by default; `recover` is the explicit seam
 
 0.17 redesigns `tryCatch` / `tryCatchSync` around one principle: **the wrapper

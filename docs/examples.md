@@ -405,4 +405,4 @@ const {value} = processAlbumSync(rawAlbum)
 // value: {title, year, slug, rawTitle, rawYear}
 ```
 
-`enrichSync` returns `{value, errors, failure}` directly. Same strategies, same `onError` / `onFailure` semantics, same normalized error shapes as `enrich()`. The callbacks must be synchronous like the operations. Use it whenever all your data and operations are synchronous.
+`enrichSync` returns `{value, errors, sourceErrors, failure}` directly, with `sourceErrors` always `[]`. Same strategies, same `onError` / `onFailure` semantics, same normalized error shapes as `enrich()`. The callbacks must be synchronous like the operations. Use it whenever all your data and operations are synchronous.

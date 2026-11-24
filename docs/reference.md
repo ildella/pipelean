@@ -113,12 +113,12 @@ The default strategy is what runs when `opts.strategy` is omitted.
 | `reduce` | items (fold) | async | iterable + `scanner(acc, item, index)` + initial value | `{value, errors, sourceErrors, failure}` | `failFast` | never drops; `undefined` is a legal accumulator | item error → strategy; `recover` seam; `value` survives `failFast` |
 | `reduceSync` | items (fold) | sync | sync iterable + sync scanner + initial value | shape of `reduce` | `failFast` | as `reduce` | as `reduce`; `recover` must be sync |
 | `foldSync` | items (raw fold) | sync only | sync iterable + `reducer(acc, item, index)` + initial value | the final accumulator | none (raw) | never drops; `undefined` is a legal accumulator | any throw propagates unchanged |
-| `findSync` | items (first match) | sync only | sync iterable + predicate | `{result, errors, sourceErrors, failure}` | `collect` | no drop; no match → `result: undefined` | item error → strategy; stops at the first match |
+| `findSync` | items (first match) | sync only | sync iterable + predicate | `{value, errors, sourceErrors, failure}` | `collect` | no drop; no match → `value: undefined` | item error → strategy; stops at the first match |
 | `pipe` | value (steps) | async | value + steps | the last step's value | none | `undefined` short-circuits: later steps are skipped | throw escapes; no capture |
 | `pipeSync` | value (steps) | sync | value + sync steps | value | none | as `pipe` | as `pipe`; async step → fatal `TypeError` |
-| `enrich` | steps (fold over one input) | async | `[op(state) → patch]` + initial state | `{value, errors, failure}` | `collect` | `{}` = no-op; an `undefined` patch is a step error | step error → strategy; an invalid patch is a step error; no `recover` |
-| `enrichSync` | steps (fold over one input) | sync | same, sync ops | `{value, errors, failure}` | `collect` | as `enrich` | as `enrich`; async op, hook or callback → fatal `TypeError` |
-| `join` | tasks (concurrent) | async | record `name → task(key, index)` | `{value, errors, failure}` | `collect` (`failFast` behaves as `failLate`) | no drop; `undefined` is a successful branch value | per branch → strategy; `rethrow` after all settle; no `sourceErrors` |
+| `enrich` | steps (fold over one input) | async | `[op(state) → patch]` + initial state | `{value, errors, sourceErrors, failure}` | `collect` | `{}` = no-op; an `undefined` patch is a step error | step error → strategy; an invalid patch is a step error; no `recover` |
+| `enrichSync` | steps (fold over one input) | sync | same, sync ops | `{value, errors, sourceErrors, failure}` | `collect` | as `enrich` | as `enrich`; async op, hook or callback → fatal `TypeError` |
+| `join` | tasks (concurrent) | async | record `name → task(key, index)` | `{value, errors, sourceErrors, failure}` | `collect` (`failFast` behaves as `failLate`) | no drop; `undefined` is a successful branch value | per branch → strategy; `rethrow` after all settle; `sourceErrors` always `[]` |
 | `stopWhen` | source adapter | async | iterable + predicate | async iterable | none | n/a | a throwing predicate becomes a source error downstream; stopping is a clean end |
 | `stopWhenSync` | source adapter | sync | sync iterable + predicate | iterable | none | n/a | as `stopWhen` |
 | `forever` | source adapter | async | none | infinite async iterable `0, 1, 2, …` | none | n/a | unbounded: the consumer must bound it |
@@ -175,17 +175,33 @@ report, plain JavaScript is clearer — see
 
 ## Result shapes
 
+Every managed combinator returns the same envelope, with the same four keys in
+the same order: the payload, the handled errors, the source errors and the
+failure slot.
+
 | function | returns |
 |---|---|
-| `series`, `filter`, `scan` | `{results, errors, sourceErrors, failure}` |
-| `reduce` | `{value, errors, sourceErrors, failure}` |
-| `enrich`, `join` | `{value, errors, failure}` |
-| `findSync` | `{result, errors, sourceErrors, failure}` |
+| `series`, `filter`, `scan` (+ sync twins) | `{results, errors, sourceErrors, failure}` |
+| `reduce`, `findSync` (+ sync twins) | `{value, errors, sourceErrors, failure}` |
+| `enrich`, `enrichSync`, `join` | `{value, errors, sourceErrors, failure}` |
 | `mapSeries`, `mapSeriesSync` | the mapped `Array`, or throws the original error |
 | `foldSync` | the final accumulator, or throws the original error |
 
-`enrich` and `join` fold a known list of steps/branches, so a "source error" is
-impossible there and the field is not returned.
+The payload key names its cardinality: `results` keeps every value the run
+produced — mapped items, kept items, every intermediate accumulator — while
+`value` keeps the single one: `reduce`'s final accumulator, `findSync`'s first
+match (or `undefined` when nothing matched), `enrich`'s state, `join`'s record of
+branch values.
+
+`failure` is `false` when the run did not fail; otherwise it is the strategy's
+payload: an item context `{item, error, index}` (a step context
+`{operation, error, index}` for `enrich` / `join`) under `failFast`, a source
+context `{error, index}` for a dead source, or an aggregate `{errors}` under
+`failLate`.
+
+`enrich` and `join` fold a known list of steps/branches, so a source error is
+impossible there and `sourceErrors` is always empty — the key stays so every
+envelope can be read the same way.
 
 ---
 
@@ -915,7 +931,7 @@ previously ignored now throws. See
 First match with early exit: walks a **sync** iterable and stops at the first
 item satisfying the predicate. Sync-only — there is no async `find`.
 
-**Signature**: `findSync(items, predicate, opts?) => {result, errors, sourceErrors, failure}`
+**Signature**: `findSync(items, predicate, opts?) => {value, errors, sourceErrors, failure}`
 
 **Call forms**:
 - Immediate: `findSync(items, predicate, opts?)`
@@ -928,9 +944,9 @@ item satisfying the predicate. Sync-only — there is no async `find`.
   An async predicate (a returned Promise) throws a `TypeError` pointing at
   `filter()`.
 
-**Returns**: `{result, errors, sourceErrors, failure}`. `result` is the first
+**Returns**: `{value, errors, sourceErrors, failure}`. `value` is the first
 matching item; when no item matches,
-`{result: undefined, errors: [], sourceErrors: [], failure: false}`.
+`{value: undefined, errors: [], sourceErrors: [], failure: false}`.
 
 **Default strategy**: `collect`
 
@@ -954,9 +970,9 @@ const users = [
   {id: 3, active: true},
 ]
 
-const {result, errors, sourceErrors, failure} = findSync(users, {active: true})
+const {value, errors, sourceErrors, failure} = findSync(users, {active: true})
 
-// result: {id: 2, active: true}
+// value: {id: 2, active: true}
 // errors: []
 // sourceErrors: []
 // failure: false
@@ -1226,7 +1242,7 @@ The difference is ergonomics and reporting: `enrich` fixes the fold step
 (shallow merge), validates patches, and names failures after the operation
 instead of its index.
 
-**Signature**: `enrich(operations, options?) => (initialState) => Promise<{value, errors, failure}>`
+**Signature**: `enrich(operations, options?) => (initialState) => Promise<{value, errors, sourceErrors, failure}>`
 
 **Parameters**:
 - `operations`: An array of functions. Each function `operation(state)` must return a non-null, non-array object (the patch to merge into the state). Operations can be sync or async.
@@ -1238,16 +1254,17 @@ instead of its index.
   - `onStepSuccess({operation, patch, index, total})`: Called **after** the patch is validated and merged. `patch` is the object the operation returned, pre-merge.
   - `recover`: **not** supported. `enrich` uses `reduce` internally but rejects `recover` explicitly; use `reduce` if you need fold recovery.
 
-**Returns**: A function `(initialState) => Promise<{value, errors, failure}>`.
+**Returns**: A function `(initialState) => Promise<{value, errors, sourceErrors, failure}>`.
 
 The returned function:
 - Validates `initialState` (non-null, non-array object) and throws `TypeError` otherwise.
 - Executes each operation in order, passing the **current accumulated state** to each one.
 - Shallow-merges the returned patch into the state.
 - Treats an invalid operation return (null, array, primitive) as that operation throwing a `TypeError`, so the selected strategy applies.
-- Returns `{value, errors, failure}` where:
+- Returns `{value, errors, sourceErrors, failure}` where:
   - `value`: The final accumulated state. Even under `failFast`, this is the last successful accumulated state.
   - `errors`: Array of `{operation, error, index}` (normalized). Empty for `skip` and `failFast`.
+  - `sourceErrors`: Always `[]` — a step fold has no external source to fail.
   - `failure`: `false` for `collect` and `skip`; `{operation, error, index}` for `failFast`; `{errors}` for `failLate`. For `rethrow`, the original error is thrown instead of returning a result.
 
 **Default strategy**: `collect`
@@ -1376,7 +1393,7 @@ result. Errors are data, per branch, using the same strategies as `enrich`.
 This is not a concurrency runtime: no cancellation, no scheduler, no ordering
 guarantee.
 
-**Signature**: `join(tasks, options?) => Promise<{value, errors, failure}>`
+**Signature**: `join(tasks, options?) => Promise<{value, errors, sourceErrors, failure}>`
 
 **Parameters**:
 - `tasks`: A non-null, non-array object mapping a branch **name** to a function `task(key, index)`. Each function can be sync or async. The name is the stable key for that branch in the result.
@@ -1385,9 +1402,10 @@ guarantee.
   - `onError({operation, error, index})`: Called for each handled branch error. `operation` is the branch name.
   - `onFailure(failure)`: Called (and awaited) when `failure` is truthy. Receives `{errors}` for `failLate` / `failFast`.
 
-**Returns**: `Promise<{value, errors, failure}>`:
+**Returns**: `Promise<{value, errors, sourceErrors, failure}>`:
 - `value`: Object mapping the **successful** branch names to their resolved values, in declaration order. A branch resolving `undefined` is still a success (`value[key] === undefined`).
 - `errors`: Array of `{operation, error, index}`, ordered by declaration (not completion). Empty for `skip` (and for `rethrow`, which throws instead).
+- `sourceErrors`: Always `[]` — the branches are a fixed record, not an external source.
 - `failure`: `false` for `collect` and `skip`; `{errors}` for `failLate` and `failFast`. For `rethrow`, the original error of the first failed branch is thrown instead of returning a result.
 
 **Default strategy**: `collect`
@@ -1407,9 +1425,9 @@ guarantee.
 - **Completion order is irrelevant**: `value` keys follow declaration order, and so does `errors`.
 - **No drop signal**: `undefined` is a legitimate branch value; the
   [drop rule](#the-undefined-sentinel) belongs to iteration, not forks.
-- **Empty record** is valid: resolves to `{value: {}, errors: [], failure: false}`.
+- **Empty record** is valid: resolves to `{value: {}, errors: [], sourceErrors: [], failure: false}`.
 - **Not a concurrent map**: for a homogeneous collection use p-map.
-- No `sourceErrors`: the branches are a fixed record.
+- **`sourceErrors` is always `[]`**: the branches are a fixed record.
 
 **When to use `join()` vs `series()`**:
 - `join()`: A handful of named, heterogeneous tasks that run at the same time. One structured outcome, errors per branch.
@@ -1526,9 +1544,9 @@ exception.
 
 **Parameters**:
 - `result`: an **awaited** Pipelean result — `series`, `filter`, `scan`,
-  `reduce`, `enrich`, `join`, `findSync`, or any of their sync twins. Both
-  `{results, ...}` and `{value, ...}` shapes work, as does `findSync`'s
-  `{result, ...}`. It must be a result object with a `failure` property.
+  `reduce`, `enrich`, `join`, `findSync`, or any of their sync twins. The
+  `{results, …}` and `{value, …}` payloads both work. It must be a result object
+  with a `failure` property.
 
 **Returns**: the **same result object**, unchanged, when `result.failure` is
 falsy.
