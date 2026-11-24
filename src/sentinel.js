@@ -10,6 +10,15 @@ export const drop = Symbol.for('pipelean.drop')
 
 export const isDrop = value => value === drop
 
+/**
+ * Reject `drop` where it is not a signal but a contract violation (an enrich
+ * patch, for instance). The caller supplies the message.
+ */
+export const assertNotDrop = (value, message) => {
+  if (isDrop(value))
+    throw new TypeError(message)
+}
+
 const UNDEFINED_POLICY = Symbol('undefinedPolicy')
 
 /**
