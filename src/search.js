@@ -1,5 +1,9 @@
+import {isDrop} from './sentinel.js'
+
 export const where = pattern => item =>
-  Object.entries(pattern).every(([key, value]) => item[key] === value)
+  isDrop(item)
+    ? false
+    : Object.entries(pattern).every(([key, value]) => item[key] === value)
 
 const isPattern = x => x !== null &&
   typeof x === 'object' &&

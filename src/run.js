@@ -1,4 +1,5 @@
 import {getPlannedTotal, withTotal} from './shared.js'
+import {isDrop, normalizeOnUndefined} from './sentinel.js'
 import {
   collect, createRunState, failFast,
 } from './strategy.js'
@@ -92,6 +93,7 @@ export const planSeries = (opts, items, {sync = false, label} = {}) => {
   const api = label ?? 'series'
   assertTake(take, api)
   assertTotal(total, api)
+  const onUndefined = normalizeOnUndefined(opts.onUndefined, api)
 
   return {
     state: createRunState(strategy, {
@@ -101,15 +103,16 @@ export const planSeries = (opts, items, {sync = false, label} = {}) => {
     take,
     onProgress,
     onError,
+    onUndefined,
     pause,
     pauseOnErrors,
     signal: opts.signal,
   }
 }
 
-/** Report one item result, unless the item was dropped (undefined). */
+/** Report one item result, unless the item was dropped (`drop`/`undefined`). */
 export const notifyProgress = (plan, {item, result, index}) =>
-  plan.onProgress && result !== undefined
+  plan.onProgress && result !== undefined && !isDrop(result)
     ? plan.onProgress(withTotal({item, result, index}, plan.total))
     : undefined
 

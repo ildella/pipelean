@@ -1,6 +1,7 @@
 /** @typedef {import('./types.js').StrategyFn} StrategyFn */
 
 import {assertSyncCallback, assertSyncResult} from './shared.js'
+import {assertNotDrop} from './sentinel.js'
 import {
   collect, normalizeFailure, normalizeOperationError,
 } from './strategy.js'
@@ -34,6 +35,8 @@ const operationName = (operation, index) =>
 const mergePatch = (names, {
   state, index, patch,
 }) => {
+  assertNotDrop(patch, 'enrich steps cannot drop; return {} for a no-op')
+
   if (patch === null ||
     typeof patch !== 'object' ||
     Array.isArray(patch)) {

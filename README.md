@@ -84,7 +84,7 @@ tool — you only need to know one category to start.
 
 Many inputs, no dependency between them: import/sync jobs, API fan-in with a
 rate limit, paging generators, anything with a progress bar. `series` maps and
-drops (`undefined` from the mapper drops the item), `filter` selects,
+drops (`drop` from the mapper drops the item; `undefined` still drops in 0.18), `filter` selects,
 `mapSeries` is the sequential map that throws on the first failure and returns
 a bare array.
 
@@ -127,20 +127,21 @@ const {value, errors, failure} = await processAlbum(input)
 ```
 
 `enrich` **is** a `reduce` over your operations. `assign(property, parse)`
-builds steps that set a property only when the parse is not `undefined`.
+builds steps that set a property only when the parse is neither `drop` nor
+`undefined`.
 
 → [guide](docs/guide.md#accumulation-vs-enrichment) · [reference](docs/reference.md#enrich)
 
 ### Composition & concurrency — `pipe`, `join`
 
 `pipe` composes value-in/value-out steps into one reusable function (it
-composes into `series` mappers); `undefined` short-circuits, errors escape to
+composes into `series` mappers); `drop` (and, in 0.18, `undefined`) short-circuits, errors escape to
 the caller. `join` runs a handful of **named, heterogeneous** tasks at the same
 time and reports them together — it is not a concurrent map (use p-map for
 that).
 
 ```js
-const normalize = pipe(user => user.active ? user : undefined, user => user.email)
+const normalize = pipe(user => user.active ? user : drop, user => user.email)
 const {value, errors} = await join({ping: () => pingHost(host), scan: () => scanPort(host, 443)})
 ```
 
@@ -199,8 +200,11 @@ Worth knowing before you adopt it:
   scheduler, no cancellation.
 - **Cancellation stops between items.** `signal` never interrupts an in-flight
   mapper; keep intra-item cancellation in your own operation.
-- **`undefined` is the drop sentinel**, so you cannot map an item to
-  `undefined` — also in `mapSeries`, which is not `Array.prototype.map`.
+- **`drop` is the drop sentinel**, so you cannot map an item to `drop` — also
+  in `mapSeries`, which is not `Array.prototype.map`. In 0.18 `undefined` still
+  drops too; that legacy default will flip in 1.0. `series` and `mapSeries`
+  accept `onUndefined: 'error'` to make `undefined` fatal today; see the
+  [migration notes](docs/migration.md).
 - **Error tools are not layers.** Strategies own the run's policy; the fold
   `recover` option is the fold-local seam (`tryCatch` has its own
   single-operation `recover`); `retry`/`tryCatch` wrap one function; `assertOk`

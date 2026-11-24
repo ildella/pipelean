@@ -37,7 +37,7 @@ shallow `merge` combiner.
 | `scan(items, f, z)` | `scanl f z` (`mapAccumL` for state + output) | `scanLeft` | `scanLeft`, `Source.scan` | `Enum.scan` |
 | `reduce(items, f, z)` | `foldl f z` / `foldM` | `foldLeft` / `foldM` | `foldLeft`, `Source.runFold` | `Enum.reduce` |
 | `foldSync(xs, f, z)` | `foldl f z` — pure, total functions, no effect | `foldLeft` — no `Either` | `foldLeft` — no `Try` | `Enum.reduce` — pure |
-| `pipe(f, g, h)` | Kleisli composition `f >=> g >=> h` for `A -> Maybe B` | `andThen` chain on `Option` | `Option.andThen` chain | `with` pipeline |
+| `pipe(f, g, h)` | Kleisli composition `f >=> g >=> h` for `A -> Maybe B`, with `drop` as the empty case | `andThen` chain on `Option` | `Option.andThen` chain | `with` pipeline |
 | `enrich([f, g])` | `foldl` over `A -> A` values with `merge` | `foldLeft` over endomorphisms | `foldLeft` over `A => A` | `Enum.reduce(ops, acc, &Map.merge(&2, &1.(&2)))` |
 | `join({a, b})` | `traverse` over a record of effects | `parTraverse` over a record (no cancellation) | `Future.sequence` on a `Map` | `Task.async` + `Task.await_many` |
 | `stopWhen(xs, p)` | lazy list + `takeWhile` | `takeWhile` | `Source.takeWhile` | `Stream.take_while` |
@@ -50,11 +50,14 @@ shallow `merge` combiner.
 These are **shape** correspondences, not laws. Do not refactor on the assumption
 that Pipelean satisfies the monad laws.
 
-1. **`pipe` is a leaky Maybe.** It short-circuits only on `undefined`, not on
-   `null`. `null` is a perfectly good value that keeps flowing. That is a
-   deliberate JavaScript pragmatism, and it means `pipe` is not lawful
-   `Option` composition. (`tryCatch` rethrows by default; it only produces the
-   `undefined` drop when you opt in with `recover: () => undefined`.)
+1. **`pipe` is a leaky Maybe.** It short-circuits only on `drop` (and, in 0.18,
+   `undefined`), not on `null`. `null` is a perfectly good value that keeps
+   flowing. That is a deliberate JavaScript pragmatism, and it means `pipe` is
+   not lawful `Option` composition. (`tryCatch` rethrows by default; it only
+   produces the `drop` signal when you opt in with `recover: () => drop`;
+   `recover: () => undefined` also drops in 0.18.) In 1.0 `undefined` stops
+   short-circuiting and only the explicit `drop` remains, which makes the
+   Maybe analogy honest.
 2. **Iterators are not `Either`.** `series`, `scan` and `reduce` return a record
    `{results | value, errors, sourceErrors, failure}`. They always return; they
    never short-circuit into a failure channel that you `flatMap` over. Errors are
