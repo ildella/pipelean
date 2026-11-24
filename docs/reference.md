@@ -1699,9 +1699,9 @@ exception.
 
 **Parameters**:
 - `result`: an **awaited** Pipelean result — `series`, `filter`, `scan`,
-  `reduce`, `enrich`, `join`, `findSync`, or any of their sync twins. The
-  `{results, …}` and `{value, …}` payloads both work. It must be a result object
-  with a `failure` property.
+  `reduce`, `enrich`, `join`, `findSync`, or their sync twins where they exist.
+  The `{results, …}` and `{value, …}` payloads both work. It must be a result
+  object with a `failure` property.
 
 **Returns**: the **same result object**, unchanged, when `result.failure` is
 falsy.
@@ -2024,7 +2024,7 @@ failure slot.
 | function | returns |
 |---|---|
 | `series`, `filter`, `scan` (+ sync twins) | `{results, errors, sourceErrors, failure}` |
-| `reduce`, `findSync` (+ sync twins) | `{value, errors, sourceErrors, failure}` |
+| `reduce` (+ sync twins), `findSync` | `{value, errors, sourceErrors, failure}` |
 | `enrich`, `enrichSync`, `join` | `{value, errors, sourceErrors, failure}` |
 | `mapSeries`, `mapSeriesSync` | the mapped `Array`, or throws the original error |
 | `foldSync` | the final accumulator, or throws the original error |
