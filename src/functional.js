@@ -91,6 +91,10 @@ const handleFailure = async (outcome, {onError, recover}, context) => {
  *   property, the hook error is dropped — never reported or substituted.
  * - A throwing `recover` propagates its own error (the original was already
  *   observed by `onError`). `onSuccess` does not run on a recovered value.
+ * - After a successful `recover` the operation counts as successful: the
+ *   first hook failure is thrown as itself, including one raised on the
+ *   failure path (a throwing `onError`); a later hook failure is attached
+ *   to it as `error.hookErrors`.
  *
  * Sync twin: tryCatchSync.
  */

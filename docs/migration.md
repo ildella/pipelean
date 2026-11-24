@@ -191,6 +191,16 @@ treating the Promise as truthy.
 
 No change for synchronous predicates.
 
+### Fixed: post-recover hook errors keep their order
+
+In 0.17, when `recover` succeeded and both `onError` and `onFinally` threw, the
+`onFinally` error was thrown with the `onError` error in its `hookErrors`. The
+first hook failure is now the thrown error, as on the success path: the
+`onError` error propagates, with the `onFinally` error in its `hookErrors`.
+Both `tryCatch` and `tryCatchSync`.
+
+No change when at most one hook throws, or when `recover` itself throws.
+
 ### 1.0 preview: the sentinel, `pipe`, and the removals
 
 0.18 names the future shape but does not take it. These are the changes queued

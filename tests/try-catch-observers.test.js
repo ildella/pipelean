@@ -118,3 +118,69 @@ test('primitive primary unchanged; its hook error is dropped', async () => {
   const thrown = await wrapped().catch(error => error)
   expect(thrown).toBe('primitive failure')
 })
+
+test('post-recover: first hook failure stays primary', async () => {
+  const onErrorError = new Error('onError failed')
+  const finallyError = new Error('onFinally failed')
+  const wrapped = tryCatch(() => Promise.reject(new Error('op')), {
+    onError: () => {
+      throw onErrorError
+    },
+    recover: () => 'recovered',
+    onFinally: () => {
+      throw finallyError
+    },
+  })
+
+  const thrown = await wrapped().catch(error => error)
+  expect(thrown).toBe(onErrorError)
+  expect(thrown.hookErrors).toEqual([finallyError])
+})
+
+test('post-recover: later hook failure propagates alone', async () => {
+  const finallyError = new Error('onFinally failed')
+  const wrapped = tryCatch(() => Promise.reject(new Error('op')), {
+    recover: () => 'recovered',
+    onFinally: () => {
+      throw finallyError
+    },
+  })
+
+  const thrown = await wrapped().catch(error => error)
+  expect(thrown).toBe(finallyError)
+  expect(thrown.hookErrors).toBeUndefined()
+})
+
+test('post-recover: frozen first hook error unchanged', async () => {
+  const frozen = Object.freeze(new Error('onError failed'))
+  const wrapped = tryCatch(() => Promise.reject(new Error('op')), {
+    onError: () => {
+      throw frozen
+    },
+    recover: () => 'recovered',
+    onFinally: () => {
+      throw new Error('onFinally failed')
+    },
+  })
+
+  const thrown = await wrapped().catch(error => error)
+  expect(thrown).toBe(frozen)
+  expect(thrown.hookErrors).toBeUndefined()
+})
+
+test('a throwing recover keeps the earlier hook error secondary', async () => {
+  const onErrorError = new Error('onError failed')
+  const recoverError = new Error('recover failed')
+  const wrapped = tryCatch(() => Promise.reject(new Error('op')), {
+    onError: () => {
+      throw onErrorError
+    },
+    recover: () => {
+      throw recoverError
+    },
+  })
+
+  const thrown = await wrapped().catch(error => error)
+  expect(thrown).toBe(recoverError)
+  expect(thrown.hookErrors).toEqual([onErrorError])
+})

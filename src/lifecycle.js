@@ -26,8 +26,8 @@ export const createHookOutcome = () => {
         setPrimary(error)
     },
     clear () {
-      primary = undefined
-      hasPrimary = false
+      hasPrimary = hookErrors.length > 0
+      primary = hasPrimary ? hookErrors.shift() : undefined
     },
     primaryError () {
       return primary
@@ -38,9 +38,6 @@ export const createHookOutcome = () => {
           attachHookErrors(primary, hookErrors)
         throw primary
       }
-
-      if (hookErrors.length > 0)
-        throw hookErrors[0]
     },
   }
 }
