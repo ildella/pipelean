@@ -7,6 +7,9 @@ import {
 import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
+import {
+  drop, isDrop, isUndefinedPolicyError, undefinedPolicyError,
+} from './sentinel.js'
 import {strategyNameOf} from './strategy-name.js'
 import {
   collect, failOnSource, normalizeOperationError, rethrow, settle, toResult,
@@ -249,7 +252,7 @@ export const assertOk = result => {
 
 export const assign = (property, parse) => state => {
   const value = parse(state)
-  return value === undefined ? {} : {[property]: value}
+  return value === undefined || isDrop(value) ? {} : {[property]: value}
 }
 
 const isPositiveDuration = duration =>
@@ -307,6 +310,9 @@ const runAsyncStrategy = async ({
     if (stop)
       return stop
   } catch (error) {
+    if (isUndefinedPolicyError(error))
+      throw error
+
     const handled = failOnSource(state, {error, index})
     if (handled)
       return handled
@@ -321,11 +327,22 @@ const runAsyncStrategy = async ({
 const attemptSeriesItem = async (plan, runFn, {item, index}) => {
   try {
     const result = await runFn(item, index)
-    if (result !== undefined)
-      plan.state.results.push(result)
 
+    if (isDrop(result))
+      return {failed: false}
+
+    if (result === undefined) {
+      if (plan.onUndefined === 'error')
+        throw undefinedPolicyError('series() mapper')
+      return {failed: false}
+    }
+
+    plan.state.results.push(result)
     return {failed: false}
   } catch (error) {
+    if (isUndefinedPolicyError(error))
+      throw error
+
     const errorOutcome = await handleItemErrorAsync(
       plan.state, {item, error, index}, plan,
     )
@@ -395,7 +412,7 @@ export const filter = (...args) => {
   const transform = async (item, index) => {
     const keep = await predicate(item, index)
 
-    return keep ? item : undefined
+    return isDrop(keep) || !keep ? drop : item
   }
 
   const run = inputItems => series(inputItems, transform, opts)
@@ -670,7 +687,7 @@ export const pipe = (...fns) => input =>
   fns.reduce(async (acc, fn) => {
     const value = await acc
 
-    return value === undefined ? undefined : fn(value)
+    return value === undefined || isDrop(value) ? value : fn(value)
   }, input)
 
 /**

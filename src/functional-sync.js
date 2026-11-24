@@ -9,6 +9,9 @@ import {createHookOutcome} from './lifecycle.js'
 import {parseSearchArgs} from './search.js'
 import {prepareEnrich} from './enrich.js'
 import {
+  drop, isDrop, isUndefinedPolicyError, undefinedPolicyError,
+} from './sentinel.js'
+import {
   collect, createRunState, failOnSource, rethrow, settle, toResult,
 } from './strategy.js'
 import {
@@ -60,7 +63,7 @@ const runSyncStrategy = ({
     if (stop)
       return stop
   } catch (error) {
-    if (isSyncCallbackError(error))
+    if (isSyncCallbackError(error) || isUndefinedPolicyError(error))
       throw error
 
     const handled = failOnSource(state, {error, index})
@@ -177,9 +180,21 @@ const runSeriesSync = ({
   const step = (item, index) => {
     try {
       const result = runFn(item, index)
-      if (result !== undefined)
-        plan.state.results.push(result)
+
+      if (isDrop(result))
+        return null
+
+      if (result === undefined) {
+        if (plan.onUndefined === 'error')
+          throw undefinedPolicyError('seriesSync() mapper')
+        return null
+      }
+
+      plan.state.results.push(result)
     } catch (error) {
+      if (isUndefinedPolicyError(error))
+        throw error
+
       return handleItemError(
         plan.state, {item, error, index}, plan,
       )
@@ -226,7 +241,7 @@ export const filterSync = (...args) => {
   const transform = (item, index) => {
     const keep = predicate(item, index)
     assertSyncResult(keep, 'filterSync() predicate', 'filter')
-    return keep ? item : undefined
+    return isDrop(keep) || !keep ? drop : item
   }
 
   const run = inputItems => runSeriesSync({
@@ -285,7 +300,7 @@ export const findSync = (...args) => {
       try {
         const keep = predicate(item, index)
         assertSyncResult(keep, 'findSync() predicate', 'filter')
-        if (keep) {
+        if (keep && !isDrop(keep)) {
           found = item
           return {stop: true, result: toResult(state, settle(state))}
         }
@@ -417,8 +432,8 @@ export const enrichSync = (operations, opts = {}) => {
 
 export const pipeSync = (...fns) => input =>
   fns.reduce((acc, fn) => {
-    if (acc === undefined)
-      return undefined
+    if (acc === undefined || isDrop(acc))
+      return acc
 
     const result = fn(acc)
     assertSyncResult(result, 'pipeSync() step', 'pipe')
