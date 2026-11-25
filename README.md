@@ -62,7 +62,6 @@ When each item depends on the result of the previous one, use a fold.
 | --- | --- | --- |
 | `scan` | Every intermediate accumulator | Report with `results` |
 | `reduce` | Final accumulator only | Report with `value` |
-| `foldSync` | Final accumulator only | Raw value |
 
 ```js
 const {value: total} = await reduce(
@@ -72,7 +71,7 @@ const {value: total} = await reduce(
 )
 ```
 
-Use `scan` when intermediate states matter, `reduce` when only the final state matters, and `foldSync` for a synchronous fold where errors should throw directly.
+Use `scan` when intermediate states matter, and `reduce` when only the final state matters.
 
 ### 3. Error strategies
 
@@ -108,6 +107,7 @@ These complement the core. You don't need them to get started.
 ### Convenience APIs
 
 - `mapSeries` — sequential map with a fixed `rethrow` policy: returns a plain array or throws the original error.
+- `foldSync` — synchronous fold with a fixed `rethrow` policy: returns the final accumulator or throws the original error. It is `reduceSync(..., {strategy: rethrow}).value`.
 - `enrich` — accumulate object patches over one input.
 - `assign` — build conditional property-assignment steps for `enrich`.
 - Sync counterparts — `seriesSync`, `filterSync`, `mapSeriesSync`, `scanSync`, `reduceSync`, `stopWhenSync`, `pipeSync`, `enrichSync`, and `tryCatchSync`. They return directly and reject async-only behavior.
